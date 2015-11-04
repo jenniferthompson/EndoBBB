@@ -1,0 +1,274 @@
+%% -- Specially formatted Latex comment tells RStudio to compile PDF with knitr
+% !Rnw weave = knitr
+
+\documentclass{article}
+
+%\usepackage[margin=.5in, landscape]{geometry} %resets margins
+\usepackage[margin=.5in]{geometry} %resets margins
+\usepackage{hyperref}
+\usepackage{lscape}
+\usepackage{pdfpages}
+
+\title{BRAIN-ICU: Endothelial and BBB/Brain Injury vs. Delirium and Long-Term Outcomes}
+\date{\today}
+\author{Jennifer Thompson, MPH; Supervisor: Rameela Chandrasekhar, PhD}
+\begin{document}
+\maketitle
+\tableofcontents
+\listoftables
+\listoffigures
+\clearpage
+
+<<setup, include=FALSE, results='hide', cache=FALSE>>=
+opts_chunk$set(echo=FALSE, warning = FALSE, message = FALSE, cache = FALSE, error = FALSE, results='hide')
+options(replace.assign = TRUE, width = 90)
+
+library(mice)
+library(MASS)
+library(rms)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+@
+
+The following analyses examine the relationships between endothelial/blood-brain barrier (BBB)
+injury and delirium duration, long-term cognitive outcomes (RBANS and Trails B), and long-term
+disability outcomes (Katz ADL and Functional Activities Questionnaire) among BRAIN-ICU survivors
+with both endothelial marker data and at least partial long-term outcomes.
+
+<<datamgmt>>=
+endo.names <- c('bdnf', 'esel', 'pai1', 's100b', 'uchl')
+
+## Load all BRAIN data
+if(Sys.info()['sysname'] == 'Darwin'){
+  if(length(grep('Volumes', getwd())) > 0){
+    load('/Volumes/thomps23/ICUDelirium/BRAINICU/braindata.Rdata')
+    source('/Volumes/thomps23/R/multiplot.r')
+    source('/Volumes/thomps23/R/rmsHelpers/model_results.R')
+    source('/Volumes/thomps23/R/rmsHelpers/combine_cohorts.R')
+    source('/Volumes/thomps23/R/rmsHelpers/latex_rms_results.R')
+  } else{
+    load('braindata.Rdata')
+    source('multiplot.r')
+    source('model_results.R')
+    source('combine_cohorts.R')
+    source('latex_rms_results.R')
+  }
+} else{
+  load('/home/thomps23/ICUDelirium/BRAINICU/braindata.Rdata')
+  source('/home/thomps23/R/multiplot.r')
+  source('/home/thomps23/R/rmsHelpers/model_results.R')
+  source('/home/thomps23/R/rmsHelpers/combine_cohorts.R')
+  source('/home/thomps23/R/rmsHelpers/latex_rms_results.R')
+}
+
+## Read in biomarker data from .csv files from Brennan
+marker.data <- bind_rows(lapply(endo.names, FUN = function(x){
+  tmp <- read.csv(paste0(x, '_2nov2015.csv'))[,1:4]
+  tmp$marker <- x
+  tmp[!is.na(tmp$id),]
+})) %>%
+  ## Delete if coefficient of variance > 30; indicates nonreproducibility of marker results
+  filter(cv < 30 | mean.pgml == -9999) %>%
+  ## Get one variable per marker mean
+  select(id, marker, mean.pgml) %>%
+  spread(key = marker, value = mean.pgml)
+
+names(marker.data)[2:ncol(marker.data)] <- paste0(names(marker.data)[2:ncol(marker.data)], '.day1')
+
+## Function to impute randomly sampled value in a "low" range ##
+## LLD for S100B = 2.7
+## LLD for UCHL = 60
+impute.lld <- function(x, ## object to be imputed
+                       lld.val, ## value (numeric) indicating marker is below limit of detection
+                       na.vals, ## value(s) (numberic) indicating marker is truly missing,
+                       min.val, max.val){ ## limits of range (usually 0-lower limit)
+  if(!is.na(x) & x %nin% c(lld.val, na.vals)){
+    return(x)
+  } else if(!is.na(x) & x == lld.val){
+    return(runif(n = 1, min = min.val, max = max.val))
+  } else{
+    return(NA)
+  }
+}
+
+marker.data$s100b.day1 <- unlist(lapply(marker.data$s100b.day1,
+                                        FUN = impute.lld,
+                                        lld.val = -9999,
+                                        na.vals = -1,
+                                        min.val = 0, max.val = 2.7))
+marker.data$uchl.day1 <- unlist(lapply(marker.data$uchl.day1,
+                                       FUN = impute.lld,
+                                       lld.val = -9999,
+                                       na.vals = -1,
+                                       min.val = 0, max.val = 60))
+
+## -- Merge biomarker data onto BRAIN data ---------------------------------------------------------
+oneobs.vars <- c('id', 'age.enroll', 'sex.pp', 'race.pp', 'edu', 'charlson.score', 'iqcode.score.e',
+                 'stroke.risk', 'adl.e', 'faq.e', 'frailty', 'admit.dx', 'icu.type', 'num.apache',
+                 'apache.aps', 'sofa', 'mean.modsofa.icu',
+                 'mean.benz.icu', 'mean.op.new.icu', 'mean.prop.icu', 'mean.dex.icu', 'mean.hal.icu',
+                 'ever.vent.s', 'vent.los.tot.eo',
+                 'ever.del.s.imp', 'del.s.imp', 'del.s.imp.eo',
+                 'ever.coma.s.imp', 'coma.s.imp', 'coma.s.imp.eo',
+                 'ever.sevseptic.s', 'icudays.sevseptic.s', 'icudays.sevseptic.eo')
+
+## Put followup test scores in wide format
+fu.data <- brain.fu %>%
+  filter(fu.period %in% c('3 Month', '12 Month')) %>%
+  select(id, fu.period, rbans.global.score, trail.b.tscore, adl.totscore, faq.totscore) %>%
+  mutate(fu.period = gsub(' Month', '', fu.period)) %>%
+  gather(key = test, value = testscore, rbans.global.score:faq.totscore) %>%
+  mutate(test.time = paste(test, fu.period, sep = '.')) %>%
+  filter(!is.na(testscore)) %>%
+  select(-test, -fu.period) %>%
+  spread(key = test.time, value = testscore)
+
+## Get day 1 values from daily data
+day1.data <- brain.daily %>%
+  filter(study.day == 1) %>%
+  select(id, il6.imp, sofa.cv, sevsepsis.l24)
+names(day1.data) <- c('id', 'il6.day1', 'cvsofa.day1', 'sevsepsis.day1')
+
+endo.data <- brain.oneobs[brain.oneobs$id %in% marker.data$id, oneobs.vars] %>%
+  left_join(day1.data, by = 'id') %>%
+  left_join(marker.data) %>%
+  left_join(fu.data, by = 'id') %>%
+  ## Create log10-transformed versions of endothelial markers
+  mutate(il6.log10 = log10(il6.day1),
+         bdnf.log10 = log10(bdnf.day1),
+         esel.log10 = log10(esel.day1),
+         pai1.log10 = log10(pai1.day1),
+         s100b.log10 = log10(s100b.day1),
+         uchl.log10 = log10(uchl.day1))
+
+label(endo.data$mean.benz.icu) = 'Mean 24h dose of benzos in the ICU (MDZ equiv.)'
+label(endo.data$mean.op.new.icu) = 'Mean 24h dose of opioids in the ICU (fentanyl equiv.)'
+label(endo.data$mean.prop.icu) = 'Mean 24h dose of propofol in the ICU'
+label(endo.data$mean.dex.icu) = 'Mean 24h dose of dex in the ICU'
+label(endo.data$mean.hal.icu) = 'Mean 24h dose of haldol in the ICU'
+label(endo.data$cvsofa.day1) = 'Cardiovasulcar SOFA score, study day 1'
+label(endo.data$sevsepsis.day1) = 'Severely septic, study day 1'
+label(endo.data$il6.day1) = 'IL-6, study day 1'
+label(endo.data$bdnf.day1) = 'BDNF, study day 1'
+label(endo.data$esel.day1) = 'E-selectin, study day 1'
+label(endo.data$pai1.day1) = 'PAI-1, study day 1'
+label(endo.data$s100b.day1) = 'S100B, study day 1'
+label(endo.data$uchl.day1) = 'UCHL, study day 1'
+label(endo.data$il6.log10) = 'Log10(IL-6), study day 1'
+label(endo.data$bdnf.log10) = 'Log10(BDNF), study day 1'
+label(endo.data$esel.log10) = 'Log10(E-selectin), study day 1'
+label(endo.data$pai1.log10) = 'Log10(PAI-1), study day 1'
+label(endo.data$s100b.log10) = 'Log10(S100B), study day 1'
+label(endo.data$uchl.log10) = 'Log10(UCHL), study day 1'
+label(endo.data$rbans.global.score.3) = 'RBANS global score, 3m'
+label(endo.data$rbans.global.score.12) = 'RBANS global score, 12m'
+label(endo.data$trail.b.tscore.3) = 'Trails B T-score, 3m'
+label(endo.data$trail.b.tscore.12) = 'Trails B T-score, 12m'
+label(endo.data$adl.totscore.3) = 'ADL score, 3m'
+label(endo.data$adl.totscore.12) = 'ADL score, 12m'
+label(endo.data$faq.totscore.3) = 'FAQ score, 3m'
+label(endo.data$faq.totscore.12) = 'FAQ score, 12m'
+
+@
+
+\section{Descriptive Statistics}
+Tables \ref{table:enrollstat} - \ref{table:fustat} present descriptive statistics for the
+\Sexpr{length(unique(endo.data$id))} patients with endothelial injury markers and long-term
+followup data.
+
+<<printdescstats, results='asis'>>=
+latex(summaryM(age.enroll + sex.pp + race.pp + edu + charlson.score + iqcode.score.e + stroke.risk +
+                 adl.e + faq.e + frailty + icu.type + admit.dx + num.apache + sofa ~ 1,
+               data = endo.data),
+      file = '',
+      colheads = c('N', 'Entire Cohort'),
+      caption = 'Enrollment Characteristics',
+      caption.lot = 'Enrollment Characteristics',
+      label = 'table:enrollstat',
+      digits = 2,
+      size = 'small',
+      exclude1 = FALSE,
+      long = TRUE,
+      prmsd = TRUE,
+      what = '%',
+      npct = 'both')
+
+latex(summaryM(mean.benz.icu + mean.op.new.icu + mean.prop.icu + mean.dex.icu + mean.hal.icu +
+                 ever.vent.s + vent.los.tot.eo + ever.del.s.imp + del.s.imp.eo +
+                 ever.coma.s.imp + coma.s.imp.eo + ever.sevseptic.s + icudays.sevseptic.eo +
+                 cvsofa.day1 + sevsepsis.day1 + il6.day1 + bdnf.day1 + esel.day1 + pai1.day1 +
+                 s100b.day1 + uchl.day1 ~ 1,
+               data = endo.data),
+      file = '',
+      colheads = c('N', 'Entire Cohort'),
+      caption = 'In-Hospital Characteristics',
+      caption.lot = 'In-Hospital Characteristics',
+      label = 'table:inhospstat',
+      digits = 2,
+      size = 'small',
+      exclude1 = FALSE,
+      long = TRUE,
+      prmsd = TRUE,
+      what = '%',
+      npct = 'both')
+
+latex(summaryM(rbans.global.score.3 + rbans.global.score.12 + trail.b.tscore.3 +
+                 trail.b.tscore.12 + adl.totscore.3 + adl.totscore.12 + faq.totscore.3 +
+                 faq.totscore.12 ~ 1,
+               data = endo.data),
+      file = '',
+      colheads = c('N', 'Entire Cohort'),
+      caption = 'Followup Outcomes',
+      caption.lot = 'Followup Outcomes',
+      label = 'table:fustat',
+      digits = 2,
+      size = 'small',
+      exclude1 = FALSE,
+      long = TRUE,
+      prmsd = TRUE,
+      what = '%',
+      npct = 'both')
+
+@
+
+\clearpage
+<<markerhist>>=
+marker.hist.data.org <- endo.data %>%
+  select(il6.day1, bdnf.day1, esel.day1, pai1.day1, s100b.day1, uchl.day1) %>%
+  gather(key = marker, value = markerval) %>%
+  mutate(marker = toupper(gsub('\\.day1$', '', marker)))
+
+marker.hist.data.log10 <- endo.data %>%
+  select(il6.log10, bdnf.log10, esel.log10, pai1.log10, s100b.log10, uchl.log10) %>%
+  gather(key = marker, value = markerval) %>%
+  mutate(marker = toupper(gsub('\\.log10$', '', marker)))
+
+## Function to create histogram of biomarkers on either scale
+marker.hist <- function(histdata, xlabel){
+  ggplot(aes(x = markerval), data = histdata) +
+    facet_wrap(~ marker, scales = 'free_x') +
+    geom_histogram(fill = 'navy') +
+    xlab(xlabel) +
+    ylab('Frequency') +
+    theme_minimal() +
+    theme(axis.text = element_text(colour = 'gray30', size = 8),
+          axis.title.x = element_text(vjust = -0.5),
+          axis.ticks = element_blank(),
+          strip.text = element_text(face = 'bold'))
+}
+
+@
+
+<<printmarkerhistorg, results='asis', fig.cap='Histogram of IL-6 and Endothelial Markers, Original Scale', fig.height=4.5, fig.width=8, fig.pos='!h'>>=
+marker.hist(marker.hist.data.org, xlabel = 'Endothelial Marker Value, Original Scale')
+
+@
+
+<<printmarkerhistlog10, results='asis', fig.cap='Histogram of IL-6 and Endothelial Markers, Log10 Scale', fig.height=4.5, fig.width=8, fig.pos='!h'>>=
+marker.hist(marker.hist.data.log10, xlabel = 'Endothelial Marker Value, Log10 Scale')
+
+@
+
+\end{document}
