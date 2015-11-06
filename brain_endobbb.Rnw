@@ -4,7 +4,7 @@
 \documentclass{article}
 
 %\usepackage[margin=.5in, landscape]{geometry} %resets margins
-\usepackage[margin=.5in]{geometry} %resets margins
+\usepackage[margin=.4in]{geometry} %resets margins
 \usepackage{hyperref}
 \usepackage{lscape}
 \usepackage{pdfpages}
@@ -29,15 +29,28 @@ library(rms)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(devtools)
 
 @
 
 The following analyses examine the relationships between endothelial/blood-brain barrier (BBB)
-injury and delirium duration, long-term cognitive outcomes (RBANS and Trails B), and long-term
-disability outcomes (Katz ADL and Functional Activities Questionnaire) among BRAIN-ICU survivors
-with both endothelial marker data and at least partial long-term outcomes.
+injury at BRAIN study enrollment and delirium duration, long-term cognitive outcomes (RBANS and
+Trails B), and long-term disability outcomes (Katz ADL and Functional Activities Questionnaire)
+among BRAIN-ICU survivors with both endothelial marker data and at least partial long-term outcomes.
+They also investigate whether these associations are modified by either age or systemic
+inflammation, as measured by IL-6 at study enrollment.
+
+\textbf{Important note:} Because these endothelial/BBB markers were measured only on ICU survivors
+with long-term followup outcomes available, the results are \textbf{only} applicable to that
+population.
 
 <<datamgmt>>=
+## Set cutoff for p-values for keeping nonlinear, interaction terms in model
+pcutoff <- 0.2
+
+## Set method to use in pool.compare() (Wald or likelihood)
+use.method <- 'Wald'
+
 endo.names <- c('bdnf', 'esel', 'pai1', 's100b', 'uchl')
 
 ## Load all BRAIN data
@@ -87,6 +100,7 @@ impute.lld <- function(x, ## object to be imputed
   if(!is.na(x) & x %nin% c(lld.val, na.vals)){
     return(x)
   } else if(!is.na(x) & x == lld.val){
+    set.seed(56)
     return(runif(n = 1, min = min.val, max = max.val))
   } else{
     return(NA)
@@ -118,8 +132,9 @@ oneobs.vars <- c('id', 'age.enroll', 'sex.pp', 'race.pp', 'edu', 'charlson.score
 fu.data <- brain.fu %>%
   filter(fu.period %in% c('3 Month', '12 Month')) %>%
   select(id, fu.period, rbans.global.score, trail.b.tscore, adl.totscore, faq.totscore) %>%
-  mutate(fu.period = gsub(' Month', '', fu.period)) %>%
-  gather(key = test, value = testscore, rbans.global.score:faq.totscore) %>%
+  mutate(fu.period = gsub(' Month', '', fu.period),
+         faq.rdscore = round(faq.totscore)) %>%
+  gather(key = test, value = testscore, rbans.global.score:faq.rdscore) %>%
   mutate(test.time = paste(test, fu.period, sep = '.')) %>%
   filter(!is.na(testscore)) %>%
   select(-test, -fu.period) %>%
@@ -135,13 +150,22 @@ endo.data <- brain.oneobs[brain.oneobs$id %in% marker.data$id, oneobs.vars] %>%
   left_join(day1.data, by = 'id') %>%
   left_join(marker.data) %>%
   left_join(fu.data, by = 'id') %>%
-  ## Create log10-transformed versions of endothelial markers
-  mutate(il6.log10 = log10(il6.day1),
+  mutate(## Create log10-transformed versions of endothelial markers
+         il6.log10 = log10(il6.day1),
          bdnf.log10 = log10(bdnf.day1),
          esel.log10 = log10(esel.day1),
          pai1.log10 = log10(pai1.day1),
          s100b.log10 = log10(s100b.day1),
-         uchl.log10 = log10(uchl.day1))
+         uchl.log10 = log10(uchl.day1),
+         ## Create indicators for whether patient is in each cohort at each time point
+         cog.cohort.3 = !is.na(rbans.global.score.3) | !is.na(trail.b.tscore.3),
+         cog.cohort.12 = !is.na(rbans.global.score.12) | !is.na(trail.b.tscore.12),
+         func.cohort.3 = !is.na(adl.totscore.3) | !is.na(faq.totscore.3),
+         func.cohort.12 = !is.na(adl.totscore.12) | !is.na(faq.totscore.12),
+         cog.cohort.either = cog.cohort.3 | cog.cohort.12,
+         func.cohort.either = func.cohort.3 | func.cohort.12) %>%
+  ## Remove patients who had no RBANS, Trails B, ADL, or FAQ - must have had other partial outcomes
+  filter(cog.cohort.either | func.cohort.either)
 
 label(endo.data$mean.benz.icu) = 'Mean 24h dose of benzos in the ICU (MDZ equiv.)'
 label(endo.data$mean.op.new.icu) = 'Mean 24h dose of opioids in the ICU (fentanyl equiv.)'
@@ -171,19 +195,94 @@ label(endo.data$adl.totscore.12) = 'ADL score, 12m'
 label(endo.data$faq.totscore.3) = 'FAQ score, 3m'
 label(endo.data$faq.totscore.12) = 'FAQ score, 12m'
 
+## Create data set for descriptive tables
+endo.data.desc <- bind_rows(endo.data,
+                            endo.data[endo.data$cog.cohort.either,],
+                            endo.data[endo.data$func.cohort.either,]) %>%
+  mutate(cohort = factor(c(rep(1, nrow(endo.data)),
+                           rep(2, sum(endo.data$cog.cohort.either)),
+                           rep(3, sum(endo.data$func.cohort.either))),
+                         levels = 1:3,
+                         labels = c('Entire Cohort',
+                                    'Cognitive Outcomes',
+                                    'Functional Outcomes')),
+         ## Revamp race and admission diagnosis variables to shorten categories
+         race.pp = factor(as.character(race.pp)),
+         admit.dx = factor(ifelse(admit.dx == 'Metabolic acidosis, hypovolemia, or electrolyte disturbance',
+                                  'Metabolic acidosis/hypovolemia/electrolytes',
+                                  as.character(admit.dx))))
+
+label(endo.data.desc$age.enroll) <- 'Age at enrollment'
+label(endo.data.desc$sex.pp) <- 'Sex'
+label(endo.data.desc$race.pp) <- 'Race'
+label(endo.data.desc$edu) <- 'Years of education'
+label(endo.data.desc$charlson.score) <- 'Charlson score'
+label(endo.data.desc$iqcode.score.e) <- 'IQCODE score (missing -> 3)'
+label(endo.data.desc$stroke.risk) <- 'Framingham stroke risk profile'
+label(endo.data.desc$adl.e) <- 'Katz ADL at enrollment'
+label(endo.data.desc$faq.e) <- 'FAQ at enrollment'
+label(endo.data.desc$frailty) <- 'CSHA Frailty at enrollment'
+label(endo.data.desc$icu.type) <- 'ICU type'
+label(endo.data.desc$admit.dx) <- 'Primary admission diagnosis'
+label(endo.data.desc$num.apache) <- 'APACHE II at ICU admission'
+label(endo.data.desc$sofa) <- 'SOFA at ICU admission'
+label(endo.data.desc$mean.benz.icu) <- 'Mean 24h benzos in the ICU (MDZ)'
+label(endo.data.desc$mean.op.new.icu) <- 'Mean 24h opioids in the ICU (fentanyl)'
+label(endo.data.desc$mean.prop.icu) <- 'Mean 24h propofol in the ICU'
+label(endo.data.desc$mean.dex.icu) <- 'Mean 24h dex in the ICU'
+label(endo.data.desc$mean.hal.icu) <- 'Mean 24h haldol in the ICU'
+label(endo.data.desc$cvsofa.day1) <- 'Cardiovasulcar SOFA score, study day 1'
+label(endo.data.desc$sevsepsis.day1) <- 'Severely septic, study day 1'
+label(endo.data.desc$ever.vent.s) <- 'Ever on MV during study period'
+label(endo.data.desc$vent.los.tot.eo) <- 'Time on MV among exposed'
+label(endo.data.desc$ever.del.s.imp) <- 'Ever delirious during study period'
+label(endo.data.desc$del.s.imp.eo) <- 'Days of delirium among exposed'
+label(endo.data.desc$ever.coma.s.imp) <- 'Ever comatose during study period'
+label(endo.data.desc$coma.s.imp.eo) <- 'Days of coma among exposed'
+label(endo.data.desc$ever.sevseptic.s) <- 'Ever severely septic during study period'
+label(endo.data.desc$icudays.sevseptic.eo) <- 'Days of severe sepsis among exposed'
+label(endo.data.desc$il6.day1) <- 'IL-6, study day 1'
+label(endo.data.desc$bdnf.day1) <- 'BDNF, study day 1'
+label(endo.data.desc$esel.day1) <- 'E-selectin, study day 1'
+label(endo.data.desc$pai1.day1) <- 'PAI-1, study day 1'
+label(endo.data.desc$s100b.day1) <- 'S100B, study day 1'
+label(endo.data.desc$uchl.day1) <- 'UCHL, study day 1'
+label(endo.data.desc$il6.log10) <- 'Log10(IL-6), study day 1'
+label(endo.data.desc$bdnf.log10) <- 'Log10(BDNF), study day 1'
+label(endo.data.desc$esel.log10) <- 'Log10(E-selectin), study day 1'
+label(endo.data.desc$pai1.log10) <- 'Log10(PAI-1), study day 1'
+label(endo.data.desc$s100b.log10) <- 'Log10(S100B), study day 1'
+label(endo.data.desc$uchl.log10) <- 'Log10(UCHL), study day 1'
+label(endo.data.desc$rbans.global.score.3) <- 'RBANS global score, 3m'
+label(endo.data.desc$rbans.global.score.12) <- 'RBANS global score, 12m'
+label(endo.data.desc$trail.b.tscore.3) <- 'Trails B T-score, 3m'
+label(endo.data.desc$trail.b.tscore.12) <- 'Trails B T-score, 12m'
+label(endo.data.desc$adl.totscore.3) <- 'ADL score, 3m'
+label(endo.data.desc$adl.totscore.12) <- 'ADL score, 12m'
+label(endo.data.desc$faq.totscore.3) <- 'FAQ score, 3m'
+label(endo.data.desc$faq.totscore.12) <- 'FAQ score, 12m'
+
 @
 
 \section{Descriptive Statistics}
 Tables \ref{table:enrollstat} - \ref{table:fustat} present descriptive statistics for the
-\Sexpr{length(unique(endo.data$id))} patients with endothelial injury markers and long-term
-followup data.
+\Sexpr{length(unique(endo.data$id))} patients with endothelial/BBB injury markers and long-term
+followup data. Cohort definitions are as follows:
+\begin{itemize}
+\item Entire cohort: all patients who had at least one of RBANS global, Trails B, ADL, or FAQ at at
+      least one time point \textbf{and} had endothelial/BBB biomarker data
+\item Cognitive outcomes: all patients who had at least one of RBANS global or Trails B at at least
+      one time point and had endothelial/BBB biomarker data
+\item Functional outcomes: all patients who had at least one of ADL or FAQ at at least one time
+      point and had endothelial/BBB biomarker data
+\end{itemize}
 
 <<printdescstats, results='asis'>>=
 latex(summaryM(age.enroll + sex.pp + race.pp + edu + charlson.score + iqcode.score.e + stroke.risk +
-                 adl.e + faq.e + frailty + icu.type + admit.dx + num.apache + sofa ~ 1,
-               data = endo.data),
+                 adl.e + faq.e + frailty + icu.type + admit.dx + num.apache + sofa ~ cohort,
+               data = endo.data.desc),
       file = '',
-      colheads = c('N', 'Entire Cohort'),
+      where = '!h',
       caption = 'Enrollment Characteristics',
       caption.lot = 'Enrollment Characteristics',
       label = 'table:enrollstat',
@@ -192,34 +291,51 @@ latex(summaryM(age.enroll + sex.pp + race.pp + edu + charlson.score + iqcode.sco
       exclude1 = FALSE,
       long = TRUE,
       prmsd = TRUE,
+      prn = FALSE,
       what = '%',
       npct = 'both')
 
 latex(summaryM(mean.benz.icu + mean.op.new.icu + mean.prop.icu + mean.dex.icu + mean.hal.icu +
                  ever.vent.s + vent.los.tot.eo + ever.del.s.imp + del.s.imp.eo +
                  ever.coma.s.imp + coma.s.imp.eo + ever.sevseptic.s + icudays.sevseptic.eo +
-                 cvsofa.day1 + sevsepsis.day1 + il6.day1 + bdnf.day1 + esel.day1 + pai1.day1 +
-                 s100b.day1 + uchl.day1 ~ 1,
-               data = endo.data),
+                 cvsofa.day1 + sevsepsis.day1 ~ cohort,
+               data = endo.data.desc),
       file = '',
-      colheads = c('N', 'Entire Cohort'),
+      where = '!h',
       caption = 'In-Hospital Characteristics',
       caption.lot = 'In-Hospital Characteristics',
       label = 'table:inhospstat',
       digits = 2,
-      size = 'small',
+      size = 'footnotesize',
       exclude1 = FALSE,
       long = TRUE,
       prmsd = TRUE,
+      prn = FALSE,
+      what = '%',
+      npct = 'both')
+
+latex(summaryM(il6.day1 + bdnf.day1 + esel.day1 + pai1.day1 + s100b.day1 + uchl.day1 ~ cohort,
+               data = endo.data.desc),
+      file = '',
+      where = '!h',
+      caption = 'IL-6 and Endothelial/BBB Marker Characteristics',
+      caption.lot = 'IL-6 and Endothelial/BBB Marker Characteristics',
+      label = 'table:markerstat',
+      digits = 2,
+      size = 'footnotesize',
+      exclude1 = FALSE,
+      long = TRUE,
+      prmsd = TRUE,
+      prn = FALSE,
       what = '%',
       npct = 'both')
 
 latex(summaryM(rbans.global.score.3 + rbans.global.score.12 + trail.b.tscore.3 +
                  trail.b.tscore.12 + adl.totscore.3 + adl.totscore.12 + faq.totscore.3 +
-                 faq.totscore.12 ~ 1,
-               data = endo.data),
+                 faq.totscore.12 ~ cohort,
+               data = endo.data.desc),
       file = '',
-      colheads = c('N', 'Entire Cohort'),
+      where = '!h',
       caption = 'Followup Outcomes',
       caption.lot = 'Followup Outcomes',
       label = 'table:fustat',
@@ -269,6 +385,284 @@ marker.hist(marker.hist.data.org, xlabel = 'Endothelial Marker Value, Original S
 <<printmarkerhistlog10, results='asis', fig.cap='Histogram of IL-6 and Endothelial Markers, Log10 Scale', fig.height=4.5, fig.width=8, fig.pos='!h'>>=
 marker.hist(marker.hist.data.log10, xlabel = 'Endothelial Marker Value, Log10 Scale')
 
+@
+
+<<multimp>>=
+## -- Create mice objects to use for multiple imputation for all models ----------------------------
+mice.vars <- c('bdnf.log10', 'esel.log10', 'pai1.log10', 's100b.log10', 'uchl.log10',
+               'age.enroll', 'il6.log10', 'charlson.score', 'iqcode.score.e', 'stroke.risk',
+               'apache.aps', 'cvsofa.day1', 'sevsepsis.day1', 'del.s.imp',
+               'rbans.global.score.3', 'rbans.global.score.12',
+               'trail.b.tscore.3', 'trail.b.tscore.12',
+               'adl.totscore.3', 'adl.totscore.12',
+               'faq.rdscore.3', 'faq.rdscore.12')
+
+mice.del <- mice(data = endo.data[,mice.vars], m = 10, seed = 56)
+mice.cog.3 <- mice(data = endo.data[endo.data$cog.cohort.3, mice.vars], m = 10, seed = 56)
+mice.cog.12 <- mice(data = endo.data[endo.data$cog.cohort.12, mice.vars], m = 10, seed = 56)
+mice.func.3 <- mice(data = endo.data[endo.data$func.cohort.3, mice.vars], m = 10, seed = 56)
+mice.func.12 <- mice(data = endo.data[endo.data$func.cohort.12, mice.vars], m = 10, seed = 56)
+
+@
+
+\section{Endothelial/BBB Injury Markers vs. Delirium Duration}
+
+To examine the association between endothelial/BBB injury at study enrollment and delirium duration
+in the 30 days following, we used negative binomial regression, adjusting for the following
+covariates:
+\begin{itemize}
+\item Charlson score
+\item IQCODE score
+\item Framingham stroke risk score
+\item APACHE acute physiology component
+\item cardiovascular SOFA, study day 1
+\item Severe sepsis, study day 1
+\end{itemize}
+
+We allowed all continuous variables to have a nonlinear association with delirium duration using
+restricted cubic splines, and allowed for potential interactions between endothelial/BBB markers
+and both systemic inflammation (IL-6) on study day 1 and age at study enrollment. If either the
+global p-value for nonlinearity and/or the global p-value for interactions were clearly
+nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the
+final model for parsimony. All biomarkers are transformed using the log10 transformation in order
+to improve model fit and reduce the influence of extremely high values.
+
+We used multiple imputation to reduce bias from missing covariates.
+
+%' <<trymodeltypes>>=
+%' ## -- Functions to print model diagnostics ---------------------------------------------------------
+%' ols.diagnostics <- function(model.obj.ma, labeltext){
+%'   par(mfrow = c(1, 2), cex = 0.8, cex.main = 0.9)
+%'   plot(resid(model.obj.ma) ~ fitted(model.obj.ma),
+%'        xlab = 'Predicted Delirium Days', 
+%'        ylab = paste('Model residual'),
+%'        main = paste('RP plot,', labeltext),
+%'        col = 'turquoise4')
+%'   abline(h = 0)
+%'   qqnorm(resid(model.obj.ma),
+%'          datax = TRUE,
+%'          main = paste('Q-Q of residuals,', labeltext))
+%' }
+%' 
+%' po.assume <- function(model.obj, cuts, model.data){
+%'   ## Create data set for each coefficient in main model
+%'   cof.names <- names(coef(model.obj))
+%'   all.rows <- 1:length(cof.names)
+%'   int.rows <- grep('y>=', cof.names, fixed = TRUE)
+%'   take.rows <- all.rows[all.rows %nin% int.rows]
+%'   cof <- data.frame(var = cof.names[take.rows])
+%'   
+%'   ## Extract formula from model call
+%'   comp.call <- as.character(formula(model.obj))
+%'   model.outcome <- comp.call[2]
+%'   model.formula <- comp.call[3]
+%'   
+%'   for(k in 1:length(cuts)){
+%'     cut.mod <- lrm(as.formula(paste('as.numeric(', model.outcome, ' >= ', cuts[k], ') ~ ', model.formula, sep = '')),
+%'                    data = model.data)
+%'  
+%'     cof.temp <- data.frame(var = names(coef(cut.mod)),
+%'                            hold.place = coef(cut.mod))
+%'  
+%'     cof <- merge(cof, cof.temp, all.x = TRUE, all.y = FALSE)
+%'     names(cof) <- gsub('hold.place', paste('coef.cut', cuts[k], sep = '.'), names(cof))
+%'   }
+%' 
+%'   ## Subset in case some splines didn't make requested number of knots
+%'   cof <- cof[rowSums(is.na(cof[,2:ncol(cof)])) == 0,]
+%'   ## Get number of rows/columns for plot (plot as close to square as possible)
+%'   plot.rows <- ceil(sqrt(nrow(cof)))
+%'   
+%'   par(mfrow = c(plot.rows, plot.rows), mar = c(2, 4, 1, 1))
+%'   for(k in 1:nrow(cof)){
+%'     plot(cuts, cof[k, 2:ncol(cof)], type = 'l', ylab = '')
+%'     title(ylab = cof[k, 'var'], line = 2.5)
+%'     abline(h = 0, lty = 2)
+%'   }
+%' }
+%' 
+%' ## -- Test linear, POLR regression first to make sure negative binomial is best choice -------------
+%' del.lin.bdnf <- ols(del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) +
+%'                       rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) +
+%'                       sevsepsis.day1 + rcs(age.enroll, 3) * rcs(bdnf.log10, 3) +
+%'                       rcs(il6.log10, 3) * rcs(bdnf.log10, 3),
+%'                     data = endo.data)
+%' 
+%' del.polr.bdnf <- lrm(del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) +
+%'                       rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) +
+%'                       sevsepsis.day1 + rcs(age.enroll, 3) * rcs(bdnf.log10, 3) +
+%'                       rcs(il6.log10, 3) * rcs(bdnf.log10, 3),
+%'                     data = endo.data)
+%' 
+%' ols.diagnostics(del.lin.bdnf, 'BDNF vs Delirium Duration')
+%' po.assume(del.polr.bdnf, cuts = seq(1, 10, 1), endo.data)
+%' 
+%' @
+
+<<delmodels>>=
+## -- Fit models with no endothelial marker terms, with and without nonlinear terms ----------------
+nomark.del.mod.nonlin <- with(mice.del,
+                              glm.nb(del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) +
+                                       rcs(stroke.risk, 3) + rcs(apache.aps, 3) +
+                                       rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) +
+                                       rcs(il6.log10, 3)))
+
+nomark.del.mod.lin <- with(mice.del,
+                           glm.nb(del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk +
+                                    apache.aps + cvsofa.day1 + sevsepsis.day1 + age.enroll +
+                                    il6.log10))
+
+## -- Formula for full delirium model, subbing "markervar" in place of actual biomarker variable ----
+del.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(markervar, 3) + rcs(age.enroll, 3):rcs(markervar, 3) + rcs(il6.log10, 3):rcs(markervar, 3)"
+
+## -- Function to fit NB model, determine whether 1) nonlinear and 2) interaction terms are needed,
+## --  and return final model object, p-values for nonlinearity and interactions, and final p for
+## --  biomarker
+
+## Function for pool.compare to save typing
+pc.del <- function(mod1, mod2){ pool.compare(mod1, mod2, method = use.method, data = mice.del) }
+
+fit.nb.models <- function(use.marker,    ## character string; name of biomarker variable to use
+                          mice.obj,      ## name of mice object
+                          formula.full){ ## formula for full model formula
+  
+  ## Get actual mice object from character string
+  use.mice <- get(mice.obj)
+  
+  ## Initialize all p-values
+  p.nonlin <- p.int <- p.marker <- p.int.age <- p.int.il6 <- NULL
+  
+  ## Step 1: Fit full model
+  marker.full.formula <- gsub('markervar', use.marker, del.full.formula)
+  mod.full <-
+    eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.full.formula)))
+
+  ## Step 2: Test for whether nonlinear terms are needed
+  ## 2a. Fit model with all linear terms
+  marker.lin.formula <- gsub(', *[0-9]+\\)', '', gsub('rcs\\(', '', marker.full.formula))
+  mod.lin <- 
+    eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.lin.formula)))
+  
+  ## 2b. Calculate p-value for all nonlinear terms
+  p.nonlin <- pc.del(mod.full, mod.lin)$pvalue
+  
+  ## Step 3: Test for interactions using model with or without nonlinear terms, depending on p.nonlin
+  ## 3a. Determine non-interaction model formula based on p-value for nonlinear terms
+  if(p.nonlin > pcutoff){
+    form.split <- strsplit(marker.lin.formula, ' *\\+ *')[[1]]
+
+    ## 3b. Fit model without interaction terms
+    marker.noint.formula <- paste(form.split[grep(':', form.split, invert = TRUE)], collapse = ' + ')
+    mod.noint <-
+      eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noint.formula)))
+
+    ## 3c. Calculate p-value for all interaction terms
+    p.int <- pc.del(mod.lin, mod.noint)$pvalue
+    
+    ## 3d. Save final model object
+    if(p.int > pcutoff){
+      mod.final <- mod.noint
+    } else{
+      mod.final <- mod.lin
+      
+      ## 3e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
+      marker.noage.formula <- paste(form.split[grep('age\\.enroll.*:', form.split, invert = TRUE)],
+                                    collapse = ' + ')
+      mod.noage <-
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noage.formula)))
+      p.int.age <- pc.del(mod.lin, mod.noage)$pvalue
+      
+      marker.noil6.formula <- paste(form.split[grep('il6.*:', form.split, invert = TRUE)],
+                                    collapse = ' + ')
+      mod.noil6 <-
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noil6.formula)))
+      p.int.il6 <- pc.del(mod.lin, mod.noil6)$pvalue
+    }
+    
+    ## 4. Calculate overall p-value for biomarker
+    p.marker <- pc.del(mod.final, del.nomark.mod.lin)$pvalue
+  } else{
+    form.split <- strsplit(marker.full.formula, ' *\\+ *')[[1]]
+    
+    ## 3b. Fit model without interaction terms
+    marker.noint.formula <- paste(form.split[grep(':', form.split, invert = TRUE)], collapse = ' + ')
+    mod.noint <-
+      eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noint.formula)))
+
+    ## 3c. Calculate p-value for all interaction terms
+    p.int <- pc.del(mod.full, mod.noint)$pvalue
+    
+    ## 3d. Save final model object
+    if(p.int > 0.2){
+      mod.final <- mod.noint
+    } else{
+      mod.final <- mod.full
+      
+      ## 3e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
+      marker.noage.formula <- paste(form.split[grep('age\\.enroll.*:', form.split, invert = TRUE)],
+                                    collapse = ' + ')
+      mod.noage <-
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noage.formula)))
+      p.int.age <- pc.del(mod.full, mod.noage)$pvalue
+      
+      marker.noil6.formula <- paste(form.split[grep('il6.*:', form.split, invert = TRUE)],
+                                    collapse = ' + ')
+      mod.noil6 <-
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noil6.formula)))
+      p.int.il6 <- pc.del(mod.full, mod.noil6)$pvalue
+    }
+
+    ## 4. Calculate overall p-value for biomarker
+    p.marker <- pc.del(mod.final, del.nomark.mod.nonlin)$pvalue
+  }
+  
+  return(list('final.mod' = mod.final,
+              'p.nonlin' = p.nonlin,
+              'p.int' = p.int,
+              'p.int.age' = p.int.age,
+              'p.int.il6' = p.int.il6,
+              'p.marker' = p.marker))
+
+}
+
+## Function to fit delirium models
+fit.del.models <- function(marker){
+  fit.nb.models(use.marker = marker, mice.obj = 'mice.del', formula.full = del.full.formula)
+}
+bdnf.del <- fit.del.models('bdnf.log10')
+esel.del <- fit.del.models('esel.log10')
+pai1.del <- fit.del.models('pai1.log10')
+s100b.del <- fit.del.models('s100b.log10')
+uchl.del <- fit.del.models('uchl.log10')
+
+@
+
+\clearpage
+\section{Technical Details}
+
+<<choosepkgs>>=
+relevant.pkgs <-
+  data.frame(pkg = c('dplyr', 'ggplot2', 'knitr', 'Hmisc', 'MASS', 'mice', 'rms', 'tidyr'),
+             rsn = c('Data management', 'Plotting', 'Reproducible reporting',
+                     'Descriptive statistics', 'Modeling (spec. negative binomial)',
+                     'Multiple imputation', 'Modeling (spec. linear regression)', 'Data management'))
+use.packages <- session_info()$packages %>%
+  filter(package %in% relevant.pkgs$pkg) %>%
+  mutate(reason = relevant.pkgs$rsn[match(package, relevant.pkgs$pkg)]) %>%
+  select(-2)
+
+@
+
+All analyses were produced using \Sexpr{session_info()$platform$version}, along with the following
+add-on packages and primary reason for their use.
+
+<<printpkgs, results='asis'>>=
+latex(use.packages, file = '',
+      where = '!h',
+      rowname = NULL,
+      caption = 'List of Add-On R Packages',
+      col.just = c('l', 'r', 'r', 'l', 'l'),
+      colheads = capitalize(names(use.packages)))
 @
 
 \end{document}
