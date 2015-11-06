@@ -23,6 +23,7 @@
 opts_chunk$set(echo=FALSE, warning = FALSE, message = FALSE, cache = FALSE, error = FALSE, results='hide')
 options(replace.assign = TRUE, width = 90)
 
+library(ClusterBootMultinom)
 library(mice)
 library(MASS)
 library(rms)
@@ -387,7 +388,7 @@ marker.hist(marker.hist.data.log10, xlabel = 'Endothelial Marker Value, Log10 Sc
 
 @
 
-<<multimp>>=
+<<analysisprep>>=
 ## -- Create mice objects to use for multiple imputation for all models ----------------------------
 mice.vars <- c('bdnf.log10', 'esel.log10', 'pai1.log10', 's100b.log10', 'uchl.log10',
                'age.enroll', 'il6.log10', 'charlson.score', 'iqcode.score.e', 'stroke.risk',
@@ -402,6 +403,176 @@ mice.cog.3 <- mice(data = endo.data[endo.data$cog.cohort.3, mice.vars], m = 10, 
 mice.cog.12 <- mice(data = endo.data[endo.data$cog.cohort.12, mice.vars], m = 10, seed = 56)
 mice.func.3 <- mice(data = endo.data[endo.data$func.cohort.3, mice.vars], m = 10, seed = 56)
 mice.func.12 <- mice(data = endo.data[endo.data$func.cohort.12, mice.vars], m = 10, seed = 56)
+
+
+## -- Function to fit NB model, determine whether 1) nonlinear and 2) interaction terms are needed,
+## --  and return final model object, p-values for nonlinearity and interactions, and final p for
+## --  biomarker
+fit.nb.models <- function(use.marker,    ## character string; name of biomarker variable to use
+                          mice.obj,      ## name of mice object
+                          formula.full){ ## formula for full model formula
+  
+  ## Get actual mice object from character string
+  use.mice <- get(mice.obj)
+  
+  ## Function for pool.compare() to save typing
+  pc.jt <- function(mod1, mod2){ pool.compare(mod1, mod2, method = use.method, data = use.mice) }
+  
+  ## Initialize all p-values
+  p.nonlin <- p.int <- p.marker <- p.int.age <- p.int.il6 <- NULL
+  
+  ## Step 1: Fit full model
+  marker.full.formula <- gsub('markervar', use.marker, del.full.formula)
+  mod.full <-
+    eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.full.formula)))
+
+  ## Step 2: Test for whether nonlinear terms are needed
+  ## 2a. Fit model with all linear terms
+  marker.lin.formula <- gsub(', *[0-9]+\\)', '', gsub('rcs\\(', '', marker.full.formula))
+  mod.lin <- 
+    eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.lin.formula)))
+  
+  ## 2b. Calculate p-value for all nonlinear terms
+  p.nonlin <- pc.jt(mod.full, mod.lin)$pvalue
+  
+  ## Step 3: Test for interactions using model with or without nonlinear terms, depending on p.nonlin
+  ## 3a. Determine non-interaction model formula based on p-value for nonlinear terms
+  if(p.nonlin > pcutoff){
+    form.split <- strsplit(marker.lin.formula, ' *\\+ *')[[1]]
+
+    ## 3b. Fit model without interaction terms
+    marker.noint.formula <- paste(form.split[grep(':', form.split, invert = TRUE)], collapse = ' + ')
+    mod.noint <-
+      eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noint.formula)))
+
+    ## 3c. Calculate p-value for all interaction terms
+    p.int <- pc.jt(mod.lin, mod.noint)$pvalue
+    
+    ## 3d. Save final model object
+    if(p.int > pcutoff){
+      mod.final <- mod.noint
+    } else{
+      mod.final <- mod.lin
+      
+      ## 3e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
+      marker.noage.formula <- paste(form.split[grep('age\\.enroll.*:', form.split, invert = TRUE)],
+                                    collapse = ' + ')
+      mod.noage <-
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noage.formula)))
+      p.int.age <- pc.jt(mod.lin, mod.noage)$pvalue
+      
+      marker.noil6.formula <- paste(form.split[grep('il6.*:', form.split, invert = TRUE)],
+                                    collapse = ' + ')
+      mod.noil6 <-
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noil6.formula)))
+      p.int.il6 <- pc.jt(mod.lin, mod.noil6)$pvalue
+    }
+    
+    ## 4. Calculate overall p-value for biomarker
+    p.marker <- pc.jt(mod.final, del.nomark.mod.lin)$pvalue
+  } else{
+    form.split <- strsplit(marker.full.formula, ' *\\+ *')[[1]]
+    
+    ## 3b. Fit model without interaction terms
+    marker.noint.formula <- paste(form.split[grep(':', form.split, invert = TRUE)], collapse = ' + ')
+    mod.noint <-
+      eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noint.formula)))
+
+    ## 3c. Calculate p-value for all interaction terms
+    p.int <- pc.jt(mod.full, mod.noint)$pvalue
+    
+    ## 3d. Save final model object
+    if(p.int > 0.2){
+      mod.final <- mod.noint
+    } else{
+      mod.final <- mod.full
+      
+      ## 3e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
+      marker.noage.formula <- paste(form.split[grep('age\\.enroll.*:', form.split, invert = TRUE)],
+                                    collapse = ' + ')
+      mod.noage <-
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noage.formula)))
+      p.int.age <- pc.jt(mod.full, mod.noage)$pvalue
+      
+      marker.noil6.formula <- paste(form.split[grep('il6.*:', form.split, invert = TRUE)],
+                                    collapse = ' + ')
+      mod.noil6 <-
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noil6.formula)))
+      p.int.il6 <- pc.jt(mod.full, mod.noil6)$pvalue
+    }
+
+    ## 4. Calculate overall p-value for biomarker
+    p.marker <- pc.jt(mod.final, del.nomark.mod.nonlin)$pvalue
+  }
+  
+  return(list('final.mod' = mod.final,
+              'p.nonlin' = p.nonlin,
+              'p.int' = p.int,
+              'p.int.age' = p.int.age,
+              'p.int.il6' = p.int.il6,
+              'p.marker' = p.marker))
+}
+
+## -- Need to calculate predicted values for NB models by hand -------------------------------------
+## Function to get median from endo.data$variable
+get.med <- function(varname){ median(endo.data[,varname], na.rm = TRUE) }
+
+## Function to calculate spline term for median of a variable in endo.data
+get.med.spline <- function(varname){
+  startval <- median(endo.data[,varname], na.rm = TRUE)
+  useknots <- rcspline.eval(endo.data[,varname], nk = 3, knots.only = TRUE)
+  calc.spline(startval, k1 = useknots[1], k2 = useknots[2], k3 = useknots[3])
+}
+
+## Function to, for each row in design matrix, calculate predicted value and SE from pooled results
+calc.nbresults <- function(micemod,       ## mice model object (unpooled)
+                           pred.matrices, ## list of matrices of covariate values; length = coefs in micemod
+                           xvar,          ## character string: name of variable to put on X axis
+                           usedata){      ## data frame with original data
+  
+#   coefnames <- unlist(lapply(strsplit(names(micemod$analyses[[1]]$coefficients), ', *[0-9]\\)'),
+#                              FUN = function(x){ if(length(x) == 1){ x[[1]] }else{ x[[2]] } }))
+#   
+#   ## Get unique values of biomarker measure (5th-95th percentiles)
+#   xvals <- sort(unique(usedata[,xvar]))
+#   xknots <- rcspline.eval(xvals, nk = 3, knots.only = TRUE)
+#   xvals <- xvals[xvals >= xknots[1] & xvals <= bioknots[3]]
+# 
+#   ## Create full design matrix: same values for all covariates;
+#   ##  differs in biomarker and nonlinear biomarker terms
+#   ## Initialize: repeat pred.vals * number of unique values of xvals
+#   designmat <- matrix(pred.vals, ncol = length(pred.vals), nrow = length(xvals), byrow = TRUE)
+#   
+#   
+#   designmat <-
+#     do.call(rbind,
+#             lapply(xvals, FUN = function(x){
+#               c(1, pred.vals, x,
+#                 calc.spline(x, k1 = xknots[1], k2 = xknots[2], k3 = xknots[3]))
+#             }))
+
+  ## Pool model results, get coefficients and vcov matrix
+  pooled.mod <- pool(micemod)
+  pooled.coefs <- pooled.mod$qbar
+  pooled.vcov <- pooled.mod$ubar
+
+  ## Calculate linear predictors and their SEs
+  lp <- apply(designmat, MARGIN = 1, FUN = function(x){ sum(pooled.coefs * as.numeric(x)) })
+  lp.se <- apply(designmat, MARGIN = 1, FUN = function(x){ sqrt(t(x) %*% pooled.vcov %*% x) })
+
+  ## Calculate LCL, UCLs for linear predictors
+  lp.lcl <- lp - qnorm(0.975)*lp.se
+  lp.ucl <- lp + qnorm(0.975)*lp.se
+
+  ## Calculate predicted counts, CIs as exp(quantities)
+  count.pe <- exp(lp)
+  count.lcl <- exp(lp.lcl)
+  count.ucl <- exp(lp.ucl)
+
+  ## Bind all results into data frame for plotting
+  return(as.data.frame(cbind(biovals, lp, lp.se, count.pe, count.lcl, count.ucl)))
+}
+
 
 @
 
@@ -515,116 +686,6 @@ nomark.del.mod.lin <- with(mice.del,
 ## -- Formula for full delirium model, subbing "markervar" in place of actual biomarker variable ----
 del.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(markervar, 3) + rcs(age.enroll, 3):rcs(markervar, 3) + rcs(il6.log10, 3):rcs(markervar, 3)"
 
-## -- Function to fit NB model, determine whether 1) nonlinear and 2) interaction terms are needed,
-## --  and return final model object, p-values for nonlinearity and interactions, and final p for
-## --  biomarker
-
-## Function for pool.compare to save typing
-pc.del <- function(mod1, mod2){ pool.compare(mod1, mod2, method = use.method, data = mice.del) }
-
-fit.nb.models <- function(use.marker,    ## character string; name of biomarker variable to use
-                          mice.obj,      ## name of mice object
-                          formula.full){ ## formula for full model formula
-  
-  ## Get actual mice object from character string
-  use.mice <- get(mice.obj)
-  
-  ## Initialize all p-values
-  p.nonlin <- p.int <- p.marker <- p.int.age <- p.int.il6 <- NULL
-  
-  ## Step 1: Fit full model
-  marker.full.formula <- gsub('markervar', use.marker, del.full.formula)
-  mod.full <-
-    eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.full.formula)))
-
-  ## Step 2: Test for whether nonlinear terms are needed
-  ## 2a. Fit model with all linear terms
-  marker.lin.formula <- gsub(', *[0-9]+\\)', '', gsub('rcs\\(', '', marker.full.formula))
-  mod.lin <- 
-    eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.lin.formula)))
-  
-  ## 2b. Calculate p-value for all nonlinear terms
-  p.nonlin <- pc.del(mod.full, mod.lin)$pvalue
-  
-  ## Step 3: Test for interactions using model with or without nonlinear terms, depending on p.nonlin
-  ## 3a. Determine non-interaction model formula based on p-value for nonlinear terms
-  if(p.nonlin > pcutoff){
-    form.split <- strsplit(marker.lin.formula, ' *\\+ *')[[1]]
-
-    ## 3b. Fit model without interaction terms
-    marker.noint.formula <- paste(form.split[grep(':', form.split, invert = TRUE)], collapse = ' + ')
-    mod.noint <-
-      eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noint.formula)))
-
-    ## 3c. Calculate p-value for all interaction terms
-    p.int <- pc.del(mod.lin, mod.noint)$pvalue
-    
-    ## 3d. Save final model object
-    if(p.int > pcutoff){
-      mod.final <- mod.noint
-    } else{
-      mod.final <- mod.lin
-      
-      ## 3e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
-      marker.noage.formula <- paste(form.split[grep('age\\.enroll.*:', form.split, invert = TRUE)],
-                                    collapse = ' + ')
-      mod.noage <-
-        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noage.formula)))
-      p.int.age <- pc.del(mod.lin, mod.noage)$pvalue
-      
-      marker.noil6.formula <- paste(form.split[grep('il6.*:', form.split, invert = TRUE)],
-                                    collapse = ' + ')
-      mod.noil6 <-
-        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noil6.formula)))
-      p.int.il6 <- pc.del(mod.lin, mod.noil6)$pvalue
-    }
-    
-    ## 4. Calculate overall p-value for biomarker
-    p.marker <- pc.del(mod.final, del.nomark.mod.lin)$pvalue
-  } else{
-    form.split <- strsplit(marker.full.formula, ' *\\+ *')[[1]]
-    
-    ## 3b. Fit model without interaction terms
-    marker.noint.formula <- paste(form.split[grep(':', form.split, invert = TRUE)], collapse = ' + ')
-    mod.noint <-
-      eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noint.formula)))
-
-    ## 3c. Calculate p-value for all interaction terms
-    p.int <- pc.del(mod.full, mod.noint)$pvalue
-    
-    ## 3d. Save final model object
-    if(p.int > 0.2){
-      mod.final <- mod.noint
-    } else{
-      mod.final <- mod.full
-      
-      ## 3e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
-      marker.noage.formula <- paste(form.split[grep('age\\.enroll.*:', form.split, invert = TRUE)],
-                                    collapse = ' + ')
-      mod.noage <-
-        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noage.formula)))
-      p.int.age <- pc.del(mod.full, mod.noage)$pvalue
-      
-      marker.noil6.formula <- paste(form.split[grep('il6.*:', form.split, invert = TRUE)],
-                                    collapse = ' + ')
-      mod.noil6 <-
-        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noil6.formula)))
-      p.int.il6 <- pc.del(mod.full, mod.noil6)$pvalue
-    }
-
-    ## 4. Calculate overall p-value for biomarker
-    p.marker <- pc.del(mod.final, del.nomark.mod.nonlin)$pvalue
-  }
-  
-  return(list('final.mod' = mod.final,
-              'p.nonlin' = p.nonlin,
-              'p.int' = p.int,
-              'p.int.age' = p.int.age,
-              'p.int.il6' = p.int.il6,
-              'p.marker' = p.marker))
-
-}
-
 ## Function to fit delirium models
 fit.del.models <- function(marker){
   fit.nb.models(use.marker = marker, mice.obj = 'mice.del', formula.full = del.full.formula)
@@ -634,6 +695,98 @@ esel.del <- fit.del.models('esel.log10')
 pai1.del <- fit.del.models('pai1.log10')
 s100b.del <- fit.del.models('s100b.log10')
 uchl.del <- fit.del.models('uchl.log10')
+
+# ## Test by hand with S100B
+# s100b.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3) + rcs(age.enroll, 3):rcs(s100b.log10, 3) + rcs(il6.log10, 3):rcs(s100b.log10, 3)"
+# del.s100b.full <- with(mice.del, glm.nb(formula = as.formula(s100b.full.formula)))
+# 
+# ## Test nonlinear terms
+# s100b.lin.formula <- "del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.enroll + il6.log10 + s100b.log10 + age.enroll:s100b.log10 + il6.log10:s100b.log10"
+# del.s100b.lin <- with(mice.del, glm.nb(formula = as.formula(s100b.lin.formula)))
+# pool.compare(del.s100b.full, del.s100b.lin, method = use.method, data = mice.del)$pvalue
+# s100b.del$p.nonlin
+# 
+# ## Nonlinear terms necessary; test interaction terms
+# s100b.noint.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3)"
+# del.s100b.noint <- with(mice.del, glm.nb(formula = as.formula(s100b.noint.formula)))
+# pool.compare(del.s100b.full, del.s100b.noint, method = use.method, data = mice.del)$pvalue
+# s100b.del$p.int
+# 
+# ## Interaction nonsignificant; test overall p-value for S100B
+# pool.compare(del.s100b.noint, del.nomark.mod.nonlin, method = use.method, data = mice.del)$pvalue
+# s100b.del$p.marker
+
+## Create design matrix for E-selectin (uses full model)
+miceobj <- esel.del$final.mod
+catvars <- "sevsepsis.day1"
+coefnames <- names(miceobj$analyses[[1]]$coefficients)
+
+## Categorical variables have a number on the end; strip that and "rcs(...)"
+coefnames <- unlist(lapply(coefnames, FUN = function(x){
+  tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
+  tmp2 <- gsub('.$', '', x)
+  if(tmp2 %in% catvars){ tmp2 } else{ tmp1 }
+}))
+
+## Get unique values of variable on X axis
+xvar <- 'esel.log10'
+xvals <- sort(unique(endo.data[,xvar]))
+xknots <- rcspline.eval(xvals, nk = 3, knots.only = TRUE)
+xvals <- xvals[xvals >= xknots[1] & xvals <= xknots[3]]
+
+## Get unique values of interacting variables
+intvars <- c('age.enroll', 'il6.log10')
+int.pcts <- c(0.25, 0.5, 0.75, 0.9)
+int.vals.age <- quantile(endo.data[,'age.enroll'], probs = int.pcts, na.rm = TRUE)
+int.vals.il6 <- quantile(endo.data[,'il6.log10'], probs = int.pcts, na.rm = TRUE)
+
+xval.age.vals <- expand.grid(xvals, int.vals.age)
+xval.il6.vals <- expand.grid(xvals, int.vals.il6)
+
+## Create matrix for xval interacting with age
+age.mat <- do.call(cbind,
+                   lapply(coefnames, FUN = function(i){
+                     if(i == '(Intercept)'){
+                       rep(1, nrow(xval.age.vals))
+                     } else if(i %in% catvars){
+                       rep(0, nrow(xval.age.vals))
+                     } else if(i %in% names(endo.data) & i %nin% c(catvars, xvar, 'age.enroll')){
+                       rep(get.med(i), nrow(xval.age.vals))
+                     } else if(gsub("'", "", i) %in% names(endo.data) &
+                                gsub("'", "", i) %nin% c(xvar, 'age.enroll')){
+                       rep(get.med.spline(gsub("'", "", i)), nrow(xval.age.vals))
+                     } else if(i == xvar){
+                       xval.age.vals[,1]
+                     } else if(i == 'age.enroll'){
+                       xval.age.vals[,2]
+                     } else{
+                       rep(NA, nrow(xval.age.vals))
+                     }
+                   }))
+colnames(age.mat) <- coefnames
+
+age.knots <- rcspline.eval(endo.data[,'age.enroll'], nk = 3, knots.only = TRUE)
+age.mat[,"age.enroll'"] <- unlist(lapply(age.mat[,"age.enroll"],
+                                         FUN = calc.spline,
+                                         k1 = age.knots[1],
+                                         k2 = age.knots[2],
+                                         k3 = age.knots[3]))
+age.mat[,paste0(xvar, "'")] <- unlist(lapply(age.mat[,xvar],
+                                             FUN = calc.spline,
+                                             k1 = xknots[1],
+                                             k2 = xknots[2],
+                                             k3 = xknots[3]))
+
+age.mat2 <- do.call(cbind,
+                    lapply(colnames(age.mat), FUN = function(i){
+                      if(length(grep(':', i)) > 0){
+                        use.cols <- strsplit(i, ':')[[1]]
+                        age.mat[,use.cols[1]]*age.mat[,use.cols[2]]
+                      } else{
+                        age.mat[,i]
+                      }
+                    }))
+colnames(age.mat2) <- colnames(age.mat)
 
 @
 
