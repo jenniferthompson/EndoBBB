@@ -469,7 +469,7 @@ fit.nb.models <- function(use.marker,    ## character string; name of biomarker 
     }
     
     ## 4. Calculate overall p-value for biomarker
-    p.marker <- pc.jt(mod.final, del.nomark.mod.lin)$pvalue
+    p.marker <- pc.jt(mod.final, nomark.del.mod.lin)$pvalue
   } else{
     form.split <- strsplit(marker.full.formula, ' *\\+ *')[[1]]
     
@@ -502,7 +502,7 @@ fit.nb.models <- function(use.marker,    ## character string; name of biomarker 
     }
 
     ## 4. Calculate overall p-value for biomarker
-    p.marker <- pc.jt(mod.final, del.nomark.mod.nonlin)$pvalue
+    p.marker <- pc.jt(mod.final, nomark.del.mod.nonlin)$pvalue
   }
   
   return(list('final.mod' = mod.final,
@@ -713,7 +713,7 @@ uchl.del <- fit.del.models('uchl.log10')
 # s100b.del$p.int
 # 
 # ## Interaction nonsignificant; test overall p-value for S100B
-# pool.compare(del.s100b.noint, del.nomark.mod.nonlin, method = use.method, data = mice.del)$pvalue
+# pool.compare(del.s100b.noint, nomark.del.mod.nonlin, method = use.method, data = mice.del)$pvalue
 # s100b.del$p.marker
 
 ## Create design matrix for E-selectin (uses full model)
