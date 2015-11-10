@@ -524,53 +524,138 @@ get.med.spline <- function(varname){
   calc.spline(startval, k1 = useknots[1], k2 = useknots[2], k3 = useknots[3])
 }
 
-## Function to, for each row in design matrix, calculate predicted value and SE from pooled results
-calc.nbresults <- function(micemod,       ## mice model object (unpooled)
-                           pred.matrices, ## list of matrices of covariate values; length = coefs in micemod
-                           xvar,          ## character string: name of variable to put on X axis
-                           usedata){      ## data frame with original data
-  
-#   coefnames <- unlist(lapply(strsplit(names(micemod$analyses[[1]]$coefficients), ', *[0-9]\\)'),
-#                              FUN = function(x){ if(length(x) == 1){ x[[1]] }else{ x[[2]] } }))
-#   
-#   ## Get unique values of biomarker measure (5th-95th percentiles)
-#   xvals <- sort(unique(usedata[,xvar]))
-#   xknots <- rcspline.eval(xvals, nk = 3, knots.only = TRUE)
-#   xvals <- xvals[xvals >= xknots[1] & xvals <= bioknots[3]]
-# 
-#   ## Create full design matrix: same values for all covariates;
-#   ##  differs in biomarker and nonlinear biomarker terms
-#   ## Initialize: repeat pred.vals * number of unique values of xvals
-#   designmat <- matrix(pred.vals, ncol = length(pred.vals), nrow = length(xvals), byrow = TRUE)
-#   
-#   
-#   designmat <-
-#     do.call(rbind,
-#             lapply(xvals, FUN = function(x){
-#               c(1, pred.vals, x,
-#                 calc.spline(x, k1 = xknots[1], k2 = xknots[2], k3 = xknots[3]))
-#             }))
+## -- Function to create design matrix given a model object, X and interacting variables -----------
+catvars <- "sevsepsis.day1"
+create.designmat <- function(miceobj,
+                             xvar,
+                             intvar = NULL,
+                             intvals = NULL,
+                             dataset = endo.data){
 
-  ## Pool model results, get coefficients and vcov matrix
-  pooled.mod <- pool(micemod)
-  pooled.coefs <- pooled.mod$qbar
-  pooled.vcov <- pooled.mod$ubar
+  ## miceobj must be of class mice
+  if(length(grep('mira', class(miceobj))) == 0){
+    stop('miceobj must be of class mira from mice library')
+  } else if(!is.null(intvar) & length(grep(':', names(miceobj$analyses[[1]]$coefficients))) == 0){
+    stop('Interacting variable is specified, but model does not include interaction terms')
+  } else if(!is.null(intvar) & is.null(intvals)){
+    stop('Interacting variable is specified, but no interacting values are specified')
+  } else{
 
-  ## Calculate linear predictors and their SEs
-  lp <- apply(designmat, MARGIN = 1, FUN = function(x){ sum(pooled.coefs * as.numeric(x)) })
-  lp.se <- apply(designmat, MARGIN = 1, FUN = function(x){ sqrt(t(x) %*% pooled.vcov %*% x) })
+    ## Get coefficient names. Categorical variables have a number on the end; strip that, "rcs(...)"
+    coefnames <- unlist(lapply(names(miceobj$analyses[[1]]$coefficients),
+                               FUN = function(x){
+                                 tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
+                                 tmp2 <- gsub('.$', '', x)
+                                 if(tmp2 %in% catvars){ tmp2 } else{ tmp1 }
+                               }))
+    
+    ## Get unique values of variable on X axis
+    xvals <- sort(unique(dataset[,xvar]))
+    xknots <- rcspline.eval(xvals, nk = 3, knots.only = TRUE)
+    xvals <- xvals[xvals >= xknots[1] & xvals <= xknots[3]]
+    if(length(grep(paste0(xvar, "'"), coefnames)) > 0){
+      xvals.spline <- unlist(lapply(xvals,
+                                    FUN = calc.spline,
+                                    k1 = xknots[1], k2 = xknots[2], k3 = xknots[3]))
+    }
+    
+    ## Set values for all non-interaction columns
+    coefs.noint <- coefnames[grep(':', coefnames, invert = TRUE)]
+    coefs.int <- coefnames[grep(':', coefnames)]
 
-  ## Calculate LCL, UCLs for linear predictors
-  lp.lcl <- lp - qnorm(0.975)*lp.se
-  lp.ucl <- lp + qnorm(0.975)*lp.se
+    predmat.noint <- do.call(cbind,
+                         lapply(coefs.noint, FUN = function(name){
+                           if(name == '(Intercept)'){
+                             rep(1, length(xvals))
+                           } else if(name == xvar){
+                             xvals
+                           } else if(name == paste0(xvar, "'")){
+                             xvals.spline
+                           } else if(name %in% c(intvar, paste0(intvar, "'"))){
+                             rep(NA, length(xvals))
+                           } else if(name %in% catvars){
+                             rep(0, length(xvals))
+                           } else if(length(grep("'", name)) == 0){
+                             get.med(name)
+                           } else{
+                             get.med.spline(gsub('.$', '', name))
+                           }
+                         }))
+    colnames(predmat.noint) <- coefs.noint
 
-  ## Calculate predicted counts, CIs as exp(quantities)
-  count.pe <- exp(lp)
-  count.lcl <- exp(lp.lcl)
-  count.ucl <- exp(lp.ucl)
+    ## If there is an interacting variable, repeat predmat.noint x number of unique values, then
+    ##  fill in NA columns with unique values
+    if(!is.null(intvar)){
+      predmat.noint <- do.call(rbind,
+                               replicate(length(intvals), predmat.noint, simplify = FALSE))
+      predmat.noint[,intvar] <- unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
 
-  ## Bind all results into data frame for plotting
-  return(as.data.frame(cbind(biovals, lp, lp.se, count.pe, count.lcl, count.ucl)))
+      ## If interacting variable is nonlinear, determine knots for spline term
+      if(length(grep(paste0(intvar, "'"), coefnames)) > 0){
+        intknots <- rcspline.eval(dataset[,intvar], nk = 3, knots.only = TRUE)
+        intspline <- unlist(lapply(intvals,
+                                   FUN = calc.spline,
+                                   k1 = intknots[1], k2 = intknots[2], k3 = intknots[3]))
+        predmat.noint[,paste0(intvar, "'")] <-
+          unlist(lapply(intspline, FUN = function(x){ rep(x, length(xvals)) }))
+      }
+    }
+
+    if(length(coefs.int) > 0){
+      predmat.int <- do.call(cbind,
+                             lapply(coefs.int, FUN = function(name){
+                               tmp <- strsplit(name, ':')[[1]]
+                               predmat.noint[,tmp[1]] * predmat.noint[,tmp[2]]
+                             }))
+      colnames(predmat.int) <- coefs.int
+      predmat <- cbind(predmat.noint, predmat.int)[,coefnames]
+    } else{
+      predmat <- predmat.noint[,coefnames]
+    }
+  }
+
+  return(predmat)
+
+}
+
+## -- Function to, for each row in design matrix, calculate predicted value & SE from pooled results
+calc.nbresults <- function(micemod,        ## mice model object (unpooled)
+                           designmat,      ## matrix of covariate values; ncols = coefs in micemod
+                           xvar,           ## character string: name of variable to put on X axis
+                           intvar = NULL){ ## character string: name of interacting variable  
+
+  if(ncol(designmat) != length(micemod$analyses[[1]]$coefficients)){
+    stop("Number of columns in design matrix does not match number of coefficients in mice object")
+  } else if(xvar %nin% colnames(designmat)){
+    stop("X axis variable name not in column names of design matrix")
+  } else{
+    ## Pool model results, get coefficients and vcov matrix
+    pooled.mod <- pool(micemod)
+    pooled.coefs <- pooled.mod$qbar
+    pooled.vcov <- pooled.mod$ubar
+    
+    ## Calculate linear predictors and their SEs
+    lp <- apply(designmat, MARGIN = 1, FUN = function(x){ sum(pooled.coefs * as.numeric(x)) })
+    lp.se <- apply(designmat, MARGIN = 1, FUN = function(x){ sqrt(t(x) %*% pooled.vcov %*% x) })
+    
+    ## Calculate LCL, UCLs for linear predictors
+    lp.lcl <- lp - qnorm(0.975)*lp.se
+    lp.ucl <- lp + qnorm(0.975)*lp.se
+    
+    ## Calculate predicted counts, CIs as exp(quantities)
+    count.pe <- exp(lp)
+    count.lcl <- exp(lp.lcl)
+    count.ucl <- exp(lp.ucl)
+    
+    ## Bind all results into data frame for plotting
+    xvalue <- designmat[,xvar]
+    if(!is.null(intvar)){
+      intvalue <- designmat[,intvar]
+      return(as.data.frame(cbind(xvalue, intvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
+    } else{
+      return(as.data.frame(cbind(xvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
+    }
+  }
 }
 
 
@@ -683,10 +768,10 @@ nomark.del.mod.lin <- with(mice.del,
                                     apache.aps + cvsofa.day1 + sevsepsis.day1 + age.enroll +
                                     il6.log10))
 
-## -- Formula for full delirium model, subbing "markervar" in place of actual biomarker variable ----
+## -- Fit delirium models ---------------------------------------------------------------------------
+## Formula for full delirium model, subbing "markervar" in place of actual biomarker variable
 del.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(markervar, 3) + rcs(age.enroll, 3):rcs(markervar, 3) + rcs(il6.log10, 3):rcs(markervar, 3)"
 
-## Function to fit delirium models
 fit.del.models <- function(marker){
   fit.nb.models(use.marker = marker, mice.obj = 'mice.del', formula.full = del.full.formula)
 }
@@ -716,77 +801,6 @@ uchl.del <- fit.del.models('uchl.log10')
 # pool.compare(del.s100b.noint, nomark.del.mod.nonlin, method = use.method, data = mice.del)$pvalue
 # s100b.del$p.marker
 
-## Create design matrix for E-selectin (uses full model)
-miceobj <- esel.del$final.mod
-catvars <- "sevsepsis.day1"
-coefnames <- names(miceobj$analyses[[1]]$coefficients)
-
-## Categorical variables have a number on the end; strip that and "rcs(...)"
-coefnames <- unlist(lapply(coefnames, FUN = function(x){
-  tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
-  tmp2 <- gsub('.$', '', x)
-  if(tmp2 %in% catvars){ tmp2 } else{ tmp1 }
-}))
-
-## Get unique values of variable on X axis
-xvar <- 'esel.log10'
-xvals <- sort(unique(endo.data[,xvar]))
-xknots <- rcspline.eval(xvals, nk = 3, knots.only = TRUE)
-xvals <- xvals[xvals >= xknots[1] & xvals <= xknots[3]]
-
-## Get unique values of interacting variables
-intvars <- c('age.enroll', 'il6.log10')
-int.pcts <- c(0.25, 0.5, 0.75, 0.9)
-int.vals.age <- quantile(endo.data[,'age.enroll'], probs = int.pcts, na.rm = TRUE)
-int.vals.il6 <- quantile(endo.data[,'il6.log10'], probs = int.pcts, na.rm = TRUE)
-
-xval.age.vals <- expand.grid(xvals, int.vals.age)
-xval.il6.vals <- expand.grid(xvals, int.vals.il6)
-
-## Create matrix for xval interacting with age
-age.mat <- do.call(cbind,
-                   lapply(coefnames, FUN = function(i){
-                     if(i == '(Intercept)'){
-                       rep(1, nrow(xval.age.vals))
-                     } else if(i %in% catvars){
-                       rep(0, nrow(xval.age.vals))
-                     } else if(i %in% names(endo.data) & i %nin% c(catvars, xvar, 'age.enroll')){
-                       rep(get.med(i), nrow(xval.age.vals))
-                     } else if(gsub("'", "", i) %in% names(endo.data) &
-                                gsub("'", "", i) %nin% c(xvar, 'age.enroll')){
-                       rep(get.med.spline(gsub("'", "", i)), nrow(xval.age.vals))
-                     } else if(i == xvar){
-                       xval.age.vals[,1]
-                     } else if(i == 'age.enroll'){
-                       xval.age.vals[,2]
-                     } else{
-                       rep(NA, nrow(xval.age.vals))
-                     }
-                   }))
-colnames(age.mat) <- coefnames
-
-age.knots <- rcspline.eval(endo.data[,'age.enroll'], nk = 3, knots.only = TRUE)
-age.mat[,"age.enroll'"] <- unlist(lapply(age.mat[,"age.enroll"],
-                                         FUN = calc.spline,
-                                         k1 = age.knots[1],
-                                         k2 = age.knots[2],
-                                         k3 = age.knots[3]))
-age.mat[,paste0(xvar, "'")] <- unlist(lapply(age.mat[,xvar],
-                                             FUN = calc.spline,
-                                             k1 = xknots[1],
-                                             k2 = xknots[2],
-                                             k3 = xknots[3]))
-
-age.mat2 <- do.call(cbind,
-                    lapply(colnames(age.mat), FUN = function(i){
-                      if(length(grep(':', i)) > 0){
-                        use.cols <- strsplit(i, ':')[[1]]
-                        age.mat[,use.cols[1]]*age.mat[,use.cols[2]]
-                      } else{
-                        age.mat[,i]
-                      }
-                    }))
-colnames(age.mat2) <- colnames(age.mat)
 
 @
 
