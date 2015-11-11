@@ -4,7 +4,7 @@
 \documentclass{article}
 
 %\usepackage[margin=.5in, landscape]{geometry} %resets margins
-\usepackage[margin=.4in]{geometry} %resets margins
+\usepackage[margin=.45in]{geometry} %resets margins
 \usepackage{hyperref}
 \usepackage{lscape}
 \usepackage{pdfpages}
@@ -49,9 +49,13 @@ population.
 ## Set cutoff for p-values for keeping nonlinear, interaction terms in model
 pcutoff <- 0.2
 
-## Set method to use in pool.compare() (Wald or likelihood)
-use.method <- 'Wald'
+## Set number of imputations
+nimp <- 50
 
+## Set method to use in pool.compare() (Wald or likelihood)
+use.method <- 'likelihood'
+
+## Prefixes of biomarker variables for use in lapply()
 endo.names <- c('bdnf', 'esel', 'pai1', 's100b', 'uchl')
 
 ## Load all BRAIN data
@@ -369,7 +373,7 @@ marker.hist <- function(histdata, xlabel){
     geom_histogram(fill = 'navy') +
     xlab(xlabel) +
     ylab('Frequency') +
-    theme_minimal() +
+    theme_bw() +
     theme(axis.text = element_text(colour = 'gray30', size = 8),
           axis.title.x = element_text(vjust = -0.5),
           axis.ticks = element_blank(),
@@ -389,6 +393,17 @@ marker.hist(marker.hist.data.log10, xlabel = 'Endothelial Marker Value, Log10 Sc
 @
 
 <<analysisprep>>=
+## Function to format and round number to the same number of digits
+rndformat <- function(val, digits = 2){
+  format(round(val, digits), nsmall = digits, big.mark = ',')
+}
+
+formatp <- function(val){
+  ifelse(val < 0.0001, '<0.0001',
+  ifelse(val < 0.001, '<0.001',
+         rndformat(val, digits = 3)))
+}
+
 ## -- Create mice objects to use for multiple imputation for all models ----------------------------
 mice.vars <- c('bdnf.log10', 'esel.log10', 'pai1.log10', 's100b.log10', 'uchl.log10',
                'age.enroll', 'il6.log10', 'charlson.score', 'iqcode.score.e', 'stroke.risk',
@@ -398,11 +413,11 @@ mice.vars <- c('bdnf.log10', 'esel.log10', 'pai1.log10', 's100b.log10', 'uchl.lo
                'adl.totscore.3', 'adl.totscore.12',
                'faq.rdscore.3', 'faq.rdscore.12')
 
-mice.del <- mice(data = endo.data[,mice.vars], m = 10, seed = 56)
-mice.cog.3 <- mice(data = endo.data[endo.data$cog.cohort.3, mice.vars], m = 10, seed = 56)
-mice.cog.12 <- mice(data = endo.data[endo.data$cog.cohort.12, mice.vars], m = 10, seed = 56)
-mice.func.3 <- mice(data = endo.data[endo.data$func.cohort.3, mice.vars], m = 10, seed = 56)
-mice.func.12 <- mice(data = endo.data[endo.data$func.cohort.12, mice.vars], m = 10, seed = 56)
+mice.del <- mice(data = endo.data[,mice.vars], m = nimp, seed = 56)
+mice.cog.3 <- mice(data = endo.data[endo.data$cog.cohort.3, mice.vars], m = nimp, seed = 56)
+mice.cog.12 <- mice(data = endo.data[endo.data$cog.cohort.12, mice.vars], m = nimp, seed = 56)
+mice.func.3 <- mice(data = endo.data[endo.data$func.cohort.3, mice.vars], m = nimp, seed = 56)
+mice.func.12 <- mice(data = endo.data[endo.data$func.cohort.12, mice.vars], m = nimp, seed = 56)
 
 
 ## -- Function to fit NB model, determine whether 1) nonlinear and 2) interaction terms are needed,
@@ -526,11 +541,11 @@ get.med.spline <- function(varname){
 
 ## -- Function to create design matrix given a model object, X and interacting variables -----------
 catvars <- "sevsepsis.day1"
-create.designmat <- function(miceobj,
-                             xvar,
-                             intvar = NULL,
-                             intvals = NULL,
-                             dataset = endo.data){
+create.designmat <- function(miceobj,              ## mice model object
+                             xvar,                 ## string; variable for x axis
+                             intvar = NULL,        ## string; variable to interact
+                             intvals = NULL,       ## vector; values to set interaction variable to
+                             dataset = endo.data){ ## data frame to get unique X values from
 
   ## miceobj must be of class mice
   if(length(grep('mira', class(miceobj))) == 0){
@@ -658,6 +673,72 @@ calc.nbresults <- function(micemod,        ## mice model object (unpooled)
   }
 }
 
+## Get values to interact for age, IL-6
+intvals.age <- quantile(endo.data[,'age.enroll'], probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)
+intvals.il6 <- quantile(endo.data[,'il6.log10'], probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)
+
+## -- Function to plot results of negative binomial models -----------------------------------------
+plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
+                            xvar,             ## string, name of X axis variable
+                            intvar = NULL,    ## string, name of interacting variable
+                            intvals = NULL,   ## vector, levels to set interacting variable to
+                            intstring = NULL, ## string, text for panel titles and X axis label
+                            intp = NULL,      ## number, p-value for specific interaction
+                            xstring,          ## string, label of X axis variable
+                            ystring){         ## string, label of outcome
+
+  if(length(grep('final\\.mod', names(nbobj))) == 0){
+    stop("Argument nbobj should be a result of fit.nb.models()")
+  } else if(!is.null(intvar) &
+            length(grep(':', names(nbobj$final.mod$analyses[[1]]$coefficients))) == 0){
+    stop('Interacting variable is specified, but model does not include interaction terms')
+  } else if(!is.null(intvar) & is.null(intvals)){
+    stop('Interacting variable is specified, but no interacting values are specified')
+  } else{
+    if(is.null(intvar)){
+      nb.designmat <- create.designmat(miceobj = nbobj$final.mod, xvar = xvar)
+      nb.results <- calc.nbresults(micemod = nbobj$final.mod, designmat = nb.designmat, xvar = xvar)
+    } else{
+      nb.designmat <- create.designmat(miceobj = nbobj$final.mod,
+                                       xvar = xvar,
+                                       intvar = intvar,
+                                       intvals = intvals)
+      
+      nb.results <- calc.nbresults(micemod = nbobj$final.mod,
+                                   designmat = nb.designmat,
+                                   xvar = xvar,
+                                   intvar = intvar)
+      
+      nb.results$intvalue.f <-
+        with(nb.results, factor(paste(intstring, '=', rndformat(intvalue, 2))))
+    }
+
+    nb.plot <- ggplot(aes(x = xvalue, y = count.pe), data = nb.results) +
+      geom_ribbon(aes(ymin = count.lcl, ymax = count.ucl), alpha = 0.3, fill = 'navy') +
+      geom_line(colour = 'navy') +
+      xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for all interactions: %s',
+                   xstring, formatp(nbobj$p.marker), formatp(nbobj$p.int))) +
+      ylab(paste('Adjusted', ystring)) +
+      theme_bw() +
+      theme(axis.title.x = element_text(vjust = 0), #face = 'bold', vjust = 0),
+            #axis.title.y = element_text(face = 'bold'),
+            axis.text = element_text(size = 7),
+            strip.text = element_text(face = 'bold'))
+    
+    if(is.null(intvar)){
+      return(nb.plot +
+               xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s',
+                            xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin), formatp(nbobj$p.int))))
+    } else{
+      return(nb.plot +
+               facet_wrap(~ intvalue.f, nrow = 1) +
+               xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s\nP for %s interaction: %s',
+                            xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin),
+                            formatp(nbobj$p.int), intstring, formatp(intp))))
+    }
+  }
+}
+
 
 @
 
@@ -681,12 +762,16 @@ and both systemic inflammation (IL-6) on study day 1 and age at study enrollment
 global p-value for nonlinearity and/or the global p-value for interactions were clearly
 nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the
 final model for parsimony. All biomarkers are transformed using the log10 transformation in order
-to improve model fit and reduce the influence of extremely high values.
+to improve model fit and reduce the influence of extremely high values. All p-values are calculated
+using the \Sexpr{use.method} method.
 
 We used multiple imputation to reduce bias from missing covariates.
 
+For models where interaction terms are kept in the final model, the association of the biomarker is
+shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable.
+
 %' <<trymodeltypes>>=
-%' ## -- Functions to print model diagnostics ---------------------------------------------------------
+%' ## -- Functions to print model diagnostics ------------------------------------------------------
 %' ols.diagnostics <- function(model.obj.ma, labeltext){
 %'   par(mfrow = c(1, 2), cex = 0.8, cex.main = 0.9)
 %'   plot(resid(model.obj.ma) ~ fitted(model.obj.ma),
@@ -801,8 +886,121 @@ uchl.del <- fit.del.models('uchl.log10')
 # pool.compare(del.s100b.noint, nomark.del.mod.nonlin, method = use.method, data = mice.del)$pvalue
 # s100b.del$p.marker
 
+## -- Create graphics for delirium models ----------------------------------------------------------
+nb.figures <- function(miceobj, xvar, xstring, ystring){
+  if(miceobj$p.int > 0.20){
+    return(list('fig' = plot.nb.results(nbobj = miceobj,
+                                        xvar = xvar,
+                                        xstring = xstring,
+                                        ystring = ystring),
+                'height' =  4,
+                'layoutmat' = matrix(1, ncol = 1)))
+  } else{
+    fig1 <- plot.nb.results(nbobj = miceobj, xvar = xvar,
+                            intvar = 'age.enroll', intvals = intvals.age,
+                            intstring = 'Age', intp = miceobj$p.int.age,
+                            xstring = xstring, ystring = ystring)
+    fig2 <- plot.nb.results(nbobj = miceobj, xvar = xvar,
+                            intvar = 'il6.log10', intvals = intvals.il6,
+                            intstring = 'Log10(IL-6)', intp = miceobj$p.int.il6,
+                            xstring = xstring, ystring = ystring)
+    
+    return(list('fig' = list(fig1, fig2),
+                'height' = 8,
+                'layoutmat' = matrix(1:2, ncol = 1)))
+  }
+}
+
+bdnf.del.fig <-
+  nb.figures(miceobj = bdnf.del, xvar = 'bdnf.log10', xstring = 'BDNF', ystring = 'Days of Delirium')
+esel.del.fig <-
+  nb.figures(miceobj = esel.del, xvar = 'esel.log10', xstring = 'E-Selectin', ystring = 'Days of Delirium')
+pai1.del.fig <-
+  nb.figures(miceobj = pai1.del, xvar = 'pai1.log10', xstring = 'PAI-1', ystring = 'Days of Delirium')
+s100b.del.fig <-
+  nb.figures(miceobj = s100b.del, xvar = 's100b.log10', xstring = 'S100B', ystring = 'Days of Delirium')
+uchl.del.fig <-
+  nb.figures(miceobj = uchl.del, xvar = 'uchl.log10', xstring = 'UCHL', ystring = 'Days of Delirium')
+
+pdf(file = 'bdnf_del_results.pdf', width = 8, height = bdnf.del.fig$height)
+multiplot(bdnf.del.fig$fig, layout = bdnf.del.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_del_results.pdf', width = 8, height = esel.del.fig$height)
+multiplot(esel.del.fig$fig, layout = esel.del.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_del_results.pdf', width = 8, height = pai1.del.fig$height)
+multiplot(plotlist = pai1.del.fig$fig, layout = pai1.del.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_del_results.pdf', width = 8, height = s100b.del.fig$height)
+multiplot(s100b.del.fig$fig, layout = s100b.del.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_del_results.pdf', width = 8, height = uchl.del.fig$height)
+multiplot(uchl.del.fig$fig, layout = uchl.del.fig$layoutmat)
+dev.off()
 
 @
+
+\subsection{BDNF vs. Days of Delirium}
+We see no association between log10(BDNF) at baseline and with delirium duration while in the
+hospital.
+
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_del_results.pdf}}
+\caption{Log10(BDNF) vs. Delirium Duration}\label{fig:bdnfdel}
+\end{figure}
+
+\clearpage
+\subsection{E-Selectin vs. Days of Delirium}
+We see no association between log(E-selectin) at baseline and with delirium duration while in the
+hospital.
+
+\begin{figure}[!h]
+{\centering\includegraphics{esel_del_results.pdf}}
+\caption{Log10(E-Selectin) vs. Delirium Duration}\label{fig:eseldel}
+\end{figure}
+
+\clearpage
+\subsection{PAI-1 vs. Days of Delirium}
+The overall association between log10(PAI-1) and delirium duration is nonsignificant. It is
+possible that there is a mild association modified by age at enrollment, such that among younger
+patients, higher log10(PAI-1) is predictive of fewer delirium days, but this association gets
+weaker as patient age increases.
+
+Since the overall p-value for interaction met our cutoff of \Sexpr{pcutoff}, the final model also
+includes an interaction with log10(IL-6); however, as seen in the figure, any association between
+log10(PAI-1) and delirium duration does not seem to be substantially modified by systemic
+inflammation.
+
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_del_results.pdf}}
+\caption{Log10(PAI-1) vs. Delirium Duration}\label{fig:pai1del}
+\end{figure}
+
+\clearpage
+\subsection{S100B vs. Days of Delirium}
+We see no association between log(S100B) at baseline and with delirium duration while in the
+hospital.
+
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_del_results.pdf}}
+\caption{Log10(S100B) vs. Delirium Duration}\label{fig:s100bdel}
+\end{figure}
+
+\clearpage
+\subsection{UCHL vs. Days of Delirium}
+UCHL at baseline does show a meaningful association with days of delirium. This association is not
+significantly nonlinear, so we can say that higher log10(UCHL) at study enrollment is nearly
+significantly associated with fewer days of delirium. This association is not modified by age or
+systemic inflammation (IL-6).
+
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_del_results.pdf}}
+\caption{Log10(UCHL) vs. Delirium Duration}\label{fig:uchldel}
+\end{figure}
 
 \clearpage
 \section{Technical Details}
