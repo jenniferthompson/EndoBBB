@@ -155,7 +155,13 @@ endo.data <- brain.oneobs[brain.oneobs$id %in% marker.data$id, oneobs.vars] %>%
   left_join(day1.data, by = 'id') %>%
   left_join(marker.data) %>%
   left_join(fu.data, by = 'id') %>%
-  mutate(## Create log10-transformed versions of endothelial markers
+  mutate(## Create variable for "disabled at baseline" (either ADL or FAQ > 0)
+         disabled.e = ifelse(is.na(adl.e) & is.na(faq.e), NA,
+                             (!is.na(adl.e) & adl.e > 0) | (!is.na(faq.e) & faq.e > 0)),
+         ## Divide age / 10 to address scaling issue
+         age.div10 = age.enroll / 10,
+         edu.div10 = edu / 10,
+         ## Create log10-transformed versions of endothelial markers
          il6.log10 = log10(il6.day1),
          bdnf.log10 = log10(bdnf.day1),
          esel.log10 = log10(esel.day1),
@@ -172,33 +178,34 @@ endo.data <- brain.oneobs[brain.oneobs$id %in% marker.data$id, oneobs.vars] %>%
   ## Remove patients who had no RBANS, Trails B, ADL, or FAQ - must have had other partial outcomes
   filter(cog.cohort.either | func.cohort.either)
 
-label(endo.data$mean.benz.icu) = 'Mean 24h dose of benzos in the ICU (MDZ equiv.)'
-label(endo.data$mean.op.new.icu) = 'Mean 24h dose of opioids in the ICU (fentanyl equiv.)'
-label(endo.data$mean.prop.icu) = 'Mean 24h dose of propofol in the ICU'
-label(endo.data$mean.dex.icu) = 'Mean 24h dose of dex in the ICU'
-label(endo.data$mean.hal.icu) = 'Mean 24h dose of haldol in the ICU'
-label(endo.data$cvsofa.day1) = 'Cardiovasulcar SOFA score, study day 1'
-label(endo.data$sevsepsis.day1) = 'Severely septic, study day 1'
-label(endo.data$il6.day1) = 'IL-6, study day 1'
-label(endo.data$bdnf.day1) = 'BDNF, study day 1'
-label(endo.data$esel.day1) = 'E-selectin, study day 1'
-label(endo.data$pai1.day1) = 'PAI-1, study day 1'
-label(endo.data$s100b.day1) = 'S100B, study day 1'
-label(endo.data$uchl.day1) = 'UCHL, study day 1'
-label(endo.data$il6.log10) = 'Log10(IL-6), study day 1'
-label(endo.data$bdnf.log10) = 'Log10(BDNF), study day 1'
-label(endo.data$esel.log10) = 'Log10(E-selectin), study day 1'
-label(endo.data$pai1.log10) = 'Log10(PAI-1), study day 1'
-label(endo.data$s100b.log10) = 'Log10(S100B), study day 1'
-label(endo.data$uchl.log10) = 'Log10(UCHL), study day 1'
-label(endo.data$rbans.global.score.3) = 'RBANS global score, 3m'
-label(endo.data$rbans.global.score.12) = 'RBANS global score, 12m'
-label(endo.data$trail.b.tscore.3) = 'Trails B T-score, 3m'
-label(endo.data$trail.b.tscore.12) = 'Trails B T-score, 12m'
-label(endo.data$adl.totscore.3) = 'ADL score, 3m'
-label(endo.data$adl.totscore.12) = 'ADL score, 12m'
-label(endo.data$faq.totscore.3) = 'FAQ score, 3m'
-label(endo.data$faq.totscore.12) = 'FAQ score, 12m'
+label(endo.data$mean.benz.icu) <- 'Mean 24h dose of benzos in the ICU (MDZ equiv.)'
+label(endo.data$mean.op.new.icu) <- 'Mean 24h dose of opioids in the ICU (fentanyl equiv.)'
+label(endo.data$mean.prop.icu) <- 'Mean 24h dose of propofol in the ICU'
+label(endo.data$mean.dex.icu) <- 'Mean 24h dose of dex in the ICU'
+label(endo.data$mean.hal.icu) <- 'Mean 24h dose of haldol in the ICU'
+label(endo.data$cvsofa.day1) <- 'Cardiovasulcar SOFA score, study day 1'
+label(endo.data$sevsepsis.day1) <- 'Severely septic, study day 1'
+label(endo.data$disabled.e) <- 'Disabled at enrollment (ADL or FAQ > 0)'
+label(endo.data$il6.day1) <- 'IL-6, study day 1'
+label(endo.data$bdnf.day1) <- 'BDNF, study day 1'
+label(endo.data$esel.day1) <- 'E-selectin, study day 1'
+label(endo.data$pai1.day1) <- 'PAI-1, study day 1'
+label(endo.data$s100b.day1) <- 'S100B, study day 1'
+label(endo.data$uchl.day1) <- 'UCHL, study day 1'
+label(endo.data$il6.log10) <- 'Log10(IL-6), study day 1'
+label(endo.data$bdnf.log10) <- 'Log10(BDNF), study day 1'
+label(endo.data$esel.log10) <- 'Log10(E-selectin), study day 1'
+label(endo.data$pai1.log10) <- 'Log10(PAI-1), study day 1'
+label(endo.data$s100b.log10) <- 'Log10(S100B), study day 1'
+label(endo.data$uchl.log10) <- 'Log10(UCHL), study day 1'
+label(endo.data$rbans.global.score.3) <- 'RBANS global score, 3m'
+label(endo.data$rbans.global.score.12) <- 'RBANS global score, 12m'
+label(endo.data$trail.b.tscore.3) <- 'Trails B T-score, 3m'
+label(endo.data$trail.b.tscore.12) <- 'Trails B T-score, 12m'
+label(endo.data$adl.totscore.3) <- 'ADL score, 3m'
+label(endo.data$adl.totscore.12) <- 'ADL score, 12m'
+label(endo.data$faq.totscore.3) <- 'FAQ score, 3m'
+label(endo.data$faq.totscore.12) <- 'FAQ score, 12m'
 
 ## Create data set for descriptive tables
 endo.data.desc <- bind_rows(endo.data,
@@ -226,6 +233,7 @@ label(endo.data.desc$iqcode.score.e) <- 'IQCODE score (missing -> 3)'
 label(endo.data.desc$stroke.risk) <- 'Framingham stroke risk profile'
 label(endo.data.desc$adl.e) <- 'Katz ADL at enrollment'
 label(endo.data.desc$faq.e) <- 'FAQ at enrollment'
+label(endo.data.desc$disabled.e) <- 'Disabled at enrollment (ADL or FAQ > 0)'
 label(endo.data.desc$frailty) <- 'CSHA Frailty at enrollment'
 label(endo.data.desc$icu.type) <- 'ICU type'
 label(endo.data.desc$admit.dx) <- 'Primary admission diagnosis'
@@ -284,7 +292,8 @@ followup data. Cohort definitions are as follows:
 
 <<printdescstats, results='asis'>>=
 latex(summaryM(age.enroll + sex.pp + race.pp + edu + charlson.score + iqcode.score.e + stroke.risk +
-                 adl.e + faq.e + frailty + icu.type + admit.dx + num.apache + sofa ~ cohort,
+                 adl.e + faq.e + disabled.e + frailty + icu.type + admit.dx + num.apache +
+                 sofa ~ cohort,
                data = endo.data.desc),
       file = '',
       where = '!h',
@@ -404,28 +413,37 @@ formatp <- function(val){
          rndformat(val, digits = 3)))
 }
 
-## -- Create mice objects to use for multiple imputation for all models ----------------------------
-mice.vars <- c('bdnf.log10', 'esel.log10', 'pai1.log10', 's100b.log10', 'uchl.log10',
-               'age.enroll', 'il6.log10', 'charlson.score', 'iqcode.score.e', 'stroke.risk',
-               'apache.aps', 'cvsofa.day1', 'sevsepsis.day1', 'del.s.imp',
-               'rbans.global.score.3', 'rbans.global.score.12',
-               'trail.b.tscore.3', 'trail.b.tscore.12',
-               'adl.totscore.3', 'adl.totscore.12',
-               'faq.rdscore.3', 'faq.rdscore.12')
+## Function to get p-value from lmtest::lrtest()
+lrpval <- function(mod1, mod2){
+  as.data.frame(lmtest::lrtest(mod1, mod2))[2, 'Pr(>Chisq)']
+}
 
-mice.del <- mice(data = endo.data[,mice.vars], m = nimp, seed = 56)
-mice.cog.3 <- mice(data = endo.data[endo.data$cog.cohort.3, mice.vars], m = nimp, seed = 56)
-mice.cog.12 <- mice(data = endo.data[endo.data$cog.cohort.12, mice.vars], m = nimp, seed = 56)
-mice.func.3 <- mice(data = endo.data[endo.data$func.cohort.3, mice.vars], m = nimp, seed = 56)
-mice.func.12 <- mice(data = endo.data[endo.data$func.cohort.12, mice.vars], m = nimp, seed = 56)
+# ## -- Create mice objects to use for multiple imputation for all models ----------------------------
+# mice.vars <- c('bdnf.log10', 'esel.log10', 'pai1.log10', 's100b.log10', 'uchl.log10',
+#                'age.div10', 'il6.log10', 'charlson.score', 'iqcode.score.e', 'stroke.risk',
+#                'edu.div10', 'disabled.e', #'adl.e', 'faq.e',
+#                'apache.aps', 'mean.modsofa.icu', 'cvsofa.day1', 'sevsepsis.day1',
+#                'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
+#                'rbans.global.score.3', 'rbans.global.score.12',
+#                'trail.b.tscore.3', 'trail.b.tscore.12',
+#                'adl.totscore.3', 'adl.totscore.12',
+#                'faq.rdscore.3', 'faq.rdscore.12')
+# 
+# mice.del <- mice(data = endo.data[,mice.vars], m = nimp, seed = 56)
+# mice.cog.3 <- mice(data = endo.data[endo.data$cog.cohort.3, mice.vars], m = nimp, seed = 56)
+# mice.cog.12 <- mice(data = endo.data[endo.data$cog.cohort.12, mice.vars], m = nimp, seed = 56)
+# mice.func.3 <- mice(data = endo.data[endo.data$func.cohort.3, mice.vars], m = nimp, seed = 56)
+# mice.func.12 <- mice(data = endo.data[endo.data$func.cohort.12, mice.vars], m = nimp, seed = 56)
 
 
 ## -- Function to fit NB model, determine whether 1) nonlinear and 2) interaction terms are needed,
 ## --  and return final model object, p-values for nonlinearity and interactions, and final p for
 ## --  biomarker
-fit.nb.models <- function(use.marker,    ## character string; name of biomarker variable to use
-                          mice.obj,      ## name of mice object
-                          formula.full){ ## formula for full model formula
+fit.nb.models <- function(use.marker,     ## character string; name of biomarker variable to use
+                          mice.obj,       ## name of mice object
+                          formula.full,   ## formula for full model formula
+                          max.iter = 25,  ## maximum number of iterations for glm.nb()
+                          nomark.list){   ## list of models without biomarker, named "lin", "nonlin"
   
   ## Get actual mice object from character string
   use.mice <- get(mice.obj)
@@ -437,28 +455,33 @@ fit.nb.models <- function(use.marker,    ## character string; name of biomarker 
   p.nonlin <- p.int <- p.marker <- p.int.age <- p.int.il6 <- NULL
   
   ## Step 1: Fit full model
-  marker.full.formula <- gsub('markervar', use.marker, del.full.formula)
+  marker.full.formula <- gsub('markervar', use.marker, formula.full)
   mod.full <-
-    eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.full.formula)))
+    eval(parse(text = sprintf("with(%s, glm.nb(formula = %s, maxit = %s))",
+                              mice.obj, marker.full.formula, max.iter)))
 
   ## Step 2: Test for whether nonlinear terms are needed
   ## 2a. Fit model with all linear terms
   marker.lin.formula <- gsub(', *[0-9]+\\)', '', gsub('rcs\\(', '', marker.full.formula))
   mod.lin <- 
-    eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.lin.formula)))
+    eval(parse(text = sprintf("with(%s, glm.nb(formula = %s, maxit = %s))",
+                              mice.obj, marker.lin.formula, max.iter)))
   
   ## 2b. Calculate p-value for all nonlinear terms
   p.nonlin <- pc.jt(mod.full, mod.lin)$pvalue
   
-  ## Step 3: Test for interactions using model with or without nonlinear terms, depending on p.nonlin
+  ## Step 3: Test for interactions using model with or without nonlinear terms,
+  ##         depending on p.nonlin
   ## 3a. Determine non-interaction model formula based on p-value for nonlinear terms
   if(p.nonlin > pcutoff){
     form.split <- strsplit(marker.lin.formula, ' *\\+ *')[[1]]
 
     ## 3b. Fit model without interaction terms
-    marker.noint.formula <- paste(form.split[grep(':', form.split, invert = TRUE)], collapse = ' + ')
+    marker.noint.formula <- paste(form.split[grep(':', form.split, invert = TRUE)],
+                                  collapse = ' + ')
     mod.noint <-
-      eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noint.formula)))
+      eval(parse(text = sprintf("with(%s, glm.nb(formula = %s, maxit = %s))",
+                                mice.obj, marker.noint.formula, max.iter)))
 
     ## 3c. Calculate p-value for all interaction terms
     p.int <- pc.jt(mod.lin, mod.noint)$pvalue
@@ -473,25 +496,29 @@ fit.nb.models <- function(use.marker,    ## character string; name of biomarker 
       marker.noage.formula <- paste(form.split[grep('age\\.enroll.*:', form.split, invert = TRUE)],
                                     collapse = ' + ')
       mod.noage <-
-        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noage.formula)))
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s, maxit = %s))",
+                                  mice.obj, marker.noage.formula, max.iter)))
       p.int.age <- pc.jt(mod.lin, mod.noage)$pvalue
       
       marker.noil6.formula <- paste(form.split[grep('il6.*:', form.split, invert = TRUE)],
                                     collapse = ' + ')
       mod.noil6 <-
-        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noil6.formula)))
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s, maxit = %s))",
+                                  mice.obj, marker.noil6.formula, max.iter)))
       p.int.il6 <- pc.jt(mod.lin, mod.noil6)$pvalue
     }
     
     ## 4. Calculate overall p-value for biomarker
-    p.marker <- pc.jt(mod.final, nomark.del.mod.lin)$pvalue
+    p.marker <- pc.jt(mod.final, nomark.list$lin)$pvalue
   } else{
     form.split <- strsplit(marker.full.formula, ' *\\+ *')[[1]]
     
     ## 3b. Fit model without interaction terms
-    marker.noint.formula <- paste(form.split[grep(':', form.split, invert = TRUE)], collapse = ' + ')
+    marker.noint.formula <- paste(form.split[grep(':', form.split, invert = TRUE)],
+                                  collapse = ' + ')
     mod.noint <-
-      eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noint.formula)))
+      eval(parse(text = sprintf("with(%s, glm.nb(formula = %s, maxit = %s))",
+                                mice.obj, marker.noint.formula, max.iter)))
 
     ## 3c. Calculate p-value for all interaction terms
     p.int <- pc.jt(mod.full, mod.noint)$pvalue
@@ -506,19 +533,167 @@ fit.nb.models <- function(use.marker,    ## character string; name of biomarker 
       marker.noage.formula <- paste(form.split[grep('age\\.enroll.*:', form.split, invert = TRUE)],
                                     collapse = ' + ')
       mod.noage <-
-        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noage.formula)))
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s, maxit = %s))",
+                                  mice.obj, marker.noage.formula, max.iter)))
       p.int.age <- pc.jt(mod.full, mod.noage)$pvalue
       
       marker.noil6.formula <- paste(form.split[grep('il6.*:', form.split, invert = TRUE)],
                                     collapse = ' + ')
       mod.noil6 <-
-        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s))", mice.obj, marker.noil6.formula)))
+        eval(parse(text = sprintf("with(%s, glm.nb(formula = %s, maxit = %s))",
+                                  mice.obj, marker.noil6.formula, max.iter)))
       p.int.il6 <- pc.jt(mod.full, mod.noil6)$pvalue
     }
 
     ## 4. Calculate overall p-value for biomarker
-    p.marker <- pc.jt(mod.final, nomark.del.mod.nonlin)$pvalue
+    p.marker <- pc.jt(mod.final, nomark.list$nonlin)$pvalue
   }
+  
+  return(list('final.mod' = mod.final,
+              'p.nonlin' = p.nonlin,
+              'p.int' = p.int,
+              'p.int.age' = p.int.age,
+              'p.int.il6' = p.int.il6,
+              'p.marker' = p.marker))
+}
+
+## -- Function to update zero-inflated formulas given a count, zero portion and a regex ------------
+create.zeroinfl.form <- function(count.form, zero.form, regex.sub){
+  paste(paste(count.form[grep(regex.sub, count.form, invert = TRUE)], collapse = ' + '),
+        paste(zero.form[grep(regex.sub, zero.form, invert = TRUE)], collapse = ' + '),
+        sep = ' | ')
+}
+
+## -- Function to fit zero-inflated NB model, determine whether 1) nonlinear and 2) interaction
+## --  terms are needed, and return final model object, p-values for nonlinearity and interactions,
+## --  and final p for biomarker
+fit.zeroinfl.models <- function(use.marker,   ## character string; name of biomarker variable
+                                formula.full, ## formula for full model formula
+                                dataset = endo.data){ ## original data set to use
+  
+  ## Initialize all p-values
+  p.nonlin <- p.int <- p.marker <- p.int.age <- p.int.il6 <- NULL
+  
+  ## Step 1: Create data set with complete data from initial dataset object
+  ## Get variables in formula.full
+  modvars <- gsub('rcs\\(', '', strsplit(formula.full, ' *[~+] *')[[1]])
+  modvars <- unique(gsub(', [0-9]\\)', '', modvars[grep(':', modvars, invert = TRUE)]))
+  modvars <- gsub('markervar', use.marker, modvars)
+  usedata <- dataset[rowSums(is.na(dataset[,modvars])) == 0,]
+  
+  ## Step 2: Fit full model
+  marker.full.formula <- gsub('markervar', use.marker, formula.full)
+  mod.full <-
+    eval(parse(text = sprintf("zeroinfl(formula = %s, data = usedata, dist = 'negbin')",
+                              marker.full.formula)))
+
+  ## Step 3: Test for whether nonlinear terms are needed
+  ## 3a. Fit model with all linear terms
+  marker.lin.formula <- gsub(', *[0-9]+\\)', '', gsub('rcs\\(', '', marker.full.formula))
+  mod.lin <- eval(parse(text = sprintf("zeroinfl(formula = %s, data = usedata, dist = 'negbin')",
+                                       marker.lin.formula)))
+  
+  ## 3b. Calculate p-value for all nonlinear terms
+  p.nonlin <- lrpval(mod.full, mod.lin)
+  
+  ## Step 4: Test for interactions, using model with or w/o nonlinear terms, depending on p.nonlin
+  ## 4a. Determine non-interaction model formula based on p-value for nonlinear terms
+  if(p.nonlin > pcutoff){
+    ## Split twice: once for count vs. zero portion, once to get each variable
+    form.split <- strsplit(marker.lin.formula, '|', fixed = TRUE)
+    form.split.count <- strsplit(form.split[[1]][1], ' *\\+ *')[[1]]
+    form.split.zero <- strsplit(form.split[[1]][2], ' *\\+ *')[[1]]
+
+    ## 4b. Fit model without interaction terms
+    marker.noint.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                 zero.form = form.split.zero,
+                                                 regex.sub = ':')
+    mod.noint <-
+      eval(parse(text = sprintf("zeroinfl(formula = %s, data = usedata)", marker.noint.formula)))
+
+    ## 4c. Calculate p-value for all interaction terms
+    p.int <- lrpval(mod.lin, mod.noint)
+    
+    ## 4d. Save final model object
+    if(p.int > pcutoff){
+      mod.final <- mod.noint
+    } else{
+      mod.final <- mod.lin
+      
+      ## 4e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
+      marker.noage.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                   zero.form = form.split.zero,
+                                                   regex.sub = 'age\\.[enroll | div10].*:')
+      mod.noage <-
+        eval(parse(text = sprintf("zeroinfl(formula = %s, data = usedata, dist = 'negbin')",
+                                  marker.noage.formula)))
+      p.int.age <- lrpval(mod.lin, mod.noage)
+      
+      marker.noil6.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                   zero.form = form.split.zero,
+                                                   regex.sub = 'il6.log10.*:')
+      mod.noil6 <-
+        eval(parse(text = sprintf("zeroinfl(formula = %s, data = usedata, dist = 'negbin')",
+                                  marker.noil6.formula)))
+      p.int.il6 <- lrpval(mod.lin, mod.noil6)
+    }
+  } else{
+    ## Split twice: once for count vs. zero portion, once to get each variable
+    form.split <- strsplit(marker.full.formula, '|', fixed = TRUE)
+    form.split.count <- strsplit(form.split[[1]][1], ' *\\+ *')[[1]]
+    form.split.zero <- strsplit(form.split[[1]][2], ' *\\+ *')[[1]]
+    
+    ## 4b. Fit model without interaction terms
+    marker.noint.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                 zero.form = form.split.zero,
+                                                 regex.sub = ':')
+    mod.noint <-
+      eval(parse(text = sprintf("zeroinfl(formula = %s, data = usedata, dist = 'negbin')",
+                                marker.noint.formula)))
+
+    ## 4c. Calculate p-value for all interaction terms
+    p.int <- lrpval(mod.full, mod.noint)
+    
+    ## 4d. Save final model object
+    if(p.int > 0.2){
+      mod.final <- mod.noint
+    } else{
+      mod.final <- mod.full
+      
+      ## 4e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
+      marker.noage.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                   zero.form = form.split.zero,
+                                                   regex.sub = 'age\\.[enroll | div10].*:')
+      mod.noage <-
+        eval(parse(text = sprintf("zeroinfl(formula = %s, data = usedata, dist = 'negbin')",
+                                  marker.noage.formula)))
+      p.int.age <- lrpval(mod.full, mod.noage)
+      
+      marker.noil6.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                   zero.form = form.split.zero,
+                                                   regex.sub = 'il6.log10.*:')
+      mod.noil6 <-
+        eval(parse(text = sprintf("zeroinfl(formula = %s, data = usedata, dist = 'negbin')",
+                                  marker.noil6.formula)))
+      p.int.il6 <- lrpval(mod.full, mod.noil6)
+    }
+  }
+  
+  ## 5. Calculate overall p-value for biomarker
+  ## 5a. Fit model without any biomarker terms, using same data set
+  ## Split twice: once for count vs. zero portion, once to get each variable
+  final.call <- as.character(mod.final$call)[2]
+  final.call.split <- strsplit(final.call, '|', fixed = TRUE)
+  final.call.count <- strsplit(final.call.split[[1]][1], ' *\\+ *')[[1]]
+  final.call.zero <- strsplit(final.call.split[[1]][2], ' *\\+ *')[[1]]
+  nomark.form <- create.zeroinfl.form(count.form = final.call.count,
+                                      zero.form = final.call.zero,
+                                      regex.sub = use.marker)
+  nomark.mod <-
+    eval(parse(text = sprintf("zeroinfl(formula = %s, data = usedata, dist = 'negbin')",
+                              nomark.form)))
+  
+  p.marker <- lrpval(mod.final, nomark.mod)
   
   return(list('final.mod' = mod.final,
               'p.nonlin' = p.nonlin,
@@ -539,13 +714,13 @@ get.med.spline <- function(varname){
   calc.spline(startval, k1 = useknots[1], k2 = useknots[2], k3 = useknots[3])
 }
 
-## -- Function to create design matrix given a model object, X and interacting variables -----------
+## -- Function to create design matrix given a mice model object, X and interacting variables ------
 catvars <- "sevsepsis.day1"
-create.designmat <- function(miceobj,              ## mice model object
-                             xvar,                 ## string; variable for x axis
-                             intvar = NULL,        ## string; variable to interact
-                             intvals = NULL,       ## vector; values to set interaction variable to
-                             dataset = endo.data){ ## data frame to get unique X values from
+create.designmat.mice <- function(miceobj,              ## mice model object
+                                  xvar,                 ## string; variable for x axis
+                                  intvar = NULL,        ## string; variable to interact
+                                  intvals = NULL,       ## vector; values to set int. variable to
+                                  dataset = endo.data){ ## data frame to get unique X values from
 
   ## miceobj must be of class mice
   if(length(grep('mira', class(miceobj))) == 0){
@@ -633,6 +808,142 @@ create.designmat <- function(miceobj,              ## mice model object
 
 }
 
+## -- Function to create design matrices for count, zero portions given a zeroinfl object, ---------
+## --  X & interacting variables -------------------------------------------------------------------
+create.designmat.zinfl <- function(modobj,               ## zeroinfl model object
+                                   xvar,                 ## string; variable for x axis
+                                   intvar = NULL,        ## string; variable to interact
+                                   intvals = NULL,       ## vector; values to set int. variable to
+                                   dataset = endo.data){ ## data frame to get unique X values from
+
+  ## miceobj must be of class mice
+  if(length(grep('zeroinfl', class(modobj))) == 0){
+    stop('modobj must be of class zeroinfl from pscl library')
+  } else if(!is.null(intvar) & length(grep(':', names(coef(modobj)))) == 0){
+    stop('Interacting variable is specified, but model does not include interaction terms')
+  } else if(!is.null(intvar) & is.null(intvals)){
+    stop('Interacting variable is specified, but no interacting values are specified')
+  } else{
+
+    ## Get coefficient names for count and zero portions
+    coefnames <- names(coef(modobj))
+    coefs.c <- coefnames[grep('^count', coefnames)]
+    coefs.z <- coefnames[grep('^zero', coefnames)]
+    
+    ## Strip out "rcs(...)" and "count_/zero_"
+    coefs.c <- unlist(lapply(coefs.c, FUN = function(x){
+      tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
+      tmp2 <- gsub('.$', '', x)
+      if(tmp2 %in% catvars){ gsub('^count_', '', tmp2) } else{ gsub('^count_', '', tmp1) }
+    }))
+    coefs.z <- unlist(lapply(coefs.z, FUN = function(x){
+      tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
+      tmp2 <- gsub('.$', '', x)
+      if(tmp2 %in% catvars){ gsub('^zero_', '', tmp2) } else{ gsub('^zero_', '', tmp1) }
+    }))
+    
+    ## Get unique values of variable on X axis
+    xvals <- sort(unique(dataset[,xvar]))
+    xknots <- rcspline.eval(xvals, nk = 3, knots.only = TRUE)
+    xvals <- xvals[xvals >= xknots[1] & xvals <= xknots[3]]
+    if(length(grep(paste0(xvar, "'"), coefnames)) > 0){
+      xvals.spline <- unlist(lapply(xvals,
+                                    FUN = calc.spline,
+                                    k1 = xknots[1], k2 = xknots[2], k3 = xknots[3]))
+    }
+    
+    ## Set values for all non-interaction columns
+    coefs.noint.c <- coefs.c[grep(':', coefs.c, invert = TRUE)]
+    coefs.int.c <- coefs.c[grep(':', coefs.c)]
+    coefs.noint.z <- coefs.z[grep(':', coefs.z, invert = TRUE)]
+    coefs.int.z <- coefs.z[grep(':', coefs.z)]
+
+    ## Function to fill in non-interaction columns
+    fill.predvals.noint <- function(name){
+      if(name == '(Intercept)'){
+        rep(1, length(xvals))
+      } else if(name == xvar){
+        xvals
+      } else if(name == paste0(xvar, "'")){
+        xvals.spline
+      } else if(!is.null(intvar) & name %in% c(intvar, paste0(intvar, "'"))){
+        rep(NA, length(xvals))
+      } else if(name %in% catvars){
+        rep(0, length(xvals))
+      } else if(length(grep("'", name)) == 0){
+        get.med(name)
+      } else{
+        get.med.spline(gsub('.$', '', name))
+      }
+    }
+    
+    predmat.noint.c <- do.call(cbind, lapply(coefs.noint.c, FUN = fill.predvals.noint))
+    colnames(predmat.noint.c) <- coefs.noint.c
+
+    predmat.noint.z <- do.call(cbind, lapply(coefs.noint.z, FUN = fill.predvals.noint))
+    colnames(predmat.noint.z) <- coefs.noint.z
+
+    ## If there is an interacting variable, repeat predmat.noint x number of unique values, then
+    ##  fill in NA columns with unique values
+    if(!is.null(intvar)){
+      predmat.noint.c <-
+        do.call(rbind, replicate(length(intvals), predmat.noint.c, simplify = FALSE))
+      predmat.noint.c[,intvar] <-
+        unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
+
+      predmat.noint.z <-
+        do.call(rbind, replicate(length(intvals), predmat.noint.z, simplify = FALSE))
+      predmat.noint.z[,intvar] <-
+        unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
+
+      ## If interacting variable is nonlinear, determine knots for spline term
+      if(length(grep(paste0(intvar, "'"), coefnames)) > 0){
+        intknots <- rcspline.eval(dataset[,intvar], nk = 3, knots.only = TRUE)
+        intspline <- unlist(lapply(intvals,
+                                   FUN = calc.spline,
+                                   k1 = intknots[1], k2 = intknots[2], k3 = intknots[3]))
+        if(length(grep(paste0(intvar, "'"), coefs.c)) > 0){
+          predmat.noint.c[,paste0(intvar, "'")] <-
+            unlist(lapply(intspline, FUN = function(x){ rep(x, length(xvals)) }))
+        }
+        
+        if(length(grep(paste0(intvar, "'"), coefs.z)) > 0){
+          predmat.noint.z[,paste0(intvar, "'")] <-
+            unlist(lapply(intspline, FUN = function(x){ rep(x, length(xvals)) }))
+        }
+      }
+    }
+
+    if(length(coefs.int.c) > 0){
+      predmat.int.c <- do.call(cbind,
+                               lapply(coefs.int.c, FUN = function(name){
+                                 tmp <- strsplit(name, ':')[[1]]
+                                 predmat.noint.c[,tmp[1]] * predmat.noint.c[,tmp[2]]
+                               }))
+      colnames(predmat.int.c) <- coefs.int.c
+      predmat.c <- cbind(predmat.noint.c, predmat.int.c)[,coefs.c]
+    } else{
+      predmat.c <- predmat.noint.c[,coefs.c]
+    }
+    
+    if(length(coefs.int.z) > 0){
+      predmat.int.z <- do.call(cbind,
+                               lapply(coefs.int.z, FUN = function(name){
+                                 tmp <- strsplit(name, ':')[[1]]
+                                 predmat.noint.z[,tmp[1]] * predmat.noint.z[,tmp[2]]
+                               }))
+      colnames(predmat.int.z) <- coefs.int.z
+      predmat.c <- cbind(predmat.noint.z, predmat.int.z)[,coefs.z]
+    } else{
+      predmat.z <- predmat.noint.z[,coefs.z]
+    }
+
+  }
+
+  return(list('predmat.c' = predmat.c, 'predmat.z' = predmat.z))
+
+}
+
 ## -- Function to, for each row in design matrix, calculate predicted value & SE from pooled results
 calc.nbresults <- function(micemod,        ## mice model object (unpooled)
                            designmat,      ## matrix of covariate values; ncols = coefs in micemod
@@ -696,13 +1007,13 @@ plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
     stop('Interacting variable is specified, but no interacting values are specified')
   } else{
     if(is.null(intvar)){
-      nb.designmat <- create.designmat(miceobj = nbobj$final.mod, xvar = xvar)
+      nb.designmat <- create.designmat.mice(miceobj = nbobj$final.mod, xvar = xvar)
       nb.results <- calc.nbresults(micemod = nbobj$final.mod, designmat = nb.designmat, xvar = xvar)
     } else{
-      nb.designmat <- create.designmat(miceobj = nbobj$final.mod,
-                                       xvar = xvar,
-                                       intvar = intvar,
-                                       intvals = intvals)
+      nb.designmat <- create.designmat.mice(miceobj = nbobj$final.mod,
+                                            xvar = xvar,
+                                            intvar = intvar,
+                                            intvals = intvals)
       
       nb.results <- calc.nbresults(micemod = nbobj$final.mod,
                                    designmat = nb.designmat,
@@ -752,20 +1063,23 @@ covariates:
 \item IQCODE score
 \item Framingham stroke risk score
 \item APACHE acute physiology component
-\item cardiovascular SOFA, study day 1
+\item Cardiovascular SOFA, study day 1
 \item Severe sepsis, study day 1
 \end{itemize}
 
+(We considered both linear and proportional odds logistic regression, but assumptions for neither
+model type were met adequately.)
+
 We allowed all continuous variables to have a nonlinear association with delirium duration using
 restricted cubic splines, and allowed for potential interactions between endothelial/BBB markers
-and both systemic inflammation (IL-6) on study day 1 and age at study enrollment. If either the
-global p-value for nonlinearity and/or the global p-value for interactions were clearly
+and both systemic inflammation (log10(IL-6)) on study day 1 and age at study enrollment. If either
+the global p-value for nonlinearity and/or the global p-value for interactions were clearly
 nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the
 final model for parsimony. All biomarkers are transformed using the log10 transformation in order
 to improve model fit and reduce the influence of extremely high values. All p-values are calculated
 using the \Sexpr{use.method} method.
 
-We used multiple imputation to reduce bias from missing covariates.
+% We used multiple imputation to reduce bias from missing covariates.
 
 For models where interaction terms are kept in the final model, the association of the biomarker is
 shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable.
@@ -840,167 +1154,405 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' 
 %' @
 
-<<delmodels>>=
-## -- Fit models with no endothelial marker terms, with and without nonlinear terms ----------------
-nomark.del.mod.nonlin <- with(mice.del,
-                              glm.nb(del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) +
-                                       rcs(stroke.risk, 3) + rcs(apache.aps, 3) +
-                                       rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) +
-                                       rcs(il6.log10, 3)))
+%' <<delmodels>>=
+%' ## -- Fit models with no endothelial marker terms, with and without nonlinear terms ----------------
+%' nomark.del.mod.nonlin <- with(mice.del,
+%'                               glm.nb(del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) +
+%'                                        rcs(stroke.risk, 3) + rcs(apache.aps, 3) +
+%'                                        rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) +
+%'                                        rcs(il6.log10, 3)))
+%' 
+%' nomark.del.mod.lin <- with(mice.del,
+%'                            glm.nb(del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk +
+%'                                     apache.aps + cvsofa.day1 + sevsepsis.day1 + age.enroll +
+%'                                     il6.log10))
+%' 
+%' ## -- Fit delirium models ---------------------------------------------------------------------------
+%' ## Formula for full delirium model, subbing "markervar" in place of actual biomarker variable
+%' del.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(markervar, 3) + rcs(age.enroll, 3):rcs(markervar, 3) + rcs(il6.log10, 3):rcs(markervar, 3)"
+%' 
+%' fit.del.models <- function(marker){
+%'   fit.nb.models(use.marker = marker,
+%'                 mice.obj = 'mice.del',
+%'                 formula.full = del.full.formula,
+%'                 nomark.list = list('nonlin' = nomark.del.mod.nonlin,
+%'                                    'lin' = nomark.del.mod.lin))
+%' }
+%' bdnf.del <- fit.del.models('bdnf.log10')
+%' esel.del <- fit.del.models('esel.log10')
+%' pai1.del <- fit.del.models('pai1.log10')
+%' s100b.del <- fit.del.models('s100b.log10')
+%' uchl.del <- fit.del.models('uchl.log10')
+%' 
+%' # ## Test by hand with S100B
+%' # s100b.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3) + rcs(age.enroll, 3):rcs(s100b.log10, 3) + rcs(il6.log10, 3):rcs(s100b.log10, 3)"
+%' # del.s100b.full <- with(mice.del, glm.nb(formula = as.formula(s100b.full.formula)))
+%' # 
+%' # ## Test nonlinear terms
+%' # s100b.lin.formula <- "del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.enroll + il6.log10 + s100b.log10 + age.enroll:s100b.log10 + il6.log10:s100b.log10"
+%' # del.s100b.lin <- with(mice.del, glm.nb(formula = as.formula(s100b.lin.formula)))
+%' # pool.compare(del.s100b.full, del.s100b.lin, method = use.method, data = mice.del)$pvalue
+%' # s100b.del$p.nonlin
+%' # 
+%' # ## Nonlinear terms necessary; test interaction terms
+%' # s100b.noint.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3)"
+%' # del.s100b.noint <- with(mice.del, glm.nb(formula = as.formula(s100b.noint.formula)))
+%' # pool.compare(del.s100b.full, del.s100b.noint, method = use.method, data = mice.del)$pvalue
+%' # s100b.del$p.int
+%' # 
+%' # ## Interaction nonsignificant; test overall p-value for S100B
+%' # pool.compare(del.s100b.noint, nomark.del.mod.nonlin, method = use.method, data = mice.del)$pvalue
+%' # s100b.del$p.marker
+%' 
+%' ## -- Create graphics for delirium models ----------------------------------------------------------
+%' nb.figures <- function(miceobj, xvar, xstring, ystring){
+%'   if(miceobj$p.int > 0.20){
+%'     return(list('fig' = plot.nb.results(nbobj = miceobj,
+%'                                         xvar = xvar,
+%'                                         xstring = xstring,
+%'                                         ystring = ystring),
+%'                 'height' =  4,
+%'                 'layoutmat' = matrix(1, ncol = 1)))
+%'   } else{
+%'     fig1 <- plot.nb.results(nbobj = miceobj, xvar = xvar,
+%'                             intvar = 'age.enroll', intvals = intvals.age,
+%'                             intstring = 'Age', intp = miceobj$p.int.age,
+%'                             xstring = xstring, ystring = ystring)
+%'     fig2 <- plot.nb.results(nbobj = miceobj, xvar = xvar,
+%'                             intvar = 'il6.log10', intvals = intvals.il6,
+%'                             intstring = 'Log10(IL-6)', intp = miceobj$p.int.il6,
+%'                             xstring = xstring, ystring = ystring)
+%'     
+%'     return(list('fig' = list(fig1, fig2),
+%'                 'height' = 8,
+%'                 'layoutmat' = matrix(1:2, ncol = 1)))
+%'   }
+%' }
+%' 
+%' bdnf.del.fig <-
+%'   nb.figures(miceobj = bdnf.del, xvar = 'bdnf.log10', xstring = 'BDNF', ystring = 'Days of Delirium')
+%' esel.del.fig <-
+%'   nb.figures(miceobj = esel.del, xvar = 'esel.log10', xstring = 'E-Selectin', ystring = 'Days of Delirium')
+%' pai1.del.fig <-
+%'   nb.figures(miceobj = pai1.del, xvar = 'pai1.log10', xstring = 'PAI-1', ystring = 'Days of Delirium')
+%' s100b.del.fig <-
+%'   nb.figures(miceobj = s100b.del, xvar = 's100b.log10', xstring = 'S100B', ystring = 'Days of Delirium')
+%' uchl.del.fig <-
+%'   nb.figures(miceobj = uchl.del, xvar = 'uchl.log10', xstring = 'UCHL', ystring = 'Days of Delirium')
+%' 
+%' pdf(file = 'bdnf_del_results.pdf', width = 8, height = bdnf.del.fig$height)
+%' multiplot(bdnf.del.fig$fig, layout = bdnf.del.fig$layoutmat)
+%' dev.off()
+%' 
+%' pdf(file = 'esel_del_results.pdf', width = 8, height = esel.del.fig$height)
+%' multiplot(esel.del.fig$fig, layout = esel.del.fig$layoutmat)
+%' dev.off()
+%' 
+%' pdf(file = 'pai1_del_results.pdf', width = 8, height = pai1.del.fig$height)
+%' multiplot(plotlist = pai1.del.fig$fig, layout = pai1.del.fig$layoutmat)
+%' dev.off()
+%' 
+%' pdf(file = 's100b_del_results.pdf', width = 8, height = s100b.del.fig$height)
+%' multiplot(s100b.del.fig$fig, layout = s100b.del.fig$layoutmat)
+%' dev.off()
+%' 
+%' pdf(file = 'uchl_del_results.pdf', width = 8, height = uchl.del.fig$height)
+%' multiplot(uchl.del.fig$fig, layout = uchl.del.fig$layoutmat)
+%' dev.off()
+%' 
+%' @
+%' 
+%' \subsection{BDNF vs. Days of Delirium}
+%' We see no association between log10(BDNF) at baseline and with delirium duration while in the
+%' hospital.
+%' 
+%' \begin{figure}[!h]
+%' {\centering\includegraphics{bdnf_del_results.pdf}}
+%' \caption{Log10(BDNF) vs. Delirium Duration}\label{fig:bdnfdel}
+%' \end{figure}
+%' 
+%' \clearpage
+%' \subsection{E-Selectin vs. Days of Delirium}
+%' We see no association between log(E-selectin) at baseline and with delirium duration while in the
+%' hospital.
+%' 
+%' \begin{figure}[!h]
+%' {\centering\includegraphics{esel_del_results.pdf}}
+%' \caption{Log10(E-Selectin) vs. Delirium Duration}\label{fig:eseldel}
+%' \end{figure}
+%' 
+%' \clearpage
+%' \subsection{PAI-1 vs. Days of Delirium}
+%' The overall association between log10(PAI-1) and delirium duration is nonsignificant. It is
+%' possible that there is a mild association modified by age at enrollment, such that among younger
+%' patients, higher log10(PAI-1) is predictive of fewer delirium days, but this association gets
+%' weaker as patient age increases.
+%' 
+%' Since the overall p-value for interaction met our cutoff of \Sexpr{pcutoff}, the final model also
+%' includes an interaction with log10(IL-6); however, as seen in the figure, any association between
+%' log10(PAI-1) and delirium duration does not seem to be substantially modified by systemic
+%' inflammation.
+%' 
+%' \begin{figure}[!h]
+%' {\centering\includegraphics{pai1_del_results.pdf}}
+%' \caption{Log10(PAI-1) vs. Delirium Duration}\label{fig:pai1del}
+%' \end{figure}
+%' 
+%' \clearpage
+%' \subsection{S100B vs. Days of Delirium}
+%' We see no association between log(S100B) at baseline and with delirium duration while in the
+%' hospital.
+%' 
+%' \begin{figure}[!h]
+%' {\centering\includegraphics{s100b_del_results.pdf}}
+%' \caption{Log10(S100B) vs. Delirium Duration}\label{fig:s100bdel}
+%' \end{figure}
+%' 
+%' \clearpage
+%' \subsection{UCHL vs. Days of Delirium}
+%' UCHL at baseline does show a meaningful association with days of delirium. This association is not
+%' significantly nonlinear, so we can say that higher log10(UCHL) at study enrollment is nearly
+%' significantly associated with fewer days of delirium. This association is not modified by age or
+%' systemic inflammation (IL-6).
+%' 
+%' \begin{figure}[!h]
+%' {\centering\includegraphics{uchl_del_results.pdf}}
+%' \caption{Log10(UCHL) vs. Delirium Duration}\label{fig:uchldel}
+%' \end{figure}
 
-nomark.del.mod.lin <- with(mice.del,
-                           glm.nb(del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk +
-                                    apache.aps + cvsofa.day1 + sevsepsis.day1 + age.enroll +
-                                    il6.log10))
 
-## -- Fit delirium models ---------------------------------------------------------------------------
-## Formula for full delirium model, subbing "markervar" in place of actual biomarker variable
-del.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(markervar, 3) + rcs(age.enroll, 3):rcs(markervar, 3) + rcs(il6.log10, 3):rcs(markervar, 3)"
 
-fit.del.models <- function(marker){
-  fit.nb.models(use.marker = marker, mice.obj = 'mice.del', formula.full = del.full.formula)
+
+
+
+
+
+
+
+
+
+
+
+\section{Endothelial/BBB Injury Markers vs. Katz ADL}
+
+To examine the association between endothelial/BBB injury at study enrollment and Katz ADL scores
+at 3- and 12-month followup, we used zero-inflated negative binomial regression, adjusting for the
+following covariates on the count side of the model:
+\begin{itemize}
+\item Charlson score
+\item Years of education
+\item Katz ADL at enrollment (divided by 10)
+% \item FAQ at enrollment
+\item IQCODE score
+\item Framingham stroke risk score
+\item Mean daily modified SOFA (no GCS) during ICU stay
+\item Duration of severe sepsis
+\item Duration of delirium
+\item Duration of coma
+\end{itemize}
+
+On the zero-inflation side of the model, we included age / 10, Charlson score, ADL at enrollment,
+and mean modified SOFA in the ICU. Age was divided by ten in order to make the coefficient easier
+to distinguish from zero; this was proving to be a computational issue in models using the original
+scale.
+
+(Based on previous analyses, we do not believe assumptions for either linear or proportional odds
+logistic regression would be met adequately. We also looked at negative binomial regression, but
+inconsistent results and the Vuong test both indicated that zero-inflated models are better fits
+for this outcome.)
+
+We allowed all continuous variables to have a nonlinear association with delirium duration using
+restricted cubic splines, with the exception of ADL at baseline, which has a distribution that is too skewed to allow this. We allowed for potential interactions between endothelial/BBB markers
+and both systemic inflammation (log10(IL-6)) on study day 1 and age at study enrollment. If either
+the global p-value for nonlinearity and/or the global p-value for interactions were clearly
+nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the
+final model for parsimony. All biomarkers are transformed using the log10 transformation in order
+to improve model fit and reduce the influence of extremely high values. All p-values are calculated
+using the \Sexpr{use.method} method.
+
+% We used multiple imputation to reduce bias from missing covariates.
+
+For models where interaction terms are kept in the final model, the association of the biomarker is
+shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable.
+
+<<adlmodels>>=
+## Formulas for full ADL models, subbing "markervar" in place of actual biomarker variable
+adl.righthand <- "rcs(charlson.score, 3) + rcs(edu, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + adl.e + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(markervar, 3) + rcs(age.div10, 3):rcs(markervar, 3) + rcs(il6.log10, 3):rcs(markervar, 3) | rcs(age.div10, 3) + rcs(charlson.score, 3) + adl.e + rcs(mean.modsofa.icu, 3)"
+
+adl.full.formula.3 <- paste("adl.totscore.3 ~", adl.righthand)
+adl.full.formula.12 <- paste("adl.totscore.12 ~", adl.righthand)
+
+## -- Fit 3-month ADL models -----------------------------------------------------------------------
+fit.adl.models.3 <- function(marker){
+  fit.zeroinfl.models(use.marker = marker,
+                      formula.full = adl.full.formula.3,
+                      dataset = endo.data)
 }
-bdnf.del <- fit.del.models('bdnf.log10')
-esel.del <- fit.del.models('esel.log10')
-pai1.del <- fit.del.models('pai1.log10')
-s100b.del <- fit.del.models('s100b.log10')
-uchl.del <- fit.del.models('uchl.log10')
+bdnf.adl.3 <- fit.adl.models.3('bdnf.log10')
+esel.adl.3 <- fit.adl.models.3('esel.log10')
+pai1.adl.3 <- fit.adl.models.3('pai1.log10')
+s100b.adl.3 <- fit.adl.models.3('s100b.log10')
+uchl.adl.3 <- fit.adl.models.3('uchl.log10')
 
-# ## Test by hand with S100B
-# s100b.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3) + rcs(age.enroll, 3):rcs(s100b.log10, 3) + rcs(il6.log10, 3):rcs(s100b.log10, 3)"
-# del.s100b.full <- with(mice.del, glm.nb(formula = as.formula(s100b.full.formula)))
+# ## Test BDNF by hand to make sure
+# endo.data.adl.bdnf.3 <-
+#   endo.data[rowSums(is.na(endo.data[,c('adl.totscore.3', 'charlson.score', 'edu', 'iqcode.score.e',
+#                                        'stroke.risk', 'mean.modsofa.icu', 'icudays.sevseptic.s',
+#                                        'del.s.imp', 'coma.s.imp', 'age.div10', 'il6.log10',
+#                                        'bdnf.log10')])) == 0,]
+# bdnf.org <- zeroinfl(adl.totscore.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                         rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + adl.e +
+#                         rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) +
+#                         rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(il6.log10, 3) +
+#                         rcs(bdnf.log10, 3) + rcs(age.div10, 3):rcs(bdnf.log10, 3) +
+#                         rcs(il6.log10, 3):rcs(bdnf.log10, 3) |
+#                        rcs(age.div10, 3) + rcs(charlson.score, 3) + adl.e +
+#                         rcs(mean.modsofa.icu, 3),
+#                      dist = 'negbin',
+#                      data = endo.data.adl.bdnf.3)
 # 
-# ## Test nonlinear terms
-# s100b.lin.formula <- "del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.enroll + il6.log10 + s100b.log10 + age.enroll:s100b.log10 + il6.log10:s100b.log10"
-# del.s100b.lin <- with(mice.del, glm.nb(formula = as.formula(s100b.lin.formula)))
-# pool.compare(del.s100b.full, del.s100b.lin, method = use.method, data = mice.del)$pvalue
-# s100b.del$p.nonlin
+# ## Linear terms
+# bdnf.lin <- zeroinfl(adl.totscore.3 ~ charlson.score + edu + iqcode.score.e + stroke.risk + adl.e +
+#                         mean.modsofa.icu + icudays.sevseptic.s + del.s.imp + coma.s.imp +
+#                         age.div10 + il6.log10 + bdnf.log10 + age.div10:bdnf.log10 +
+#                         il6.log10:bdnf.log10 |
+#                        age.div10 + charlson.score + adl.e + mean.modsofa.icu,
+#                      dist = 'negbin',
+#                      data = endo.data.adl.bdnf.3)
 # 
-# ## Nonlinear terms necessary; test interaction terms
-# s100b.noint.formula <- "del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3)"
-# del.s100b.noint <- with(mice.del, glm.nb(formula = as.formula(s100b.noint.formula)))
-# pool.compare(del.s100b.full, del.s100b.noint, method = use.method, data = mice.del)$pvalue
-# s100b.del$p.int
+# lmtest::lrtest(bdnf.org, bdnf.lin)
+# bdnf.adl.3$p.nonlin
 # 
-# ## Interaction nonsignificant; test overall p-value for S100B
-# pool.compare(del.s100b.noint, nomark.del.mod.nonlin, method = use.method, data = mice.del)$pvalue
-# s100b.del$p.marker
+# ## Nonlinear terms needed; test for interactions
+# bdnf.noint <- zeroinfl(adl.totscore.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                         rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + adl.e +
+#                         rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) +
+#                         rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(il6.log10, 3) +
+#                         rcs(bdnf.log10, 3) |
+#                        rcs(age.div10, 3) + rcs(charlson.score, 3) + adl.e +
+#                         rcs(mean.modsofa.icu, 3),
+#                      dist = 'negbin',
+#                      data = endo.data.adl.bdnf.3)
+# lmtest::lrtest(bdnf.org, bdnf.noint)
+# bdnf.adl.3$p.int
+# 
+# ## Interaction terms needed; test for age and IL-6 separately
+# bdnf.noage <- zeroinfl(adl.totscore.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                         rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + adl.e +
+#                         rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) +
+#                         rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(il6.log10, 3) +
+#                         rcs(bdnf.log10, 3) + rcs(il6.log10, 3):rcs(bdnf.log10, 3) |
+#                        rcs(age.div10, 3) + rcs(charlson.score, 3) + adl.e +
+#                         rcs(mean.modsofa.icu, 3),
+#                      dist = 'negbin',
+#                      data = endo.data.adl.bdnf.3)
+# lmtest::lrtest(bdnf.org, bdnf.noage)
+# bdnf.adl.3$p.int.age
+# 
+# bdnf.noil6 <- zeroinfl(adl.totscore.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                         rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + adl.e +
+#                         rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) +
+#                         rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(il6.log10, 3) +
+#                         rcs(bdnf.log10, 3) + rcs(age.div10, 3):rcs(bdnf.log10, 3) |
+#                        rcs(age.div10, 3) + rcs(charlson.score, 3) + adl.e +
+#                         rcs(mean.modsofa.icu, 3),
+#                      dist = 'negbin',
+#                      data = endo.data.adl.bdnf.3)
+# lmtest::lrtest(bdnf.org, bdnf.noil6)
+# bdnf.adl.3$p.int.il6
+# 
+# ## Test for biomarker
+# bdnf.nomark <- zeroinfl(adl.totscore.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                         rcs(iqcode.score.e, 3) + rcs(stroke.risk, 3) + adl.e +
+#                         rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) +
+#                         rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(il6.log10, 3) |
+#                        rcs(age.div10, 3) + rcs(charlson.score, 3) + adl.e +
+#                         rcs(mean.modsofa.icu, 3),
+#                      dist = 'negbin',
+#                      data = endo.data.adl.bdnf.3)
+# lmtest::lrtest(bdnf.org, bdnf.nomark)
+# bdnf.adl.3$p.marker
 
-## -- Create graphics for delirium models ----------------------------------------------------------
-nb.figures <- function(miceobj, xvar, xstring, ystring){
-  if(miceobj$p.int > 0.20){
-    return(list('fig' = plot.nb.results(nbobj = miceobj,
-                                        xvar = xvar,
-                                        xstring = xstring,
-                                        ystring = ystring),
-                'height' =  4,
-                'layoutmat' = matrix(1, ncol = 1)))
-  } else{
-    fig1 <- plot.nb.results(nbobj = miceobj, xvar = xvar,
-                            intvar = 'age.enroll', intvals = intvals.age,
-                            intstring = 'Age', intp = miceobj$p.int.age,
-                            xstring = xstring, ystring = ystring)
-    fig2 <- plot.nb.results(nbobj = miceobj, xvar = xvar,
-                            intvar = 'il6.log10', intvals = intvals.il6,
-                            intstring = 'Log10(IL-6)', intp = miceobj$p.int.il6,
-                            xstring = xstring, ystring = ystring)
-    
-    return(list('fig' = list(fig1, fig2),
-                'height' = 8,
-                'layoutmat' = matrix(1:2, ncol = 1)))
-  }
+
+## -- Fit 12-month ADL models ----------------------------------------------------------------------
+fit.adl.models.12 <- function(marker){
+  fit.zeroinfl.models(use.marker = marker,
+                      formula.full = adl.full.formula.12,
+                      dataset = endo.data)
 }
+bdnf.adl.12 <- fit.adl.models.12('bdnf.log10')
+esel.adl.12 <- fit.adl.models.12('esel.log10')
+pai1.adl.12 <- fit.adl.models.12('pai1.log10')
+s100b.adl.12 <- fit.adl.models.12('s100b.log10')
+uchl.adl.12 <- fit.adl.models.12('uchl.log10')
 
-bdnf.del.fig <-
-  nb.figures(miceobj = bdnf.del, xvar = 'bdnf.log10', xstring = 'BDNF', ystring = 'Days of Delirium')
-esel.del.fig <-
-  nb.figures(miceobj = esel.del, xvar = 'esel.log10', xstring = 'E-Selectin', ystring = 'Days of Delirium')
-pai1.del.fig <-
-  nb.figures(miceobj = pai1.del, xvar = 'pai1.log10', xstring = 'PAI-1', ystring = 'Days of Delirium')
-s100b.del.fig <-
-  nb.figures(miceobj = s100b.del, xvar = 's100b.log10', xstring = 'S100B', ystring = 'Days of Delirium')
-uchl.del.fig <-
-  nb.figures(miceobj = uchl.del, xvar = 'uchl.log10', xstring = 'UCHL', ystring = 'Days of Delirium')
-
-pdf(file = 'bdnf_del_results.pdf', width = 8, height = bdnf.del.fig$height)
-multiplot(bdnf.del.fig$fig, layout = bdnf.del.fig$layoutmat)
-dev.off()
-
-pdf(file = 'esel_del_results.pdf', width = 8, height = esel.del.fig$height)
-multiplot(esel.del.fig$fig, layout = esel.del.fig$layoutmat)
-dev.off()
-
-pdf(file = 'pai1_del_results.pdf', width = 8, height = pai1.del.fig$height)
-multiplot(plotlist = pai1.del.fig$fig, layout = pai1.del.fig$layoutmat)
-dev.off()
-
-pdf(file = 's100b_del_results.pdf', width = 8, height = s100b.del.fig$height)
-multiplot(s100b.del.fig$fig, layout = s100b.del.fig$layoutmat)
-dev.off()
-
-pdf(file = 'uchl_del_results.pdf', width = 8, height = uchl.del.fig$height)
-multiplot(uchl.del.fig$fig, layout = uchl.del.fig$layoutmat)
-dev.off()
 
 @
 
-\subsection{BDNF vs. Days of Delirium}
-We see no association between log10(BDNF) at baseline and with delirium duration while in the
-hospital.
+%' \subsection{BDNF vs. Days of Delirium}
+%' We see no association between log10(BDNF) at baseline and with delirium duration while in the
+%' hospital.
+%' 
+%' \begin{figure}[!h]
+%' {\centering\includegraphics{bdnf_del_results.pdf}}
+%' \caption{Log10(BDNF) vs. Delirium Duration}\label{fig:bdnfdel}
+%' \end{figure}
+%' 
+%' \clearpage
+%' \subsection{E-Selectin vs. Days of Delirium}
+%' We see no association between log(E-selectin) at baseline and with delirium duration while in the
+%' hospital.
+%' 
+%' \begin{figure}[!h]
+%' {\centering\includegraphics{esel_del_results.pdf}}
+%' \caption{Log10(E-Selectin) vs. Delirium Duration}\label{fig:eseldel}
+%' \end{figure}
+%' 
+%' \clearpage
+%' \subsection{PAI-1 vs. Days of Delirium}
+%' The overall association between log10(PAI-1) and delirium duration is nonsignificant. It is
+%' possible that there is a mild association modified by age at enrollment, such that among younger
+%' patients, higher log10(PAI-1) is predictive of fewer delirium days, but this association gets
+%' weaker as patient age increases.
+%' 
+%' Since the overall p-value for interaction met our cutoff of \Sexpr{pcutoff}, the final model also
+%' includes an interaction with log10(IL-6); however, as seen in the figure, any association between
+%' log10(PAI-1) and delirium duration does not seem to be substantially modified by systemic
+%' inflammation.
+%' 
+%' \begin{figure}[!h]
+%' {\centering\includegraphics{pai1_del_results.pdf}}
+%' \caption{Log10(PAI-1) vs. Delirium Duration}\label{fig:pai1del}
+%' \end{figure}
+%' 
+%' \clearpage
+%' \subsection{S100B vs. Days of Delirium}
+%' We see no association between log(S100B) at baseline and with delirium duration while in the
+%' hospital.
+%' 
+%' \begin{figure}[!h]
+%' {\centering\includegraphics{s100b_del_results.pdf}}
+%' \caption{Log10(S100B) vs. Delirium Duration}\label{fig:s100bdel}
+%' \end{figure}
+%' 
+%' \clearpage
+%' \subsection{UCHL vs. Days of Delirium}
+%' UCHL at baseline does show a meaningful association with days of delirium. This association is not
+%' significantly nonlinear, so we can say that higher log10(UCHL) at study enrollment is nearly
+%' significantly associated with fewer days of delirium. This association is not modified by age or
+%' systemic inflammation (IL-6).
+%' 
+%' \begin{figure}[!h]
+%' {\centering\includegraphics{uchl_del_results.pdf}}
+%' \caption{Log10(UCHL) vs. Delirium Duration}\label{fig:uchldel}
+%' \end{figure}
 
-\begin{figure}[!h]
-{\centering\includegraphics{bdnf_del_results.pdf}}
-\caption{Log10(BDNF) vs. Delirium Duration}\label{fig:bdnfdel}
-\end{figure}
 
-\clearpage
-\subsection{E-Selectin vs. Days of Delirium}
-We see no association between log(E-selectin) at baseline and with delirium duration while in the
-hospital.
 
-\begin{figure}[!h]
-{\centering\includegraphics{esel_del_results.pdf}}
-\caption{Log10(E-Selectin) vs. Delirium Duration}\label{fig:eseldel}
-\end{figure}
 
-\clearpage
-\subsection{PAI-1 vs. Days of Delirium}
-The overall association between log10(PAI-1) and delirium duration is nonsignificant. It is
-possible that there is a mild association modified by age at enrollment, such that among younger
-patients, higher log10(PAI-1) is predictive of fewer delirium days, but this association gets
-weaker as patient age increases.
 
-Since the overall p-value for interaction met our cutoff of \Sexpr{pcutoff}, the final model also
-includes an interaction with log10(IL-6); however, as seen in the figure, any association between
-log10(PAI-1) and delirium duration does not seem to be substantially modified by systemic
-inflammation.
 
-\begin{figure}[!h]
-{\centering\includegraphics{pai1_del_results.pdf}}
-\caption{Log10(PAI-1) vs. Delirium Duration}\label{fig:pai1del}
-\end{figure}
 
-\clearpage
-\subsection{S100B vs. Days of Delirium}
-We see no association between log(S100B) at baseline and with delirium duration while in the
-hospital.
-
-\begin{figure}[!h]
-{\centering\includegraphics{s100b_del_results.pdf}}
-\caption{Log10(S100B) vs. Delirium Duration}\label{fig:s100bdel}
-\end{figure}
-
-\clearpage
-\subsection{UCHL vs. Days of Delirium}
-UCHL at baseline does show a meaningful association with days of delirium. This association is not
-significantly nonlinear, so we can say that higher log10(UCHL) at study enrollment is nearly
-significantly associated with fewer days of delirium. This association is not modified by age or
-systemic inflammation (IL-6).
-
-\begin{figure}[!h]
-{\centering\includegraphics{uchl_del_results.pdf}}
-\caption{Log10(UCHL) vs. Delirium Duration}\label{fig:uchldel}
-\end{figure}
 
 \clearpage
 \section{Technical Details}
