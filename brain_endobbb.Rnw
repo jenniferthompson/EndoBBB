@@ -402,6 +402,10 @@ marker.hist(marker.hist.data.log10, xlabel = 'Endothelial Marker Value, Log10 Sc
 @
 
 <<analysisprep>>=
+## Get values to interact for age, IL-6
+intvals.age <- quantile(endo.data[,'age.enroll'], probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)
+intvals.il6 <- quantile(endo.data[,'il6.log10'], probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)
+
 ## Function to format and round number to the same number of digits
 rndformat <- function(val, digits = 2){
   format(round(val, digits), nsmall = digits, big.mark = ',')
@@ -714,109 +718,112 @@ get.med.spline <- function(varname){
   calc.spline(startval, k1 = useknots[1], k2 = useknots[2], k3 = useknots[3])
 }
 
+## Function to get 2.5th, 97.5th percentiles
+get.ci <- function(x){ quantile(x, probs = c(0.025, 0.975), na.rm = TRUE) }
+
 ## -- Function to create design matrix given a mice model object, X and interacting variables ------
 catvars <- "sevsepsis.day1"
-create.designmat.mice <- function(miceobj,              ## mice model object
+# create.designmat.mice <- function(miceobj,              ## mice model object
+#                                   xvar,                 ## string; variable for x axis
+#                                   intvar = NULL,        ## string; variable to interact
+#                                   intvals = NULL,       ## vector; values to set int. variable to
+#                                   dataset = endo.data){ ## data frame to get unique X values from
+# 
+#   ## miceobj must be of class mice
+#   if(length(grep('mira', class(miceobj))) == 0){
+#     stop('miceobj must be of class mira from mice library')
+#   } else if(!is.null(intvar) & length(grep(':', names(miceobj$analyses[[1]]$coefficients))) == 0){
+#     stop('Interacting variable is specified, but model does not include interaction terms')
+#   } else if(!is.null(intvar) & is.null(intvals)){
+#     stop('Interacting variable is specified, but no interacting values are specified')
+#   } else{
+# 
+#     ## Get coefficient names. Categorical variables have a number on the end; strip that, "rcs(...)"
+#     coefnames <- unlist(lapply(names(miceobj$analyses[[1]]$coefficients),
+#                                FUN = function(x){
+#                                  tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
+#                                  tmp2 <- gsub('.$', '', x)
+#                                  if(tmp2 %in% catvars){ tmp2 } else{ tmp1 }
+#                                }))
+#     
+#     ## Get unique values of variable on X axis
+#     xvals <- sort(unique(dataset[,xvar]))
+#     xknots <- rcspline.eval(xvals, nk = 3, knots.only = TRUE)
+#     xvals <- xvals[xvals >= xknots[1] & xvals <= xknots[3]]
+#     if(length(grep(paste0(xvar, "'"), coefnames)) > 0){
+#       xvals.spline <- unlist(lapply(xvals,
+#                                     FUN = calc.spline,
+#                                     k1 = xknots[1], k2 = xknots[2], k3 = xknots[3]))
+#     }
+#     
+#     ## Set values for all non-interaction columns
+#     coefs.noint <- coefnames[grep(':', coefnames, invert = TRUE)]
+#     coefs.int <- coefnames[grep(':', coefnames)]
+# 
+#     predmat.noint <- do.call(cbind,
+#                          lapply(coefs.noint, FUN = function(name){
+#                            if(name == '(Intercept)'){
+#                              rep(1, length(xvals))
+#                            } else if(name == xvar){
+#                              xvals
+#                            } else if(name == paste0(xvar, "'")){
+#                              xvals.spline
+#                            } else if(name %in% c(intvar, paste0(intvar, "'"))){
+#                              rep(NA, length(xvals))
+#                            } else if(name %in% catvars){
+#                              rep(0, length(xvals))
+#                            } else if(length(grep("'", name)) == 0){
+#                              get.med(name)
+#                            } else{
+#                              get.med.spline(gsub('.$', '', name))
+#                            }
+#                          }))
+#     colnames(predmat.noint) <- coefs.noint
+# 
+#     ## If there is an interacting variable, repeat predmat.noint x number of unique values, then
+#     ##  fill in NA columns with unique values
+#     if(!is.null(intvar)){
+#       predmat.noint <- do.call(rbind,
+#                                replicate(length(intvals), predmat.noint, simplify = FALSE))
+#       predmat.noint[,intvar] <- unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
+# 
+#       ## If interacting variable is nonlinear, determine knots for spline term
+#       if(length(grep(paste0(intvar, "'"), coefnames)) > 0){
+#         intknots <- rcspline.eval(dataset[,intvar], nk = 3, knots.only = TRUE)
+#         intspline <- unlist(lapply(intvals,
+#                                    FUN = calc.spline,
+#                                    k1 = intknots[1], k2 = intknots[2], k3 = intknots[3]))
+#         predmat.noint[,paste0(intvar, "'")] <-
+#           unlist(lapply(intspline, FUN = function(x){ rep(x, length(xvals)) }))
+#       }
+#     }
+# 
+#     if(length(coefs.int) > 0){
+#       predmat.int <- do.call(cbind,
+#                              lapply(coefs.int, FUN = function(name){
+#                                tmp <- strsplit(name, ':')[[1]]
+#                                predmat.noint[,tmp[1]] * predmat.noint[,tmp[2]]
+#                              }))
+#       colnames(predmat.int) <- coefs.int
+#       predmat <- cbind(predmat.noint, predmat.int)[,coefnames]
+#     } else{
+#       predmat <- predmat.noint[,coefnames]
+#     }
+#   }
+# 
+#   return(predmat)
+# 
+# }
+
+## -- Function to create design matrices for count, zero portions given a zeroinfl object, ---------
+## --  X & interacting variables -------------------------------------------------------------------
+create.designmat.zinf <- function(modobj,               ## zeroinfl model object
                                   xvar,                 ## string; variable for x axis
                                   intvar = NULL,        ## string; variable to interact
                                   intvals = NULL,       ## vector; values to set int. variable to
                                   dataset = endo.data){ ## data frame to get unique X values from
 
-  ## miceobj must be of class mice
-  if(length(grep('mira', class(miceobj))) == 0){
-    stop('miceobj must be of class mira from mice library')
-  } else if(!is.null(intvar) & length(grep(':', names(miceobj$analyses[[1]]$coefficients))) == 0){
-    stop('Interacting variable is specified, but model does not include interaction terms')
-  } else if(!is.null(intvar) & is.null(intvals)){
-    stop('Interacting variable is specified, but no interacting values are specified')
-  } else{
-
-    ## Get coefficient names. Categorical variables have a number on the end; strip that, "rcs(...)"
-    coefnames <- unlist(lapply(names(miceobj$analyses[[1]]$coefficients),
-                               FUN = function(x){
-                                 tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
-                                 tmp2 <- gsub('.$', '', x)
-                                 if(tmp2 %in% catvars){ tmp2 } else{ tmp1 }
-                               }))
-    
-    ## Get unique values of variable on X axis
-    xvals <- sort(unique(dataset[,xvar]))
-    xknots <- rcspline.eval(xvals, nk = 3, knots.only = TRUE)
-    xvals <- xvals[xvals >= xknots[1] & xvals <= xknots[3]]
-    if(length(grep(paste0(xvar, "'"), coefnames)) > 0){
-      xvals.spline <- unlist(lapply(xvals,
-                                    FUN = calc.spline,
-                                    k1 = xknots[1], k2 = xknots[2], k3 = xknots[3]))
-    }
-    
-    ## Set values for all non-interaction columns
-    coefs.noint <- coefnames[grep(':', coefnames, invert = TRUE)]
-    coefs.int <- coefnames[grep(':', coefnames)]
-
-    predmat.noint <- do.call(cbind,
-                         lapply(coefs.noint, FUN = function(name){
-                           if(name == '(Intercept)'){
-                             rep(1, length(xvals))
-                           } else if(name == xvar){
-                             xvals
-                           } else if(name == paste0(xvar, "'")){
-                             xvals.spline
-                           } else if(name %in% c(intvar, paste0(intvar, "'"))){
-                             rep(NA, length(xvals))
-                           } else if(name %in% catvars){
-                             rep(0, length(xvals))
-                           } else if(length(grep("'", name)) == 0){
-                             get.med(name)
-                           } else{
-                             get.med.spline(gsub('.$', '', name))
-                           }
-                         }))
-    colnames(predmat.noint) <- coefs.noint
-
-    ## If there is an interacting variable, repeat predmat.noint x number of unique values, then
-    ##  fill in NA columns with unique values
-    if(!is.null(intvar)){
-      predmat.noint <- do.call(rbind,
-                               replicate(length(intvals), predmat.noint, simplify = FALSE))
-      predmat.noint[,intvar] <- unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
-
-      ## If interacting variable is nonlinear, determine knots for spline term
-      if(length(grep(paste0(intvar, "'"), coefnames)) > 0){
-        intknots <- rcspline.eval(dataset[,intvar], nk = 3, knots.only = TRUE)
-        intspline <- unlist(lapply(intvals,
-                                   FUN = calc.spline,
-                                   k1 = intknots[1], k2 = intknots[2], k3 = intknots[3]))
-        predmat.noint[,paste0(intvar, "'")] <-
-          unlist(lapply(intspline, FUN = function(x){ rep(x, length(xvals)) }))
-      }
-    }
-
-    if(length(coefs.int) > 0){
-      predmat.int <- do.call(cbind,
-                             lapply(coefs.int, FUN = function(name){
-                               tmp <- strsplit(name, ':')[[1]]
-                               predmat.noint[,tmp[1]] * predmat.noint[,tmp[2]]
-                             }))
-      colnames(predmat.int) <- coefs.int
-      predmat <- cbind(predmat.noint, predmat.int)[,coefnames]
-    } else{
-      predmat <- predmat.noint[,coefnames]
-    }
-  }
-
-  return(predmat)
-
-}
-
-## -- Function to create design matrices for count, zero portions given a zeroinfl object, ---------
-## --  X & interacting variables -------------------------------------------------------------------
-create.designmat.zinfl <- function(modobj,               ## zeroinfl model object
-                                   xvar,                 ## string; variable for x axis
-                                   intvar = NULL,        ## string; variable to interact
-                                   intvals = NULL,       ## vector; values to set int. variable to
-                                   dataset = endo.data){ ## data frame to get unique X values from
-
-  ## miceobj must be of class mice
+  ## miceobj must be of class zeroinfl
   if(length(grep('zeroinfl', class(modobj))) == 0){
     stop('modobj must be of class zeroinfl from pscl library')
   } else if(!is.null(intvar) & length(grep(':', names(coef(modobj)))) == 0){
@@ -888,13 +895,17 @@ create.designmat.zinfl <- function(modobj,               ## zeroinfl model objec
     if(!is.null(intvar)){
       predmat.noint.c <-
         do.call(rbind, replicate(length(intvals), predmat.noint.c, simplify = FALSE))
-      predmat.noint.c[,intvar] <-
-        unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
+      if(intvar %in% colnames(predmat.noint.c)){
+        predmat.noint.c[,intvar] <-
+          unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
+      }
 
       predmat.noint.z <-
         do.call(rbind, replicate(length(intvals), predmat.noint.z, simplify = FALSE))
-      predmat.noint.z[,intvar] <-
-        unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
+      if(intvar %in% colnames(predmat.noint.z)){
+        predmat.noint.z[,intvar] <-
+          unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
+      }
 
       ## If interacting variable is nonlinear, determine knots for spline term
       if(length(grep(paste0(intvar, "'"), coefnames)) > 0){
@@ -944,111 +955,193 @@ create.designmat.zinfl <- function(modobj,               ## zeroinfl model objec
 
 }
 
-## -- Function to, for each row in design matrix, calculate predicted value & SE from pooled results
-calc.nbresults <- function(micemod,        ## mice model object (unpooled)
-                           designmat,      ## matrix of covariate values; ncols = coefs in micemod
-                           xvar,           ## character string: name of variable to put on X axis
-                           intvar = NULL){ ## character string: name of interacting variable  
+## -- Function to get predicted response values from a zero-inflated NB model ----------------------
+zinf.response <- function(modobj, design.zinf){
+  ## Get coefficient estimates from modobj, split into count and zero portions
+  mod.coefs <- coef(modobj)
+  coefs.c <- mod.coefs[grep('^count_', names(mod.coefs))]
+  coefs.z <- mod.coefs[grep('^zero_', names(mod.coefs))]
 
-  if(ncol(designmat) != length(micemod$analyses[[1]]$coefficients)){
-    stop("Number of columns in design matrix does not match number of coefficients in mice object")
-  } else if(xvar %nin% colnames(designmat)){
-    stop("X axis variable name not in column names of design matrix")
-  } else{
-    ## Pool model results, get coefficients and vcov matrix
-    pooled.mod <- pool(micemod)
-    pooled.coefs <- pooled.mod$qbar
-    pooled.vcov <- pooled.mod$ubar
-    
-    ## Calculate linear predictors and their SEs
-    lp <- apply(designmat, MARGIN = 1, FUN = function(x){ sum(pooled.coefs * as.numeric(x)) })
-    lp.se <- apply(designmat, MARGIN = 1, FUN = function(x){ sqrt(t(x) %*% pooled.vcov %*% x) })
-    
-    ## Calculate LCL, UCLs for linear predictors
-    lp.lcl <- lp - qnorm(0.975)*lp.se
-    lp.ucl <- lp + qnorm(0.975)*lp.se
-    
-    ## Calculate predicted counts, CIs as exp(quantities)
-    count.pe <- exp(lp)
-    count.lcl <- exp(lp.lcl)
-    count.ucl <- exp(lp.ucl)
-    
-    ## Bind all results into data frame for plotting
-    xvalue <- designmat[,xvar]
-    if(!is.null(intvar)){
-      intvalue <- designmat[,intvar]
-      return(as.data.frame(cbind(xvalue, intvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
-    } else{
-      return(as.data.frame(cbind(xvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
-    }
-  }
+  ## Get linear predictors for count, zero portions
+  lp.c <- apply(design.zinf$predmat.c,
+                MARGIN = 1,
+                FUN = function(x){ sum(x * coefs.c) })
+  lp.z <- apply(design.zinf$predmat.z,
+                MARGIN = 1,
+                FUN = function(x){ sum(x * coefs.z) })
+
+  ## Get point estimates for each unique value of marker
+  ## exp(LPc) * (1 - (exp(LPz) / (1 + exp(LPz))))
+  pred.response <- exp(lp.c) * (1 - (exp(lp.z) / (1 + exp(lp.z))))
+  
+  pred.response
 }
 
-## Get values to interact for age, IL-6
-intvals.age <- quantile(endo.data[,'age.enroll'], probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)
-intvals.il6 <- quantile(endo.data[,'il6.log10'], probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)
-
-## -- Function to plot results of negative binomial models -----------------------------------------
-plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
-                            xvar,             ## string, name of X axis variable
-                            intvar = NULL,    ## string, name of interacting variable
-                            intvals = NULL,   ## vector, levels to set interacting variable to
-                            intstring = NULL, ## string, text for panel titles and X axis label
-                            intp = NULL,      ## number, p-value for specific interaction
-                            xstring,          ## string, label of X axis variable
-                            ystring){         ## string, label of outcome
-
-  if(length(grep('final\\.mod', names(nbobj))) == 0){
-    stop("Argument nbobj should be a result of fit.nb.models()")
-  } else if(!is.null(intvar) &
-            length(grep(':', names(nbobj$final.mod$analyses[[1]]$coefficients))) == 0){
-    stop('Interacting variable is specified, but model does not include interaction terms')
-  } else if(!is.null(intvar) & is.null(intvals)){
-    stop('Interacting variable is specified, but no interacting values are specified')
+## -- Function to get data sets of predicted values for plotting zero-inflated NB models -----------
+zinf.plotdata <- function(modobj, xvar, bootdata){
+  ## Does model include age/IL-6 interactions?
+  intmod <- (length(grep(':', modobj$call)) > 0)
+  
+  ## Step 1: Create design matrices
+  if(intmod){
+    intvars <- c('age.div10', 'il6.log10')
+    design.age <-
+      create.designmat.zinf(modobj, xvar, intvar = 'age.div10', intvals = intvals.age / 10)
+    design.il6 <-
+      create.designmat.zinf(modobj, xvar, intvar = 'il6.log10', intvals = intvals.il6)
+    design.all <- list(design.age, design.il6)
   } else{
-    if(is.null(intvar)){
-      nb.designmat <- create.designmat.mice(miceobj = nbobj$final.mod, xvar = xvar)
-      nb.results <- calc.nbresults(micemod = nbobj$final.mod, designmat = nb.designmat, xvar = xvar)
-    } else{
-      nb.designmat <- create.designmat.mice(miceobj = nbobj$final.mod,
-                                            xvar = xvar,
-                                            intvar = intvar,
-                                            intvals = intvals)
-      
-      nb.results <- calc.nbresults(micemod = nbobj$final.mod,
-                                   designmat = nb.designmat,
-                                   xvar = xvar,
-                                   intvar = intvar)
-      
-      nb.results$intvalue.f <-
-        with(nb.results, factor(paste(intstring, '=', rndformat(intvalue, 2))))
-    }
-
-    nb.plot <- ggplot(aes(x = xvalue, y = count.pe), data = nb.results) +
-      geom_ribbon(aes(ymin = count.lcl, ymax = count.ucl), alpha = 0.3, fill = 'navy') +
-      geom_line(colour = 'navy') +
-      xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for all interactions: %s',
-                   xstring, formatp(nbobj$p.marker), formatp(nbobj$p.int))) +
-      ylab(paste('Adjusted', ystring)) +
-      theme_bw() +
-      theme(axis.title.x = element_text(vjust = 0), #face = 'bold', vjust = 0),
-            #axis.title.y = element_text(face = 'bold'),
-            axis.text = element_text(size = 7),
-            strip.text = element_text(face = 'bold'))
-    
-    if(is.null(intvar)){
-      return(nb.plot +
-               xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s',
-                            xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin), formatp(nbobj$p.int))))
-    } else{
-      return(nb.plot +
-               facet_wrap(~ intvalue.f, nrow = 1) +
-               xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s\nP for %s interaction: %s',
-                            xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin),
-                            formatp(nbobj$p.int), intstring, formatp(intp))))
-    }
+    design.all <- list(create.designmat.zinf(modobj, xvar))
   }
+  
+  ## Step 2: Get point estimates from main model for each design matrix
+  pointests <- lapply(design.all, FUN = function(dmat){
+    zinf.response(modobj, dmat)
+  })
+  
+  ## Step 3: Get predicted values for each bootstrapped data set, using model call in modobj
+  formula.final <- as.character(bdnf.adl.3$final.mod$call)[2]
+  allmods <- lapply(bootdata, FUN = function(dataset){
+    zeroinfl(formula = as.formula(formula.final),
+             dist = 'negbin',
+             data = dataset) })
+  
+  pred.all <- lapply(design.all, FUN = function(dmat){
+    do.call(cbind,
+            lapply(allmods, FUN = function(mod){
+              zinf.response(mod, dmat)
+            }))
+  })
+  
+  ## Step 4: Get CIs for each row of the design matrix
+  pred.cis <- lapply(pred.all, FUN = function(pmat){
+    t(apply(pmat, MARGIN = 1, FUN = get.ci))
+  })
+
+  ## Step 5: combine with original xvar, interacting value and point estimate
+  if(intmod){
+    pred.final <- lapply(1:length(design.all), FUN = function(dmat){
+      tmp <- as.data.frame(cbind(design.all[[dmat]]$predmat.c[,c(xvar, intvars[dmat])],
+                                 pointests[[dmat]],
+                                 pred.cis[[dmat]]))
+      names(tmp) <- c(xvar, intvars[dmat], 'pe', 'lcl', 'ucl')
+      tmp
+    })
+  } else{
+    pred.final <- lapply(1:length(design.all), FUN = function(dmat){
+      tmp <- as.data.frame(cbind(design.all[[dmat]]$predmat.c[,xvar],
+                                 pointests[[dmat]],
+                                 pred.cis[[dmat]]))
+      names(tmp) <- c(xvar, intvars[dmat], 'pe', 'lcl', 'ucl')
+      tmp
+    })
+  }
+  
+  return(pred.final)
+
 }
+
+# ## -- Function to, for each row in design matrix, calculate predicted value & SE from pooled results
+# calc.nbresults <- function(micemod,        ## mice model object (unpooled)
+#                            designmat,      ## matrix of covariate values; ncols = coefs in micemod
+#                            xvar,           ## character string: name of variable to put on X axis
+#                            intvar = NULL){ ## character string: name of interacting variable  
+# 
+#   if(ncol(designmat) != length(micemod$analyses[[1]]$coefficients)){
+#     stop("Number of columns in design matrix does not match number of coefficients in mice object")
+#   } else if(xvar %nin% colnames(designmat)){
+#     stop("X axis variable name not in column names of design matrix")
+#   } else{
+#     ## Pool model results, get coefficients and vcov matrix
+#     pooled.mod <- pool(micemod)
+#     pooled.coefs <- pooled.mod$qbar
+#     pooled.vcov <- pooled.mod$ubar
+#     
+#     ## Calculate linear predictors and their SEs
+#     lp <- apply(designmat, MARGIN = 1, FUN = function(x){ sum(pooled.coefs * as.numeric(x)) })
+#     lp.se <- apply(designmat, MARGIN = 1, FUN = function(x){ sqrt(t(x) %*% pooled.vcov %*% x) })
+#     
+#     ## Calculate LCL, UCLs for linear predictors
+#     lp.lcl <- lp - qnorm(0.975)*lp.se
+#     lp.ucl <- lp + qnorm(0.975)*lp.se
+#     
+#     ## Calculate predicted counts, CIs as exp(quantities)
+#     count.pe <- exp(lp)
+#     count.lcl <- exp(lp.lcl)
+#     count.ucl <- exp(lp.ucl)
+#     
+#     ## Bind all results into data frame for plotting
+#     xvalue <- designmat[,xvar]
+#     if(!is.null(intvar)){
+#       intvalue <- designmat[,intvar]
+#       return(as.data.frame(cbind(xvalue, intvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
+#     } else{
+#       return(as.data.frame(cbind(xvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
+#     }
+#   }
+# }
+
+# ## -- Function to plot results of negative binomial models -----------------------------------------
+# plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
+#                             xvar,             ## string, name of X axis variable
+#                             intvar = NULL,    ## string, name of interacting variable
+#                             intvals = NULL,   ## vector, levels to set interacting variable to
+#                             intstring = NULL, ## string, text for panel titles and X axis label
+#                             intp = NULL,      ## number, p-value for specific interaction
+#                             xstring,          ## string, label of X axis variable
+#                             ystring){         ## string, label of outcome
+# 
+#   if(length(grep('final\\.mod', names(nbobj))) == 0){
+#     stop("Argument nbobj should be a result of fit.nb.models()")
+#   } else if(!is.null(intvar) &
+#             length(grep(':', names(nbobj$final.mod$analyses[[1]]$coefficients))) == 0){
+#     stop('Interacting variable is specified, but model does not include interaction terms')
+#   } else if(!is.null(intvar) & is.null(intvals)){
+#     stop('Interacting variable is specified, but no interacting values are specified')
+#   } else{
+#     if(is.null(intvar)){
+#       nb.designmat <- create.designmat.mice(miceobj = nbobj$final.mod, xvar = xvar)
+#       nb.results <- calc.nbresults(micemod = nbobj$final.mod, designmat = nb.designmat, xvar = xvar)
+#     } else{
+#       nb.designmat <- create.designmat.mice(miceobj = nbobj$final.mod,
+#                                             xvar = xvar,
+#                                             intvar = intvar,
+#                                             intvals = intvals)
+#       
+#       nb.results <- calc.nbresults(micemod = nbobj$final.mod,
+#                                    designmat = nb.designmat,
+#                                    xvar = xvar,
+#                                    intvar = intvar)
+#       
+#       nb.results$intvalue.f <-
+#         with(nb.results, factor(paste(intstring, '=', rndformat(intvalue, 2))))
+#     }
+# 
+#     nb.plot <- ggplot(aes(x = xvalue, y = count.pe), data = nb.results) +
+#       geom_ribbon(aes(ymin = count.lcl, ymax = count.ucl), alpha = 0.3, fill = 'navy') +
+#       geom_line(colour = 'navy') +
+#       xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for all interactions: %s',
+#                    xstring, formatp(nbobj$p.marker), formatp(nbobj$p.int))) +
+#       ylab(paste('Adjusted', ystring)) +
+#       theme_bw() +
+#       theme(axis.title.x = element_text(vjust = 0), #face = 'bold', vjust = 0),
+#             #axis.title.y = element_text(face = 'bold'),
+#             axis.text = element_text(size = 7),
+#             strip.text = element_text(face = 'bold'))
+#     
+#     if(is.null(intvar)){
+#       return(nb.plot +
+#                xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s',
+#                             xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin), formatp(nbobj$p.int))))
+#     } else{
+#       return(nb.plot +
+#                facet_wrap(~ intvalue.f, nrow = 1) +
+#                xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s\nP for %s interaction: %s',
+#                             xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin),
+#                             formatp(nbobj$p.int), intstring, formatp(intp))))
+#     }
+#   }
+# }
 
 
 @
@@ -1485,6 +1578,48 @@ esel.adl.12 <- fit.adl.models.12('esel.log10')
 pai1.adl.12 <- fit.adl.models.12('pai1.log10')
 s100b.adl.12 <- fit.adl.models.12('s100b.log10')
 uchl.adl.12 <- fit.adl.models.12('uchl.log10')
+
+## -- Create data frame of point estimates, CIs for unique values of biomarker ---------------------
+## --  (+ interacting variable, if needed) ---------------------------------------------------------
+
+## Create bootstrapped data sets, save in .Rdata file to save time
+disability.covars <- c('charlson.score', 'edu', 'iqcode.score.e', 'stroke.risk', 'adl.e',
+                       'mean.modsofa.icu', 'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
+                       'age.div10', 'il6.log10')
+
+nboot <- 1000
+
+## Function to create bootstrapped data sets
+disability.bootdata <- function(use.marker, outcome){
+  nomiss.vars <- c(disability.covars, use.marker, outcome)
+  create.sampdata(org.data = endo.data[rowSums(is.na(endo.data[,nomiss.vars])) == 0,
+                                       c('id', nomiss.vars)],
+                  id.var = 'id',
+                  n.sets = nboot)
+}
+
+# bdnf.adl.3.bootdata <- disability.bootdata('bdnf.log10', 'adl.totscore.3')
+# esel.adl.3.bootdata <- disability.bootdata('esel.log10', 'adl.totscore.3')
+# pai1.adl.3.bootdata <- disability.bootdata('pai1.log10', 'adl.totscore.3')
+# s100b.adl.3.bootdata <- disability.bootdata('s100b.log10', 'adl.totscore.3')
+# uchl.adl.3.bootdata <- disability.bootdata('uchl.log10', 'adl.totscore.3')
+# 
+# bdnf.adl.12.bootdata <- disability.bootdata('bdnf.log10', 'adl.totscore.12')
+# esel.adl.12.bootdata <- disability.bootdata('esel.log10', 'adl.totscore.12')
+# pai1.adl.12.bootdata <- disability.bootdata('pai1.log10', 'adl.totscore.12')
+# s100b.adl.12.bootdata <- disability.bootdata('s100b.log10', 'adl.totscore.12')
+# uchl.adl.12.bootdata <- disability.bootdata('uchl.log10', 'adl.totscore.12')
+# 
+# save(bdnf.adl.3.bootdata, esel.adl.3.bootdata, pai1.adl.3.bootdata, s100b.adl.3.bootdata,
+#      uchl.adl.3.bootdata, bdnf.adl.12.bootdata, esel.adl.12.bootdata, pai1.adl.12.bootdata,
+#      s100b.adl.12.bootdata, uchl.adl.12.bootdata,
+#      file = 'adl_bootdata.Rdata')
+
+load('adl_bootdata.Rdata')
+
+# bdnf.adl.3.preddata <- zinf.plotdata(modobj = bdnf.adl.3$final.mod,
+#                                      xvar = 'bdnf.log10',
+#                                      bootdata = bdnf.adl.3.bootdata)
 
 
 @
