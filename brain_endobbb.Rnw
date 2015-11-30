@@ -95,7 +95,10 @@ marker.data <- bind_rows(lapply(endo.names, FUN = function(x){
   filter(cv < 30 | mean.pgml == -9999) %>%
   ## Get one variable per marker mean
   select(id, marker, mean.pgml) %>%
-  spread(key = marker, value = mean.pgml)
+  spread(key = marker, value = mean.pgml) %>%
+  ## Delete PAI-1 values for 5 patients with unreliable values;
+  ##  see email discussion with Brennan, 11/17/2015
+  mutate(pai1 = ifelse(id %in% c(11262, 11265, 11266, 11173, 11480), NA, pai1))
 
 names(marker.data)[2:ncol(marker.data)] <- paste0(names(marker.data)[2:ncol(marker.data)], '.day1')
 
@@ -1011,8 +1014,7 @@ plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
 
   if(length(grep('final\\.mod', names(nbobj))) == 0){
     stop("Argument nbobj should be a result of fit.nb.models()")
-  } else if(!is.null(intvar) &
-            length(grep(':', names(nbobj$final.mod$analyses[[1]]$coefficients))) == 0){
+  } else if(!is.null(intvar) & length(grep(':', names(coef(nbobj$final.mod)))) == 0){
     stop('Interacting variable is specified, but model does not include interaction terms')
   } else if(!is.null(intvar) & is.null(intvals)){
     stop('Interacting variable is specified, but no interacting values are specified')
@@ -1045,7 +1047,9 @@ plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
     if(is.null(intvar)){
       return(nb.plot +
                xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s',
-                            xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin), formatp(nbobj$p.int))))
+                            xstring, formatp(nbobj$p.marker),
+                            formatp(nbobj$p.nonlin),
+                            formatp(nbobj$p.int))))
     } else{
       return(nb.plot +
                facet_wrap(~ intvalue.f, nrow = 1) +
@@ -1552,11 +1556,11 @@ nb.figures <- function(nbobj, xvar, xstring, ystring){
                                              xvar = xvar,
                                              xstring = xstring,
                                              ystring = ystring)),
-                'height' =  4,
+                'height' =  3.75,
                 'layoutmat' = matrix(1, ncol = 1)))
   } else{
     fig1 <- plot.nb.results(nbobj = nbobj, xvar = xvar,
-                            intvar = 'age.enroll', intvals = intvals.age,
+                            intvar = 'age.div10', intvals = intvals.age / 10,
                             intstring = 'Age / 10', intp = nbobj$p.int.age,
                             xstring = xstring, ystring = ystring)
     fig2 <- plot.nb.results(nbobj = nbobj, xvar = xvar,
@@ -1620,7 +1624,7 @@ hospital.
 \caption{Log10(E-Selectin) vs. Delirium Duration}\label{fig:eseldel}
 \end{figure}
 
-\clearpage
+% \clearpage
 \subsection{PAI-1 vs. Days of Delirium}
 We see no association between log(PAI-1) at baseline and with delirium duration while in the
 hospital.
@@ -1640,7 +1644,7 @@ hospital.
 \caption{Log10(S100B) vs. Delirium Duration}\label{fig:s100bdel}
 \end{figure}
 
-\clearpage
+% \clearpage
 \subsection{UCHL vs. Days of Delirium}
 UCHL at baseline does show a significant association with days of delirium. This association is not
 significantly nonlinear, so we can say that higher log10(UCHL) at study enrollment is significantly
