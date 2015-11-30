@@ -958,45 +958,46 @@ create.designmat.nb <- function(nbobj,                ## glm.nb model object
 
 }
 
-# ## -- Function to, for each row in design matrix, calculate predicted value & SE from pooled results
-# calc.nbresults <- function(micemod,        ## mice model object (unpooled)
-#                            designmat,      ## matrix of covariate values; ncols = coefs in micemod
-#                            xvar,           ## character string: name of variable to put on X axis
-#                            intvar = NULL){ ## character string: name of interacting variable
-# 
-#   if(ncol(designmat) != length(micemod$analyses[[1]]$coefficients)){
-#     stop("Number of columns in design matrix does not match number of coefficients in mice object")
-#   } else if(xvar %nin% colnames(designmat)){
-#     stop("X axis variable name not in column names of design matrix")
-#   } else{
-#     ## Pool model results, get coefficients and vcov matrix
-#     pooled.mod <- pool(micemod)
-#     pooled.coefs <- pooled.mod$qbar
-#     pooled.vcov <- pooled.mod$ubar
-# 
-#     ## Calculate linear predictors and their SEs
-#     lp <- apply(designmat, MARGIN = 1, FUN = function(x){ sum(pooled.coefs * as.numeric(x)) })
-#     lp.se <- apply(designmat, MARGIN = 1, FUN = function(x){ sqrt(t(x) %*% pooled.vcov %*% x) })
-# 
-#     ## Calculate LCL, UCLs for linear predictors
-#     lp.lcl <- lp - qnorm(0.975)*lp.se
-#     lp.ucl <- lp + qnorm(0.975)*lp.se
-# 
-#     ## Calculate predicted counts, CIs as exp(quantities)
-#     count.pe <- exp(lp)
-#     count.lcl <- exp(lp.lcl)
-#     count.ucl <- exp(lp.ucl)
-# 
-#     ## Bind all results into data frame for plotting
-#     xvalue <- designmat[,xvar]
-#     if(!is.null(intvar)){
-#       intvalue <- designmat[,intvar]
-#       return(as.data.frame(cbind(xvalue, intvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
-#     } else{
-#       return(as.data.frame(cbind(xvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
-#     }
-#   }
-# }
+## -- Function to, for each row in design matrix, calculate predicted value & SE from negbin model
+calc.nbresults <- function(nbobj,          ## negbin model object (from glm.nb())
+                           designmat,      ## matrix of covariate values; ncols = coefs in nbobj
+                           xvar,           ## character string: name of variable to put on X axis
+                           intvar = NULL){ ## character string: name of interacting variable
+
+  if(length(grep('negbin', class(nbobj))) == 0){
+    stop("nbobj must be of class negbin, from glm.nb()")
+  } else if(ncol(designmat) != length(names(coef(nbobj)))){
+    stop("Number of columns in design matrix does not match number of coefficients in nbobj")
+  } else if(xvar %nin% colnames(designmat)){
+    stop("X axis variable name not in column names of design matrix")
+  } else{
+    ## Get coefficients and vcov matrix
+    nb.coefs <- coef(nbobj)
+    nb.vcov <- vcov(nbobj)
+
+    ## Calculate linear predictors and their SEs
+    lp <- apply(designmat, MARGIN = 1, FUN = function(x){ sum(nb.coefs * as.numeric(x)) })
+    lp.se <- apply(designmat, MARGIN = 1, FUN = function(x){ sqrt(t(x) %*% nb.vcov %*% x) })
+
+    ## Calculate LCL, UCLs for linear predictors
+    lp.lcl <- lp - qnorm(0.975)*lp.se
+    lp.ucl <- lp + qnorm(0.975)*lp.se
+
+    ## Calculate predicted counts, CIs as exp(quantities)
+    count.pe <- exp(lp)
+    count.lcl <- exp(lp.lcl)
+    count.ucl <- exp(lp.ucl)
+
+    ## Bind all results into data frame for plotting
+    xvalue <- designmat[,xvar]
+    if(!is.null(intvar)){
+      intvalue <- designmat[,intvar]
+      return(as.data.frame(cbind(xvalue, intvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
+    } else{
+      return(as.data.frame(cbind(xvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
+    }
+  }
+}
 
 # ## -- Function to plot results of negative binomial models -----------------------------------------
 # plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
