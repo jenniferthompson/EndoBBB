@@ -1545,130 +1545,112 @@ uchl.del <- fit.del.models('uchl.log10')
 # lmtest::lrtest(del.s100b.noint, del.nomark)
 # s100b.del$p.marker
 
-# ## -- Create graphics for delirium models ----------------------------------------------------------
-# nb.figures <- function(nbobj, xvar, xstring, ystring){
-#   if(nbobj$p.int > 0.20){
-#     return(list('fig' = plot.nb.results(nbobj = nbobj,
-#                                         xvar = xvar,
-#                                         xstring = xstring,
-#                                         ystring = ystring),
-#                 'height' =  4,
-#                 'layoutmat' = matrix(1, ncol = 1)))
-#   } else{
-#     fig1 <- plot.nb.results(nbobj = nbobj, xvar = xvar,
-#                             intvar = 'age.enroll', intvals = intvals.age,
-#                             intstring = 'Age / 10', intp = nbobj$p.int.age,
-#                             xstring = xstring, ystring = ystring)
-#     fig2 <- plot.nb.results(nbobj = nbobj, xvar = xvar,
-#                             intvar = 'il6.log10', intvals = intvals.il6,
-#                             intstring = 'Log10(IL-6)', intp = nbobj$p.int.il6,
-#                             xstring = xstring, ystring = ystring)
-# 
-#     return(list('fig' = list(fig1, fig2),
-#                 'height' = 8,
-#                 'layoutmat' = matrix(1:2, ncol = 1)))
-#   }
-# }
-# 
-# bdnf.del.fig <-
-#   nb.figures(miceobj = bdnf.del, xvar = 'bdnf.log10', xstring = 'BDNF', ystring = 'Days of Delirium')
-# esel.del.fig <-
-#   nb.figures(miceobj = esel.del, xvar = 'esel.log10', xstring = 'E-Selectin', ystring = 'Days of Delirium')
-# pai1.del.fig <-
-#   nb.figures(miceobj = pai1.del, xvar = 'pai1.log10', xstring = 'PAI-1', ystring = 'Days of Delirium')
-# s100b.del.fig <-
-#   nb.figures(miceobj = s100b.del, xvar = 's100b.log10', xstring = 'S100B', ystring = 'Days of Delirium')
-# uchl.del.fig <-
-#   nb.figures(miceobj = uchl.del, xvar = 'uchl.log10', xstring = 'UCHL', ystring = 'Days of Delirium')
-# 
-# pdf(file = 'bdnf_del_results.pdf', width = 8, height = bdnf.del.fig$height)
-# multiplot(bdnf.del.fig$fig, layout = bdnf.del.fig$layoutmat)
-# dev.off()
-# 
-# pdf(file = 'esel_del_results.pdf', width = 8, height = esel.del.fig$height)
-# multiplot(esel.del.fig$fig, layout = esel.del.fig$layoutmat)
-# dev.off()
-# 
-# pdf(file = 'pai1_del_results.pdf', width = 8, height = pai1.del.fig$height)
-# multiplot(plotlist = pai1.del.fig$fig, layout = pai1.del.fig$layoutmat)
-# dev.off()
-# 
-# pdf(file = 's100b_del_results.pdf', width = 8, height = s100b.del.fig$height)
-# multiplot(s100b.del.fig$fig, layout = s100b.del.fig$layoutmat)
-# dev.off()
-# 
-# pdf(file = 'uchl_del_results.pdf', width = 8, height = uchl.del.fig$height)
-# multiplot(uchl.del.fig$fig, layout = uchl.del.fig$layoutmat)
-# dev.off()
+## -- Create graphics for delirium models ----------------------------------------------------------
+nb.figures <- function(nbobj, xvar, xstring, ystring){
+  if(nbobj$p.int > 0.20){
+    return(list('fig' = list(plot.nb.results(nbobj = nbobj,
+                                             xvar = xvar,
+                                             xstring = xstring,
+                                             ystring = ystring)),
+                'height' =  4,
+                'layoutmat' = matrix(1, ncol = 1)))
+  } else{
+    fig1 <- plot.nb.results(nbobj = nbobj, xvar = xvar,
+                            intvar = 'age.enroll', intvals = intvals.age,
+                            intstring = 'Age / 10', intp = nbobj$p.int.age,
+                            xstring = xstring, ystring = ystring)
+    fig2 <- plot.nb.results(nbobj = nbobj, xvar = xvar,
+                            intvar = 'il6.log10', intvals = intvals.il6,
+                            intstring = 'Log10(IL-6)', intp = nbobj$p.int.il6,
+                            xstring = xstring, ystring = ystring)
+
+    return(list('fig' = list(fig1, fig2),
+                'height' = 8,
+                'layoutmat' = matrix(1:2, ncol = 1)))
+  }
+}
+
+nb.figures.del <- function(nbobj, xvar, xstring){
+  nb.figures(nbobj = nbobj, xvar = xvar, xstring = xstring, ystring = 'Days of Delirium')
+}
+bdnf.del.fig <- nb.figures.del(nbobj = bdnf.del, xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.del.fig <- nb.figures.del(nbobj = esel.del, xvar = 'esel.log10', xstring = 'E-Selectin')
+pai1.del.fig <- nb.figures.del(nbobj = pai1.del, xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.del.fig <- nb.figures.del(nbobj = s100b.del, xvar = 's100b.log10', xstring = 'S100B')
+uchl.del.fig <- nb.figures.del(nbobj = uchl.del, xvar = 'uchl.log10', xstring = 'UCHL')
+
+pdf(file = 'bdnf_del_results.pdf', width = 8, height = bdnf.del.fig$height)
+multiplot(plotlist = bdnf.del.fig$fig, layout = bdnf.del.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_del_results.pdf', width = 8, height = esel.del.fig$height)
+multiplot(plotlist = esel.del.fig$fig, layout = esel.del.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_del_results.pdf', width = 8, height = pai1.del.fig$height)
+multiplot(plotlist = pai1.del.fig$fig, layout = pai1.del.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_del_results.pdf', width = 8, height = s100b.del.fig$height)
+multiplot(plotlist = s100b.del.fig$fig, layout = s100b.del.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_del_results.pdf', width = 8, height = uchl.del.fig$height)
+multiplot(plotlist = uchl.del.fig$fig, layout = uchl.del.fig$layoutmat)
+dev.off()
 
 @
 
-%' \subsection{BDNF vs. Days of Delirium}
-%' We see no association between log10(BDNF) at baseline and with delirium duration while in the
-%' hospital.
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{bdnf_del_results.pdf}}
-%' \caption{Log10(BDNF) vs. Delirium Duration}\label{fig:bdnfdel}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsection{E-Selectin vs. Days of Delirium}
-%' We see no association between log(E-selectin) at baseline and with delirium duration while in the
-%' hospital.
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{esel_del_results.pdf}}
-%' \caption{Log10(E-Selectin) vs. Delirium Duration}\label{fig:eseldel}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsection{PAI-1 vs. Days of Delirium}
-%' The overall association between log10(PAI-1) and delirium duration is nonsignificant. It is
-%' possible that there is a mild association modified by age at enrollment, such that among younger
-%' patients, higher log10(PAI-1) is predictive of fewer delirium days, but this association gets
-%' weaker as patient age increases.
-%'
-%' Since the overall p-value for interaction met our cutoff of \Sexpr{pcutoff}, the final model also
-%' includes an interaction with log10(IL-6); however, as seen in the figure, any association between
-%' log10(PAI-1) and delirium duration does not seem to be substantially modified by systemic
-%' inflammation.
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{pai1_del_results.pdf}}
-%' \caption{Log10(PAI-1) vs. Delirium Duration}\label{fig:pai1del}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsection{S100B vs. Days of Delirium}
-%' We see no association between log(S100B) at baseline and with delirium duration while in the
-%' hospital.
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{s100b_del_results.pdf}}
-%' \caption{Log10(S100B) vs. Delirium Duration}\label{fig:s100bdel}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsection{UCHL vs. Days of Delirium}
-%' UCHL at baseline does show a meaningful association with days of delirium. This association is not
-%' significantly nonlinear, so we can say that higher log10(UCHL) at study enrollment is nearly
-%' significantly associated with fewer days of delirium. This association is not modified by age or
-%' systemic inflammation (IL-6).
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{uchl_del_results.pdf}}
-%' \caption{Log10(UCHL) vs. Delirium Duration}\label{fig:uchldel}
-%' \end{figure}
+\subsection{BDNF vs. Days of Delirium}
+We see no association between log10(BDNF) at baseline and with delirium duration while in the
+hospital.
 
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_del_results.pdf}}
+\caption{Log10(BDNF) vs. Delirium Duration}\label{fig:bdnfdel}
+\end{figure}
 
+\clearpage
+\subsection{E-Selectin vs. Days of Delirium}
+We see no association between log(E-selectin) at baseline and with delirium duration while in the
+hospital.
 
+\begin{figure}[!h]
+{\centering\includegraphics{esel_del_results.pdf}}
+\caption{Log10(E-Selectin) vs. Delirium Duration}\label{fig:eseldel}
+\end{figure}
 
+\clearpage
+\subsection{PAI-1 vs. Days of Delirium}
+We see no association between log(PAI-1) at baseline and with delirium duration while in the
+hospital.
 
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_del_results.pdf}}
+\caption{Log10(PAI-1) vs. Delirium Duration}\label{fig:pai1del}
+\end{figure}
 
+\clearpage
+\subsection{S100B vs. Days of Delirium}
+We see no association between log(S100B) at baseline and with delirium duration while in the
+hospital.
 
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_del_results.pdf}}
+\caption{Log10(S100B) vs. Delirium Duration}\label{fig:s100bdel}
+\end{figure}
 
+\clearpage
+\subsection{UCHL vs. Days of Delirium}
+UCHL at baseline does show a significant association with days of delirium. This association is not
+significantly nonlinear, so we can say that higher log10(UCHL) at study enrollment is significantly
+associated with fewer days of delirium. This association is not modified by age or systemic
+inflammation (IL-6).
 
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_del_results.pdf}}
+\caption{Log10(UCHL) vs. Delirium Duration}\label{fig:uchldel}
+\end{figure}
 
 
 
