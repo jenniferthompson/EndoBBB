@@ -999,74 +999,62 @@ calc.nbresults <- function(nbobj,          ## negbin model object (from glm.nb()
   }
 }
 
-# ## -- Function to plot results of negative binomial models -----------------------------------------
-# plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
-#                             xvar,             ## string, name of X axis variable
-#                             intvar = NULL,    ## string, name of interacting variable
-#                             intvals = NULL,   ## vector, levels to set interacting variable to
-#                             intstring = NULL, ## string, text for panel titles and X axis label
-#                             intp = NULL,      ## number, p-value for specific interaction
-#                             xstring,          ## string, label of X axis variable
-#                             ystring){         ## string, label of outcome
-#
-#   if(length(grep('final\\.mod', names(nbobj))) == 0){
-#     stop("Argument nbobj should be a result of fit.nb.models()")
-#   } else if(!is.null(intvar) &
-#             length(grep(':', names(nbobj$final.mod$analyses[[1]]$coefficients))) == 0){
-#     stop('Interacting variable is specified, but model does not include interaction terms')
-#   } else if(!is.null(intvar) & is.null(intvals)){
-#     stop('Interacting variable is specified, but no interacting values are specified')
-#   } else{
-#     if(is.null(intvar)){
-#       nb.designmat <- create.designmat.mice(miceobj = nbobj$final.mod, xvar = xvar)
-#       nb.results <- calc.nbresults(micemod = nbobj$final.mod, designmat = nb.designmat, xvar = xvar)
-#     } else{
-#       nb.designmat <- create.designmat.mice(miceobj = nbobj$final.mod,
-#                                             xvar = xvar,
-#                                             intvar = intvar,
-#                                             intvals = intvals)
-#
-#       nb.results <- calc.nbresults(micemod = nbobj$final.mod,
-#                                    designmat = nb.designmat,
-#                                    xvar = xvar,
-#                                    intvar = intvar)
-#
-#       nb.results$intvalue.f <-
-#         with(nb.results, factor(paste(intstring, '=', rndformat(intvalue, 2))))
-#     }
-#
-#     nb.plot <- ggplot(aes(x = xvalue, y = count.pe), data = nb.results) +
-#       geom_ribbon(aes(ymin = count.lcl, ymax = count.ucl), alpha = 0.3, fill = 'navy') +
-#       geom_line(colour = 'navy') +
-#       xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for all interactions: %s',
-#                    xstring, formatp(nbobj$p.marker), formatp(nbobj$p.int))) +
-#       ylab(paste('Adjusted', ystring)) +
-#       theme_bw() +
-#       theme(axis.title.x = element_text(vjust = 0), #face = 'bold', vjust = 0),
-#             #axis.title.y = element_text(face = 'bold'),
-#             axis.text = element_text(size = 7),
-#             strip.text = element_text(face = 'bold'))
-#
-#     if(is.null(intvar)){
-#       return(nb.plot +
-#                xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s',
-#                             xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin), formatp(nbobj$p.int))))
-#     } else{
-#       return(nb.plot +
-#                facet_wrap(~ intvalue.f, nrow = 1) +
-#                xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s\nP for %s interaction: %s',
-#                             xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin),
-#                             formatp(nbobj$p.int), intstring, formatp(intp))))
-#     }
-#   }
-# }
+## -- Function to plot results of negative binomial models -----------------------------------------
+plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
+                            xvar,             ## string, name of X axis variable
+                            intvar = NULL,    ## string, name of interacting variable
+                            intvals = NULL,   ## vector, levels to set interacting variable to
+                            intstring = NULL, ## string, text for panel titles and X axis label
+                            intp = NULL,      ## number, p-value for specific interaction
+                            xstring,          ## string, label of X axis variable
+                            ystring){         ## string, label of outcome
 
+  if(length(grep('final\\.mod', names(nbobj))) == 0){
+    stop("Argument nbobj should be a result of fit.nb.models()")
+  } else if(!is.null(intvar) &
+            length(grep(':', names(nbobj$final.mod$analyses[[1]]$coefficients))) == 0){
+    stop('Interacting variable is specified, but model does not include interaction terms')
+  } else if(!is.null(intvar) & is.null(intvals)){
+    stop('Interacting variable is specified, but no interacting values are specified')
+  } else{
+    if(is.null(intvar)){
+      nb.designmat <- create.designmat.nb(nbobj = nbobj$final.mod, xvar = xvar)
+      nb.results <- calc.nbresults(nbobj = nbobj$final.mod, designmat = nb.designmat, xvar = xvar)
+    } else{
+      nb.designmat <- create.designmat.nb(nbobj = nbobj$final.mod, xvar = xvar,
+                                          intvar = intvar, intvals = intvals)
 
+      nb.results <- calc.nbresults(nbobj = nbobj$final.mod, designmat = nb.designmat,
+                                   xvar = xvar, intvar = intvar)
 
+      nb.results$intvalue.f <-
+        with(nb.results, factor(paste(intstring, '=', rndformat(intvalue, 2))))
+    }
 
+    nb.plot <- ggplot(aes(x = xvalue, y = count.pe), data = nb.results) +
+      geom_ribbon(aes(ymin = count.lcl, ymax = count.ucl), alpha = 0.3, fill = 'navy') +
+      geom_line(colour = 'navy') +
+      xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for all interactions: %s',
+                   xstring, formatp(nbobj$p.marker), formatp(nbobj$p.int))) +
+      ylab(paste('Adjusted', ystring)) +
+      theme_bw() +
+      theme(axis.title.x = element_text(vjust = 0), #face = 'bold', vjust = 0),
+            axis.text = element_text(size = 7),
+            strip.text = element_text(face = 'bold'))
 
-
-
+    if(is.null(intvar)){
+      return(nb.plot +
+               xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s',
+                            xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin), formatp(nbobj$p.int))))
+    } else{
+      return(nb.plot +
+               facet_wrap(~ intvalue.f, nrow = 1) +
+               xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s\nP for %s interaction: %s',
+                            xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin),
+                            formatp(nbobj$p.int), intstring, formatp(intp))))
+    }
+  }
+}
 
 
 ## -- Function to create design matrices for count, zero portions given a zeroinfl object, ---------
