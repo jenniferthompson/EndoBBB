@@ -54,7 +54,7 @@ pcutoff <- 0.2
 nimp <- 50
 
 ## Set number of bootstraps for zero-inflated models
-n.boot <- 500
+n.bootsets <- 500
 
 ## Set method to use in pool.compare() (Wald or likelihood)
 use.method <- 'likelihood'
@@ -576,18 +576,21 @@ create.zeroinfl.form <- function(count.form, zero.form, regex.sub){
         sep = ' | ')
 }
 
-## -- Function to fit zero-inflated NB model, determine whether 1) nonlinear and 2) interaction
-## --  terms are needed, and return final model object, p-values for nonlinearity and interactions,
+## -- Function to fit zero-inflated, NB, or linear model;
+## --  determine whether 1) nonlinear and 2) interaction terms are needed, and
+## --  return final model object, p-values for nonlinearity and interactions,
 ## --  and final p for biomarker
-fit.nb.models <- function(use.marker,   ## character string; name of biomarker variable
-                          formula.full, ## formula for full model formula
-                          modtype = c('nb', 'zeroinfl'), ## Use NB or zero-inflated NB?
-                          dataset = endo.data){ ## original data set to use
+fit.reg.models <- function(use.marker,   ## character string; name of biomarker variable
+                           formula.full, ## formula for full model formula
+                           modtype = c('nb', 'zeroinfl', 'ols'), ## Model type to use
+                           dataset = endo.data){ ## original data set to use
 
   if(modtype == 'nb'){
     modfit.text = "glm.nb(formula = %s, data = usedata)"
-  } else{
+  } else if(modtype == 'zeroinfl'){
     modfit.text = "zeroinfl(formula = %s, data = usedata, dist = 'negbin')"
+  } else if(modtype == 'ols'){
+    modfit.text = "ols(formula = %s, data = usedata)"
   }
   
   ## Initialize all p-values
@@ -1003,7 +1006,7 @@ calc.nbresults <- function(nbobj,          ## negbin model object (from glm.nb()
 }
 
 ## -- Function to plot results of negative binomial models -----------------------------------------
-plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
+plot.nb.results <- function(nbobj,            ## list, result of fit.reg.models()
                             xvar,             ## string, name of X axis variable
                             intvar = NULL,    ## string, name of interacting variable
                             intvals = NULL,   ## vector, levels to set interacting variable to
@@ -1013,7 +1016,7 @@ plot.nb.results <- function(nbobj,            ## list, result of fit.nb.models()
                             ystring){         ## string, label of outcome
 
   if(length(grep('final\\.mod', names(nbobj))) == 0){
-    stop("Argument nbobj should be a result of fit.nb.models()")
+    stop("Argument nbobj should be a result of fit.reg.models()")
   } else if(!is.null(intvar) & length(grep(':', names(coef(nbobj$final.mod)))) == 0){
     stop('Interacting variable is specified, but model does not include interaction terms')
   } else if(!is.null(intvar) & is.null(intvals)){
@@ -1233,10 +1236,10 @@ try.zeroinfl <- function(...){
 
 
 ## -- Function to get data sets of predicted values for plotting zero-inflated NB models -----------
-zinf.plotdata <- function(modobj,           ## Original model object to base bootstraps on
-                          xvar,             ## Main exposure variable
-                          bootdata,         ## List of bootstrapped data sets to use
-                          n.boot = n.boot){ ## Number of successful model fits required
+zinf.plotdata <- function(modobj,               ## Original model object to base bootstraps on
+                          xvar,                 ## Main exposure variable
+                          bootdata,             ## List of bootstrapped data sets to use
+                          n.boot = n.bootsets){ ## Number of successful model fits required
   ## Does model include age/IL-6 interactions?
   intmod <- (length(grep(':', modobj$call)) > 0)
 
@@ -1406,6 +1409,8 @@ zinf.figures <- function(zinfobj, zinf.preddata, xvar, xstring, ystring){
 }
 
 
+
+
 @
 
 \section{Endothelial/BBB Injury Markers vs. Delirium Duration}
@@ -1516,10 +1521,10 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 del.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + cvsofa.day1 + sevsepsis.day1 + rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(markervar, 3) + rcs(age.div10, 3):rcs(markervar, 3) + rcs(il6.log10, 3):rcs(markervar, 3)"
 
 fit.del.models <- function(marker){
-  fit.nb.models(use.marker = marker,
-                formula.full = del.full.formula,
-                modtype = 'nb',
-                dataset = endo.data)
+  fit.reg.models(use.marker = marker,
+                 formula.full = del.full.formula,
+                 modtype = 'nb',
+                 dataset = endo.data)
 }
 bdnf.del <- fit.del.models('bdnf.log10')
 esel.del <- fit.del.models('esel.log10')
@@ -1695,7 +1700,7 @@ at study enrollment. If the global p-value for interactions were clearly nonsign
 All biomarkers are transformed using the log10 transformation in order to improve model fit and
 reduce the influence of extremely high values. All p-values are calculated using the
 \Sexpr{use.method} method. Confidence limits for predicted values are calculated using the
-bootstrap: we ran the final model for each biomarker on \Sexpr{n.boot} bootstrapped data sets, calculated the predicted values of ADL score at each unique value of the biomarker for each model fit, and took the 2.5th and 97.5th percentiles of those predicted values as the confidence limits.
+bootstrap: we ran the final model for each biomarker on \Sexpr{n.bootsets} bootstrapped data sets, calculated the predicted values of ADL score at each unique value of the biomarker for each model fit, and took the 2.5th and 97.5th percentiles of those predicted values as the confidence limits.
 
 % We used multiple imputation to reduce bias from missing covariates.
 
@@ -1718,10 +1723,10 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' 
 %' ## -- Fit 3-month ADL models -----------------------------------------------------------------------
 %' fit.adl.models.3 <- function(marker){
-%'   fit.nb.models(use.marker = marker,
-%'                 formula.full = adl.lin.formula.3,
-%'                 modtype = 'zeroinfl',
-%'                 dataset = endo.data)
+%'   fit.reg.models(use.marker = marker,
+%'                  formula.full = adl.lin.formula.3,
+%'                  modtype = 'zeroinfl',
+%'                  dataset = endo.data)
 %' }
 %' bdnf.adl.3 <- fit.adl.models.3('bdnf.log10')
 %' esel.adl.3 <- fit.adl.models.3('esel.log10')
@@ -1785,10 +1790,10 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' 
 %' ## -- Fit 12-month ADL models ----------------------------------------------------------------------
 %' fit.adl.models.12 <- function(marker){
-%'   fit.nb.models(use.marker = marker,
-%'                 formula.full = adl.lin.formula.12,
-%'                 modtype = 'zeroinfl',
-%'                 dataset = endo.data)
+%'   fit.reg.models(use.marker = marker,
+%'                  formula.full = adl.lin.formula.12,
+%'                  modtype = 'zeroinfl',
+%'                  dataset = endo.data)
 %' }
 %' bdnf.adl.12 <- fit.adl.models.12('bdnf.log10')
 %' esel.adl.12 <- fit.adl.models.12('esel.log10')
@@ -1803,9 +1808,9 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' # disability.covars <- c('charlson.score', 'edu', 'iqcode.score.e', 'stroke.risk', 'adl.e',
 %' #                        'mean.modsofa.icu', 'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
 %' #                        'age.div10', 'il6.log10')
-%' #
+%' # 
 %' # nboot <- 1000
-%' #
+%' # 
 %' # ## Function to create bootstrapped data sets
 %' # disability.bootdata <- function(use.marker, outcome){
 %' #   nomiss.vars <- c(disability.covars, use.marker, outcome)
@@ -1814,19 +1819,19 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' #                   id.var = 'id',
 %' #                   n.sets = nboot)
 %' # }
-%' 
+%' # 
 %' # bdnf.adl.3.bootdata <- disability.bootdata('bdnf.log10', 'adl.totscore.3')
 %' # esel.adl.3.bootdata <- disability.bootdata('esel.log10', 'adl.totscore.3')
 %' # pai1.adl.3.bootdata <- disability.bootdata('pai1.log10', 'adl.totscore.3')
 %' # s100b.adl.3.bootdata <- disability.bootdata('s100b.log10', 'adl.totscore.3')
 %' # uchl.adl.3.bootdata <- disability.bootdata('uchl.log10', 'adl.totscore.3')
-%' #
+%' # 
 %' # bdnf.adl.12.bootdata <- disability.bootdata('bdnf.log10', 'adl.totscore.12')
 %' # esel.adl.12.bootdata <- disability.bootdata('esel.log10', 'adl.totscore.12')
 %' # pai1.adl.12.bootdata <- disability.bootdata('pai1.log10', 'adl.totscore.12')
 %' # s100b.adl.12.bootdata <- disability.bootdata('s100b.log10', 'adl.totscore.12')
 %' # uchl.adl.12.bootdata <- disability.bootdata('uchl.log10', 'adl.totscore.12')
-%' #
+%' # 
 %' # save(bdnf.adl.3.bootdata, esel.adl.3.bootdata, pai1.adl.3.bootdata, s100b.adl.3.bootdata,
 %' #      uchl.adl.3.bootdata, bdnf.adl.12.bootdata, esel.adl.12.bootdata, pai1.adl.12.bootdata,
 %' #      s100b.adl.12.bootdata, uchl.adl.12.bootdata,
@@ -1988,7 +1993,9 @@ at either 3 or 12 months after discharge.
 \clearpage
 \subsection{PAI-1 vs. Katz ADL}
 We see no significant overall association between log10(PAI-1) at baseline and Katz ADL scores at
-either 3 or 12 months after discharge.
+either 3 or 12 months after discharge. There is an interaction between log10(PAI-1) and log10(IL-6)
+at 3 months, but this interaction is not present at 12 months, and is not strong enough at either
+time point to result in a significant overall association between log10(PAI-1) and ADL scores.
 
 \begin{figure}[!h]
 {\centering\includegraphics{pai1_adl3_results.pdf}}
@@ -2063,7 +2070,7 @@ at study enrollment. If the global p-value for interactions were clearly nonsign
 All biomarkers are transformed using the log10 transformation in order to improve model fit and
 reduce the influence of extremely high values. All p-values are calculated using the
 \Sexpr{use.method} method. Confidence limits for predicted values are calculated using the
-bootstrap: we ran the final model for each biomarker on \Sexpr{n.boot} bootstrapped data sets,
+bootstrap: we ran the final model for each biomarker on \Sexpr{n.bootsets} bootstrapped data sets,
 calculated the predicted values of ADL score at each unique value of the biomarker for each model
 fit, and took the 2.5th and 97.5th percentiles of those predicted values as the confidence
 limits.
@@ -2083,10 +2090,10 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' 
 %' ## -- Fit 3-month FAQ models -----------------------------------------------------------------------
 %' fit.faq.models.3 <- function(marker){
-%'   fit.nb.models(use.marker = marker,
-%'                 formula.full = faq.lin.formula.3,
-%'                 modtype = 'zeroinfl',
-%'                 dataset = endo.data)
+%'   fit.reg.models(use.marker = marker,
+%'                  formula.full = faq.lin.formula.3,
+%'                  modtype = 'zeroinfl',
+%'                  dataset = endo.data)
 %' }
 %' bdnf.faq.3 <- fit.faq.models.3('bdnf.log10')
 %' esel.faq.3 <- fit.faq.models.3('esel.log10')
@@ -2096,10 +2103,10 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' 
 %' ## -- Fit 12-month FAQ models ----------------------------------------------------------------------
 %' fit.faq.models.12 <- function(marker){
-%'   fit.nb.models(use.marker = marker,
-%'                 formula.full = faq.lin.formula.12,
-%'                 modtype = 'zeroinfl',
-%'                 dataset = endo.data)
+%'   fit.reg.models(use.marker = marker,
+%'                  formula.full = faq.lin.formula.12,
+%'                  modtype = 'zeroinfl',
+%'                  dataset = endo.data)
 %' }
 %' bdnf.faq.12 <- fit.faq.models.12('bdnf.log10')
 %' esel.faq.12 <- fit.faq.models.12('esel.log10')
@@ -2114,9 +2121,9 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' # disability.covars <- c('charlson.score', 'edu', 'iqcode.score.e', 'stroke.risk', 'adl.e',
 %' #                        'mean.modsofa.icu', 'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
 %' #                        'age.div10', 'il6.log10')
-%' #
+%' # 
 %' # nboot <- 1000
-%' #
+%' # 
 %' # ## Function to create bootstrapped data sets
 %' # disability.bootdata <- function(use.marker, outcome){
 %' #   nomiss.vars <- c(disability.covars, use.marker, outcome)
@@ -2125,19 +2132,19 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' #                   id.var = 'id',
 %' #                   n.sets = nboot)
 %' # }
-%' #
+%' # 
 %' # bdnf.faq.3.bootdata <- disability.bootdata('bdnf.log10', 'faq.rdscore.3')
 %' # esel.faq.3.bootdata <- disability.bootdata('esel.log10', 'faq.rdscore.3')
 %' # pai1.faq.3.bootdata <- disability.bootdata('pai1.log10', 'faq.rdscore.3')
 %' # s100b.faq.3.bootdata <- disability.bootdata('s100b.log10', 'faq.rdscore.3')
 %' # uchl.faq.3.bootdata <- disability.bootdata('uchl.log10', 'faq.rdscore.3')
-%' #
+%' # 
 %' # bdnf.faq.12.bootdata <- disability.bootdata('bdnf.log10', 'faq.rdscore.12')
 %' # esel.faq.12.bootdata <- disability.bootdata('esel.log10', 'faq.rdscore.12')
 %' # pai1.faq.12.bootdata <- disability.bootdata('pai1.log10', 'faq.rdscore.12')
 %' # s100b.faq.12.bootdata <- disability.bootdata('s100b.log10', 'faq.rdscore.12')
 %' # uchl.faq.12.bootdata <- disability.bootdata('uchl.log10', 'faq.rdscore.12')
-%' #
+%' # 
 %' # save(bdnf.faq.3.bootdata, esel.faq.3.bootdata, pai1.faq.3.bootdata, s100b.faq.3.bootdata,
 %' #      uchl.faq.3.bootdata, bdnf.faq.12.bootdata, esel.faq.12.bootdata, pai1.faq.12.bootdata,
 %' #      s100b.faq.12.bootdata, uchl.faq.12.bootdata,
@@ -2297,10 +2304,9 @@ at either 3 or 12 months after discharge.
 
 \clearpage
 \subsection{PAI-1 vs. FAQ}
-We see no significant overall association between log10(PAI-1) at baseline and FAQ scores at
-either 3 or 12 months after discharge. Log10(PAI-1) and age do have a significant interaction in
-their relationship with 3-month FAQ, but the relationship isn't strong enough to make the overall
-relationship between log10(PAI-1) and the outcome statistically significant.
+We see a nearly significant association between log10(PAI-1) at baseline and FAQ scores at 3 months
+after discharge, modified by age and possibly log10(IL-6). This association is no longer present by
+12-month followup.
 
 \begin{figure}[!h]
 {\centering\includegraphics{pai1_faq3_results.pdf}}
@@ -2339,6 +2345,131 @@ either 3 or 12 months after discharge.
 \end{figure}
 
 
+
+\section{Endothelial/BBB Injury Markers vs. RBANS Global Score}
+
+To examine the association between endothelial/BBB injury at study enrollment and RBANS global scores at 3- and 12-month followup, we used linear regression, adjusting for the following
+covariates:
+\begin{itemize}
+\item Charlson score
+\item Years of education
+\item IQCODE score
+\item Framingham stroke risk score
+\item Mean daily modified SOFA (no GCS) during ICU stay
+\item Duration of severe sepsis
+\item Duration of delirium
+\item Duration of coma
+\end{itemize}
+
+We checked residual vs. fitted and QQ plots to ensure that model assumptions were met adequately.
+
+All continuous variables, including biomarkers, were initially allowed to have a nonlinear
+relationship with the outcome, with the exception of IQCODE, which had too little variability to
+allow for splines. If the global p-value for nonlinearity was clearly nonsignificant
+(p $>$ \Sexpr{pcutoff}), nonlinear terms were removed from the model for parsimony. We allowed for
+potential interactions between endothelial/BBB markers and both systemic inflammation (log10(IL-6))
+on study day 1 and age at study enrollment. If the global p-value for interactions were clearly nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the final
+model for parsimony. All biomarkers are transformed using the log10 transformation in order to improve model fit and reduce the influence of extremely high values. All p-values are calculated using the \Sexpr{use.method} method.
+
+% We used multiple imputation to reduce bias from missing covariates.
+
+For models where interaction terms are kept in the final model, the association of the biomarker is
+shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable.
+
+<<rbansmodels>>=
+## Formula for full delirium model, subbing "markervar" in place of actual biomarker variable
+rbans.righthand <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(markervar, 3) + rcs(age.div10, 3):rcs(markervar, 3) + rcs(il6.log10, 3):rcs(markervar, 3)"
+
+rbans.full.formula.3 <- paste('rbans.global.score.3', rbans.righthand, sep = ' ~ ')
+rbans.full.formula.12 <- paste('rbans.global.score.12', rbans.righthand, sep = ' ~ ')
+
+fit.rbans.models.3 <- function(marker){
+  fit.reg.models(use.marker = marker, formula.full = rbans.full.formula.3, modtype = 'ols')
+}
+bdnf.rbans.3 <- fit.rbans.models.3('bdnf.log10')
+esel.rbans.3 <- fit.rbans.models.3('esel.log10')
+pai1.rbans.3 <- fit.rbans.models.3('pai1.log10')
+s100b.rbans.3 <- fit.rbans.models.3('s100b.log10')
+uchl.rbans.3 <- fit.rbans.models.3('uchl.log10')
+
+fit.rbans.models.12 <- function(marker){
+  fit.reg.models(use.marker = marker, formula.full = rbans.full.formula.12, modtype = 'ols')
+}
+bdnf.rbans.12 <- fit.rbans.models.12('bdnf.log10')
+esel.rbans.12 <- fit.rbans.models.12('esel.log10')
+pai1.rbans.12 <- fit.rbans.models.12('pai1.log10')
+s100b.rbans.12 <- fit.rbans.models.12('s100b.log10')
+uchl.rbans.12 <- fit.rbans.models.12('uchl.log10')
+
+# ## Test by hand with S100B
+# ## Fit full model
+# s100b.full.rbans.3 <- ols(rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                             iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
+#                             rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
+#                             rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3) +
+#                             rcs(age.div10, 3):rcs(s100b.log10, 3) +
+#                             rcs(il6.log10, 3):rcs(s100b.log10, 3),
+#                           data = endo.data)
+# 
+# ## Fit model without nonlinear terms
+# s100b.lin.rbans.3 <- ols(rbans.global.score.3 ~ charlson.score + edu + iqcode.score.e +
+#                            stroke.risk + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp +
+#                            coma.s.imp + age.div10 + il6.log10 + s100b.log10 +
+#                            age.div10:s100b.log10 + il6.log10:s100b.log10,
+#                           data = endo.data)
+# 
+# lmtest::lrtest(s100b.full.rbans.3, s100b.lin.rbans.3)
+# s100b.rbans.3$p.nonlin
+# 
+# ## Nonlinear terms needed; fit without interaction terms
+# s100b.noint.rbans.3 <- ols(rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                              iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
+#                              rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
+#                              rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3),
+#                            data = endo.data)
+# 
+# lmtest::lrtest(s100b.full.rbans.3, s100b.noint.rbans.3)
+# s100b.rbans.3$p.int
+# 
+# ## Interaction terms needed; get individual p-values for age and IL-6 interactions
+# s100b.noage.rbans.3 <- ols(rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                              iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
+#                              rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
+#                              rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3) +
+#                              rcs(il6.log10, 3):rcs(s100b.log10, 3),
+#                            data = endo.data)
+# lmtest::lrtest(s100b.full.rbans.3, s100b.noage.rbans.3)
+# s100b.rbans.3$p.int.age
+# 
+# s100b.noil6.rbans.3 <- ols(rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                              iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
+#                              rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
+#                              rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3) +
+#                              rcs(age.div10, 3):rcs(s100b.log10, 3),
+#                            data = endo.data)
+# lmtest::lrtest(s100b.full.rbans.3, s100b.noil6.rbans.3)
+# s100b.rbans.3$p.int.il6
+# 
+# ## Get p-value for biomarker
+# nomark.full.rbans.3 <- ols(rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                              iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
+#                              rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
+#                              rcs(age.div10, 3) + rcs(il6.log10, 3),
+#                            data = endo.data)
+# lmtest::lrtest(s100b.full.rbans.3, nomark.full.rbans.3)
+# s100b.rbans.3$p.marker
+
+# ## -- Get data set of predicted values for linear models -------------------------------------------
+# marker <- 'bdnf.log10'
+# junk <- eval(parse(text = paste0('as.data.frame(Predict(', 'bdnf.rbans.3$final.mod', ', ', marker, ' = NA))')))
+
+
+@
+
+
+
+
+
 \clearpage
 \section{Technical Details}
 
@@ -2347,7 +2478,8 @@ relevant.pkgs <-
   data.frame(pkg = c('dplyr', 'ggplot2', 'knitr', 'Hmisc', 'MASS', 'mice', 'rms', 'tidyr'),
              rsn = c('Data management', 'Plotting', 'Reproducible reporting',
                      'Descriptive statistics', 'Modeling (spec. negative binomial)',
-                     'Multiple imputation', 'Modeling (spec. linear regression)', 'Data management'))
+                     'Multiple imputation', 'Modeling (spec. linear regression)',
+                     'Data management'))
 use.packages <- session_info()$packages %>%
   filter(package %in% relevant.pkgs$pkg) %>%
   mutate(reason = relevant.pkgs$rsn[match(package, relevant.pkgs$pkg)]) %>%
