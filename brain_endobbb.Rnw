@@ -2383,6 +2383,9 @@ rbans.righthand <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(
 rbans.full.formula.3 <- paste('rbans.global.score.3', rbans.righthand, sep = ' ~ ')
 rbans.full.formula.12 <- paste('rbans.global.score.12', rbans.righthand, sep = ' ~ ')
 
+## Set datadist for ols() to work
+dd <- datadist(endo.data); options(datadist = 'dd')
+
 fit.rbans.models.3 <- function(marker){
   fit.reg.models(use.marker = marker, formula.full = rbans.full.formula.3, modtype = 'ols')
 }
@@ -2459,9 +2462,23 @@ uchl.rbans.12 <- fit.rbans.models.12('uchl.log10')
 # lmtest::lrtest(s100b.full.rbans.3, nomark.full.rbans.3)
 # s100b.rbans.3$p.marker
 
-# ## -- Get data set of predicted values for linear models -------------------------------------------
-# marker <- 'bdnf.log10'
-# junk <- eval(parse(text = paste0('as.data.frame(Predict(', 'bdnf.rbans.3$final.mod', ', ', marker, ' = NA))')))
+## -- Get data set of predicted values for linear models -------------------------------------------
+calc.ols.results <- function(olsobj,
+                             xvar,
+                             intvar = NULL,
+                             intvals = NULL){
+  if(!is.null(intvar) & is.null(intvals)){
+    stop("Interacting variable specified, but no interacting values")
+  } else{
+    if(is.null(intvar)){
+      preddata <- eval(parse(text = sprintf('as.data.frame(Predict(%s, %s = NA))', olsobj, xvar)))
+    } else{
+      preddata <- eval(parse(text = sprintf('as.data.frame(Predict(%s, %s = NA, %s = c(%s)))',
+                                            olsobj, xvar, intvar, paste(intvals, collapse = ', '))))
+    }
+    return(preddata)
+  }
+}
 
 
 @
