@@ -1352,7 +1352,7 @@ plot.zinf.results <- function(zinfobj,
   names(preddata) <- gsub(xvar, 'xvar', names(preddata))
 
   zinf.plot <- ggplot(aes(x = xvar, y = pe), data = preddata) +
-    geom_ribbon(aes(ymin = lcl, ymax = ucl), alpha = 0.4, fill = 'navy') +
+    geom_ribbon(aes(ymin = lcl, ymax = ucl), alpha = 0.3, fill = 'navy') +
     geom_line(colour = 'navy') +
     ylab(ystring) +
     theme_bw()
@@ -2484,6 +2484,43 @@ calc.ols.results <- function(olsobj,          ## string, name of ols() result
   }
 }
 
+plot.ols.results <- function(ols.preddata,
+                             ols.list,
+                             xvar,
+                             intvar = NULL,
+                             intstring = NULL,
+                             intp = NULL,
+                             xstring,
+                             ystring){
+  
+  if(!is.null(intvar)){
+    ols.preddata$intvar.f <-
+      factor(paste(intstring, rndformat(ols.preddata[,intvar], 2), sep = ' = '))
+  }
+  
+  fig <- ggplot(aes_string(x = xvar, y = 'yhat'), data = ols.preddata) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = 'navy') +
+    geom_line(colour = 'navy') +
+    theme_bw() +
+    ylab(paste0('Adjusted ', ystring))
+  
+  if(is.null(intvar)){
+    fig <- fig +
+      xlab(paste0('Log10(', xstring, ')\n\nP for biomarker, final model: ',
+                  formatp(ols.list$p.marker),
+                  '\nP for all interactions: ', formatp(ols.list$p.int)))
+  } else{
+    fig <- fig +
+      facet_wrap(~ intvar.f, nrow = 1) +
+      xlab(paste0('Log10(', xstring, ')\n\nP for biomarker, final model: ',
+                  formatp(ols.list$p.marker),
+                  '\nP for all interactions: ', formatp(ols.list$p.int),
+                  '\nP for ', intstring, ' interaction: ', formatp(intp))) +
+      theme(strip.text = element_text(face = 'bold'))
+  }
+  
+  fig
+}
 
 
 @
