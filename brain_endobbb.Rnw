@@ -2465,7 +2465,7 @@ uchl.rbans.12 <- fit.rbans.models.12('uchl.log10')
 ## -- Get data set of predicted values for linear models -------------------------------------------
 calc.ols.results <- function(olsobj,          ## string, name of ols() result
                              xvar,            ## string, variable for X axis
-                             intvars = NULL,   ## string, interacting variable
+                             intvars = NULL,  ## string, interacting variable
                              intvals = NULL){ ## numeric vector, values of intvar
   if(!is.null(intvars) & (is.null(intvals) | length(intvars) != length(intvals))){
     stop("Interacting variable(s) specified, but length of interacting values does not match number of interacting variables")
@@ -2484,14 +2484,14 @@ calc.ols.results <- function(olsobj,          ## string, name of ols() result
   }
 }
 
-plot.ols.results <- function(ols.preddata,
-                             ols.list,
-                             xvar,
-                             intvar = NULL,
-                             intstring = NULL,
-                             intp = NULL,
-                             xstring,
-                             ystring){
+plot.ols.results <- function(ols.preddata,     ## data frame of predicted values
+                             ols.list,         ## result of fit.reg.models()
+                             xvar,             ## string; variable on X axis
+                             intvar = NULL,    ## string; variable to facet
+                             intstring = NULL, ## string; text to describe faceting variable
+                             intp = NULL,      ## either p.int.age or p.int.il6 from ols.list
+                             xstring,          ## string; description of X variable (Log10(xstring))
+                             ystring){         ## string; description of outcome (Adjusted ystring)
   
   if(!is.null(intvar)){
     ols.preddata$intvar.f <-
@@ -2522,6 +2522,61 @@ plot.ols.results <- function(ols.preddata,
   fig
 }
 
+## -- Create graphics for linear models ------------------------------------------------------------
+ols.figures <- function(olslist,
+                        xvar,
+                        xstring,
+                        ystring){
+  
+  olslist.got <- get(olslist)
+  
+  if(olslist.got$p.int > 0.20){
+    preddata <- calc.ols.results(olsobj = paste0(olslist, '$final.mod'), xvar = xvar)
+    return(list('fig' = list(plot.ols.results(ols.preddata = preddata[[1]],
+                                              ols.list = olslist.got,
+                                              xvar = xvar,
+                                              xstring = xstring,
+                                              ystring = ystring)),
+                'height' =  3.75,
+                'layoutmat' = matrix(1, ncol = 1)))
+  } else{
+    use.intvars <- c('age.div10', 'il6.log10')
+    use.intstring <- c('Age / 10', 'Log10(IL-6)')
+    use.intp <- c(olslist.got$p.int.age, olslist.got$p.int.il6)
+    
+    preddata <- calc.ols.results(olsobj = paste0(olslist, '$final.mod'),
+                                 xvar = xvar,
+                                 intvars = use.intvars,
+                                 intvals = list((intvals.age / 10), intvals.il6))
+    
+    figs <- lapply(1:length(use.intvars), FUN = function(ivar){
+      plot.ols.results(ols.preddata = preddata[[ivar]],
+                       ols.list = olslist.got,
+                       xvar = xvar,
+                       intvar = use.intvars[ivar],
+                       intstring = use.intstring[ivar],
+                       intp = use.intp[ivar],
+                       xstring = xstring,
+                       ystring = ystring)
+    })
+
+    return(list('fig' = figs, 'height' = 8, 'layoutmat' = matrix(1:2, ncol = 1)))
+  }
+}
+
+ols.figures.rbans.3 <- function(olslist, xvar, xstring){
+  ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'RBANS, 3 Months')
+}
+bdnf.rbans.3.fig <-
+  ols.figures.rbans.3(olslist = 'bdnf.rbans.3', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.rbans.3.fig <-
+  ols.figures.rbans.3(olslist = 'esel.rbans.3', xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.rbans.3.fig <-
+  ols.figures.rbans.3(olslist = 'pai1.rbans.3', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.rbans.3.fig <-
+  ols.figures.rbans.3(olslist = 's100b.rbans.3', xvar = 's100b.log10', xstring = 'S100B')
+uchl.rbans.3.fig <-
+  ols.figures.rbans.3(olslist = 'uchl.rbans.3', xvar = 'uchl.log10', xstring = 'UCHL')
 
 @
 
