@@ -2463,22 +2463,27 @@ uchl.rbans.12 <- fit.rbans.models.12('uchl.log10')
 # s100b.rbans.3$p.marker
 
 ## -- Get data set of predicted values for linear models -------------------------------------------
-calc.ols.results <- function(olsobj,
-                             xvar,
-                             intvar = NULL,
-                             intvals = NULL){
-  if(!is.null(intvar) & is.null(intvals)){
-    stop("Interacting variable specified, but no interacting values")
+calc.ols.results <- function(olsobj,          ## string, name of ols() result
+                             xvar,            ## string, variable for X axis
+                             intvars = NULL,   ## string, interacting variable
+                             intvals = NULL){ ## numeric vector, values of intvar
+  if(!is.null(intvars) & (is.null(intvals) | length(intvars) != length(intvals))){
+    stop("Interacting variable(s) specified, but length of interacting values does not match number of interacting variables")
   } else{
-    if(is.null(intvar)){
-      preddata <- eval(parse(text = sprintf('as.data.frame(Predict(%s, %s = NA))', olsobj, xvar)))
+    if(is.null(intvars)){
+      preddata <- list(eval(parse(text = sprintf('as.data.frame(Predict(%s, %s = NA))',
+                                                 olsobj, xvar))))
     } else{
-      preddata <- eval(parse(text = sprintf('as.data.frame(Predict(%s, %s = NA, %s = c(%s)))',
-                                            olsobj, xvar, intvar, paste(intvals, collapse = ', '))))
+      preddata <- lapply(1:length(intvars), FUN = function(ivar){
+        eval(parse(text = sprintf('as.data.frame(Predict(%s, %s = NA, %s = c(%s)))',
+                                  olsobj, xvar, intvars[ivar],
+                                  paste(intvals[ivar], collapse = ', '))))
+      })
     }
     return(preddata)
   }
 }
+
 
 
 @
