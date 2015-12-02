@@ -753,6 +753,20 @@ fit.reg.models <- function(use.marker,   ## character string; name of biomarker 
               'p.marker' = p.marker))
 }
 
+## -- Function to check diagnostics for ols() models -----------------------------------------------
+ols.diagnostics <- function(model.obj.ma, labeltext){
+  par(mfrow = c(1, 2), cex = 0.8, cex.main = 0.9)
+  plot(resid(model.obj.ma) ~ fitted(model.obj.ma),
+       xlab = 'Predicted Value',
+       ylab = paste('Model residual'),
+       main = paste('RP plot,', labeltext),
+       col = 'turquoise4')
+  abline(h = 0)
+  qqnorm(resid(model.obj.ma),
+         datax = TRUE,
+         main = paste('Q-Q of residuals,', labeltext))
+}
+
 ## -- Need to calculate predicted values for NB models by hand -------------------------------------
 ## Function to get median from endo.data$variable
 get.med <- function(varname){ median(endo.data[,varname], na.rm = TRUE) }
@@ -1410,6 +1424,109 @@ zinf.figures <- function(zinfobj, zinf.preddata, xvar, xstring, ystring){
 
 
 
+calc.ols.results <- function(olsobj,          ## string, name of ols() result
+                             xvar,            ## string, variable for X axis
+                             intvars = NULL,  ## string, interacting variable
+                             intvals = NULL){ ## numeric vector, values of intvar
+  if(!is.null(intvars) & (is.null(intvals) | length(intvars) != length(intvals))){
+    stop("Interacting variable(s) specified, but length of interacting values does not match number of interacting variables")
+  } else{
+    if(is.null(intvars)){
+      preddata <- list(eval(parse(text = sprintf('as.data.frame(Predict(%s, %s = NA))',
+                                                 olsobj, xvar))))
+    } else{
+      preddata <- lapply(1:length(intvars), FUN = function(ivar){
+        eval(parse(text = sprintf('as.data.frame(Predict(%s, %s = NA, %s = c(%s)))',
+                                  olsobj, xvar, intvars[ivar],
+                                  paste(intvals[ivar], collapse = ', '))))
+      })
+    }
+    return(preddata)
+  }
+}
+
+## -- Create plot using one data set of predicted values -------------------------------------------
+plot.ols.results <- function(ols.preddata,     ## data frame of predicted values
+                             ols.list,         ## result of fit.reg.models()
+                             xvar,             ## string; variable on X axis
+                             intvar = NULL,    ## string; variable to facet
+                             intstring = NULL, ## string; text to describe faceting variable
+                             intp = NULL,      ## either p.int.age or p.int.il6 from ols.list
+                             xstring,          ## string; description of X variable (Log10(xstring))
+                             ystring){         ## string; description of outcome (Adjusted ystring)
+  
+  if(!is.null(intvar)){
+    ols.preddata$intvar.f <-
+      factor(paste(intstring, rndformat(ols.preddata[,intvar], 2), sep = ' = '))
+  }
+  
+  fig <- ggplot(aes_string(x = xvar, y = 'yhat'), data = ols.preddata) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = 'navy') +
+    geom_line(colour = 'navy') +
+    theme_bw() +
+    ylab(paste0('Adjusted ', ystring))
+  
+  if(is.null(intvar)){
+    fig <- fig +
+      xlab(paste0('Log10(', xstring, ')\n\nP for biomarker, final model: ',
+                  formatp(ols.list$p.marker),
+                  '\nP for all interactions: ', formatp(ols.list$p.int)))
+  } else{
+    fig <- fig +
+      facet_wrap(~ intvar.f, nrow = 1) +
+      xlab(paste0('Log10(', xstring, ')\n\nP for biomarker, final model: ',
+                  formatp(ols.list$p.marker),
+                  '\nP for all interactions: ', formatp(ols.list$p.int),
+                  '\nP for ', intstring, ' interaction: ', formatp(intp))) +
+      theme(strip.text = element_text(face = 'bold'))
+  }
+  
+  fig
+}
+
+## -- Create graphics for linear models ------------------------------------------------------------
+ols.figures <- function(olslist,
+                        xvar,
+                        xstring,
+                        ystring){
+  
+  olslist.got <- get(olslist)
+  
+  if(olslist.got$p.int > 0.20){
+    preddata <- calc.ols.results(olsobj = paste0(olslist, '$final.mod'), xvar = xvar)
+    return(list('fig' = list(plot.ols.results(ols.preddata = preddata[[1]],
+                                              ols.list = olslist.got,
+                                              xvar = xvar,
+                                              xstring = xstring,
+                                              ystring = ystring)),
+                'height' =  3.75,
+                'layoutmat' = matrix(1, ncol = 1)))
+  } else{
+    use.intvars <- c('age.div10', 'il6.log10')
+    use.intstring <- c('Age / 10', 'Log10(IL-6)')
+    use.intp <- c(olslist.got$p.int.age, olslist.got$p.int.il6)
+    
+    preddata <- calc.ols.results(olsobj = paste0(olslist, '$final.mod'),
+                                 xvar = xvar,
+                                 intvars = use.intvars,
+                                 intvals = list((intvals.age / 10), intvals.il6))
+    
+    figs <- lapply(1:length(use.intvars), FUN = function(ivar){
+      plot.ols.results(ols.preddata = preddata[[ivar]],
+                       ols.list = olslist.got,
+                       xvar = xvar,
+                       intvar = use.intvars[ivar],
+                       intstring = use.intstring[ivar],
+                       intp = use.intp[ivar],
+                       xstring = xstring,
+                       ystring = ystring)
+    })
+
+    return(list('fig' = figs, 'height' = 8, 'layoutmat' = matrix(1:2, ncol = 1)))
+  }
+}
+
+
 
 @
 
@@ -1446,20 +1563,7 @@ For models where interaction terms are kept in the final model, the association 
 shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable.
 
 %' <<trymodeltypes>>=
-%' ## -- Functions to print model diagnostics ------------------------------------------------------
-%' ols.diagnostics <- function(model.obj.ma, labeltext){
-%'   par(mfrow = c(1, 2), cex = 0.8, cex.main = 0.9)
-%'   plot(resid(model.obj.ma) ~ fitted(model.obj.ma),
-%'        xlab = 'Predicted Delirium Days',
-%'        ylab = paste('Model residual'),
-%'        main = paste('RP plot,', labeltext),
-%'        col = 'turquoise4')
-%'   abline(h = 0)
-%'   qqnorm(resid(model.obj.ma),
-%'          datax = TRUE,
-%'          main = paste('Q-Q of residuals,', labeltext))
-%' }
-%'
+%' ## -- Functions to print PO model diagnostics ------------------------------------------------------
 %' po.assume <- function(model.obj, cuts, model.data){
 %'   ## Create data set for each coefficient in main model
 %'   cof.names <- names(coef(model.obj))
@@ -1467,28 +1571,28 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %'   int.rows <- grep('y>=', cof.names, fixed = TRUE)
 %'   take.rows <- all.rows[all.rows %nin% int.rows]
 %'   cof <- data.frame(var = cof.names[take.rows])
-%'
+%' 
 %'   ## Extract formula from model call
 %'   comp.call <- as.character(formula(model.obj))
 %'   model.outcome <- comp.call[2]
 %'   model.formula <- comp.call[3]
-%'
+%' 
 %'   for(k in 1:length(cuts)){
 %'     cut.mod <- lrm(as.formula(paste('as.numeric(', model.outcome, ' >= ', cuts[k], ') ~ ', model.formula, sep = '')),
 %'                    data = model.data)
-%'
+%' 
 %'     cof.temp <- data.frame(var = names(coef(cut.mod)),
 %'                            hold.place = coef(cut.mod))
-%'
+%' 
 %'     cof <- merge(cof, cof.temp, all.x = TRUE, all.y = FALSE)
 %'     names(cof) <- gsub('hold.place', paste('coef.cut', cuts[k], sep = '.'), names(cof))
 %'   }
-%'
+%' 
 %'   ## Subset in case some splines didn't make requested number of knots
 %'   cof <- cof[rowSums(is.na(cof[,2:ncol(cof)])) == 0,]
 %'   ## Get number of rows/columns for plot (plot as close to square as possible)
 %'   plot.rows <- ceil(sqrt(nrow(cof)))
-%'
+%' 
 %'   par(mfrow = c(plot.rows, plot.rows), mar = c(2, 4, 1, 1))
 %'   for(k in 1:nrow(cof)){
 %'     plot(cuts, cof[k, 2:ncol(cof)], type = 'l', ylab = '')
@@ -1496,23 +1600,23 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %'     abline(h = 0, lty = 2)
 %'   }
 %' }
-%'
+%' 
 %' ## -- Test linear, POLR regression first to make sure negative binomial is best choice -------------
 %' del.lin.bdnf <- ols(del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) +
 %'                       rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) +
 %'                       sevsepsis.day1 + rcs(age.enroll, 3) * rcs(bdnf.log10, 3) +
 %'                       rcs(il6.log10, 3) * rcs(bdnf.log10, 3),
 %'                     data = endo.data)
-%'
+%' 
 %' del.polr.bdnf <- lrm(del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) +
 %'                       rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) +
 %'                       sevsepsis.day1 + rcs(age.enroll, 3) * rcs(bdnf.log10, 3) +
 %'                       rcs(il6.log10, 3) * rcs(bdnf.log10, 3),
 %'                     data = endo.data)
-%'
+%' 
 %' ols.diagnostics(del.lin.bdnf, 'BDNF vs Delirium Duration')
 %' po.assume(del.polr.bdnf, cuts = seq(1, 10, 1), endo.data)
-%'
+%' 
 %' @
 
 <<delmodels>>=
@@ -2386,6 +2490,7 @@ rbans.full.formula.12 <- paste('rbans.global.score.12', rbans.righthand, sep = '
 ## Set datadist for ols() to work
 dd <- datadist(endo.data); options(datadist = 'dd')
 
+## 3-month models
 fit.rbans.models.3 <- function(marker){
   fit.reg.models(use.marker = marker, formula.full = rbans.full.formula.3, modtype = 'ols')
 }
@@ -2395,6 +2500,48 @@ pai1.rbans.3 <- fit.rbans.models.3('pai1.log10')
 s100b.rbans.3 <- fit.rbans.models.3('s100b.log10')
 uchl.rbans.3 <- fit.rbans.models.3('uchl.log10')
 
+# ## Check assumptions of final models
+# ols.diagnostics(model.obj.ma = bdnf.rbans.3$final.mod, labeltext = 'BDNF vs RBANS, 3m')
+# ols.diagnostics(model.obj.ma = esel.rbans.3$final.mod, labeltext = 'E-selectin vs RBANS, 3m')
+# ols.diagnostics(model.obj.ma = pai1.rbans.3$final.mod, labeltext = 'PAI-1 vs RBANS, 3m')
+# ols.diagnostics(model.obj.ma = s100b.rbans.3$final.mod, labeltext = 'S100B vs RBANS, 3m')
+# ols.diagnostics(model.obj.ma = uchl.rbans.3$final.mod, labeltext = 'UCHL vs RBANS, 3m')
+
+ols.figures.rbans.3 <- function(olslist, xvar, xstring){
+  ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'RBANS, 3 Months')
+}
+bdnf.rbans.3.fig <-
+  ols.figures.rbans.3(olslist = 'bdnf.rbans.3', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.rbans.3.fig <-
+  ols.figures.rbans.3(olslist = 'esel.rbans.3', xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.rbans.3.fig <-
+  ols.figures.rbans.3(olslist = 'pai1.rbans.3', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.rbans.3.fig <-
+  ols.figures.rbans.3(olslist = 's100b.rbans.3', xvar = 's100b.log10', xstring = 'S100B')
+uchl.rbans.3.fig <-
+  ols.figures.rbans.3(olslist = 'uchl.rbans.3', xvar = 'uchl.log10', xstring = 'UCHL')
+
+pdf(file = 'bdnf_rbans3_results.pdf', width = 8, height = bdnf.rbans.3.fig$height)
+multiplot(plotlist = bdnf.rbans.3.fig$fig, layout = bdnf.rbans.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_rbans3_results.pdf', width = 8, height = esel.rbans.3.fig$height)
+multiplot(plotlist = esel.rbans.3.fig$fig, layout = esel.rbans.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_rbans3_results.pdf', width = 8, height = pai1.rbans.3.fig$height)
+multiplot(plotlist = pai1.rbans.3.fig$fig, layout = pai1.rbans.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_rbans3_results.pdf', width = 8, height = s100b.rbans.3.fig$height)
+multiplot(plotlist = s100b.rbans.3.fig$fig, layout = s100b.rbans.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_rbans3_results.pdf', width = 8, height = uchl.rbans.3.fig$height)
+multiplot(plotlist = uchl.rbans.3.fig$fig, layout = uchl.rbans.3.fig$layoutmat)
+dev.off()
+
+## 12-month models
 fit.rbans.models.12 <- function(marker){
   fit.reg.models(use.marker = marker, formula.full = rbans.full.formula.12, modtype = 'ols')
 }
@@ -2403,6 +2550,13 @@ esel.rbans.12 <- fit.rbans.models.12('esel.log10')
 pai1.rbans.12 <- fit.rbans.models.12('pai1.log10')
 s100b.rbans.12 <- fit.rbans.models.12('s100b.log10')
 uchl.rbans.12 <- fit.rbans.models.12('uchl.log10')
+
+# ## Check assumptions of final models
+# ols.diagnostics(model.obj.ma = bdnf.rbans.12$final.mod, labeltext = 'BDNF vs RBANS, 12m')
+# ols.diagnostics(model.obj.ma = esel.rbans.12$final.mod, labeltext = 'E-selectin vs RBANS, 12m')
+# ols.diagnostics(model.obj.ma = pai1.rbans.12$final.mod, labeltext = 'PAI-1 vs RBANS, 12m')
+# ols.diagnostics(model.obj.ma = s100b.rbans.12$final.mod, labeltext = 'S100B vs RBANS, 12m')
+# ols.diagnostics(model.obj.ma = uchl.rbans.12$final.mod, labeltext = 'UCHL vs RBANS, 12m')
 
 # ## Test by hand with S100B
 # ## Fit full model
@@ -2462,126 +2616,380 @@ uchl.rbans.12 <- fit.rbans.models.12('uchl.log10')
 # lmtest::lrtest(s100b.full.rbans.3, nomark.full.rbans.3)
 # s100b.rbans.3$p.marker
 
-## -- Get data set of predicted values for linear models -------------------------------------------
-calc.ols.results <- function(olsobj,          ## string, name of ols() result
-                             xvar,            ## string, variable for X axis
-                             intvars = NULL,  ## string, interacting variable
-                             intvals = NULL){ ## numeric vector, values of intvar
-  if(!is.null(intvars) & (is.null(intvals) | length(intvars) != length(intvals))){
-    stop("Interacting variable(s) specified, but length of interacting values does not match number of interacting variables")
-  } else{
-    if(is.null(intvars)){
-      preddata <- list(eval(parse(text = sprintf('as.data.frame(Predict(%s, %s = NA))',
-                                                 olsobj, xvar))))
-    } else{
-      preddata <- lapply(1:length(intvars), FUN = function(ivar){
-        eval(parse(text = sprintf('as.data.frame(Predict(%s, %s = NA, %s = c(%s)))',
-                                  olsobj, xvar, intvars[ivar],
-                                  paste(intvals[ivar], collapse = ', '))))
-      })
-    }
-    return(preddata)
-  }
+ols.figures.rbans.12 <- function(olslist, xvar, xstring){
+  ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'RBANS, 12 Months')
 }
+bdnf.rbans.12.fig <-
+  ols.figures.rbans.12(olslist = 'bdnf.rbans.12', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.rbans.12.fig <-
+  ols.figures.rbans.12(olslist = 'esel.rbans.12', xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.rbans.12.fig <-
+  ols.figures.rbans.12(olslist = 'pai1.rbans.12', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.rbans.12.fig <-
+  ols.figures.rbans.12(olslist = 's100b.rbans.12', xvar = 's100b.log10', xstring = 'S100B')
+uchl.rbans.12.fig <-
+  ols.figures.rbans.12(olslist = 'uchl.rbans.12', xvar = 'uchl.log10', xstring = 'UCHL')
 
-plot.ols.results <- function(ols.preddata,     ## data frame of predicted values
-                             ols.list,         ## result of fit.reg.models()
-                             xvar,             ## string; variable on X axis
-                             intvar = NULL,    ## string; variable to facet
-                             intstring = NULL, ## string; text to describe faceting variable
-                             intp = NULL,      ## either p.int.age or p.int.il6 from ols.list
-                             xstring,          ## string; description of X variable (Log10(xstring))
-                             ystring){         ## string; description of outcome (Adjusted ystring)
-  
-  if(!is.null(intvar)){
-    ols.preddata$intvar.f <-
-      factor(paste(intstring, rndformat(ols.preddata[,intvar], 2), sep = ' = '))
-  }
-  
-  fig <- ggplot(aes_string(x = xvar, y = 'yhat'), data = ols.preddata) +
-    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = 'navy') +
-    geom_line(colour = 'navy') +
-    theme_bw() +
-    ylab(paste0('Adjusted ', ystring))
-  
-  if(is.null(intvar)){
-    fig <- fig +
-      xlab(paste0('Log10(', xstring, ')\n\nP for biomarker, final model: ',
-                  formatp(ols.list$p.marker),
-                  '\nP for all interactions: ', formatp(ols.list$p.int)))
-  } else{
-    fig <- fig +
-      facet_wrap(~ intvar.f, nrow = 1) +
-      xlab(paste0('Log10(', xstring, ')\n\nP for biomarker, final model: ',
-                  formatp(ols.list$p.marker),
-                  '\nP for all interactions: ', formatp(ols.list$p.int),
-                  '\nP for ', intstring, ' interaction: ', formatp(intp))) +
-      theme(strip.text = element_text(face = 'bold'))
-  }
-  
-  fig
-}
+pdf(file = 'bdnf_rbans12_results.pdf', width = 8, height = bdnf.rbans.12.fig$height)
+multiplot(plotlist = bdnf.rbans.12.fig$fig, layout = bdnf.rbans.12.fig$layoutmat)
+dev.off()
 
-## -- Create graphics for linear models ------------------------------------------------------------
-ols.figures <- function(olslist,
-                        xvar,
-                        xstring,
-                        ystring){
-  
-  olslist.got <- get(olslist)
-  
-  if(olslist.got$p.int > 0.20){
-    preddata <- calc.ols.results(olsobj = paste0(olslist, '$final.mod'), xvar = xvar)
-    return(list('fig' = list(plot.ols.results(ols.preddata = preddata[[1]],
-                                              ols.list = olslist.got,
-                                              xvar = xvar,
-                                              xstring = xstring,
-                                              ystring = ystring)),
-                'height' =  3.75,
-                'layoutmat' = matrix(1, ncol = 1)))
-  } else{
-    use.intvars <- c('age.div10', 'il6.log10')
-    use.intstring <- c('Age / 10', 'Log10(IL-6)')
-    use.intp <- c(olslist.got$p.int.age, olslist.got$p.int.il6)
-    
-    preddata <- calc.ols.results(olsobj = paste0(olslist, '$final.mod'),
-                                 xvar = xvar,
-                                 intvars = use.intvars,
-                                 intvals = list((intvals.age / 10), intvals.il6))
-    
-    figs <- lapply(1:length(use.intvars), FUN = function(ivar){
-      plot.ols.results(ols.preddata = preddata[[ivar]],
-                       ols.list = olslist.got,
-                       xvar = xvar,
-                       intvar = use.intvars[ivar],
-                       intstring = use.intstring[ivar],
-                       intp = use.intp[ivar],
-                       xstring = xstring,
-                       ystring = ystring)
-    })
+pdf(file = 'esel_rbans12_results.pdf', width = 8, height = esel.rbans.12.fig$height)
+multiplot(plotlist = esel.rbans.12.fig$fig, layout = esel.rbans.12.fig$layoutmat)
+dev.off()
 
-    return(list('fig' = figs, 'height' = 8, 'layoutmat' = matrix(1:2, ncol = 1)))
-  }
-}
+pdf(file = 'pai1_rbans12_results.pdf', width = 8, height = pai1.rbans.12.fig$height)
+multiplot(plotlist = pai1.rbans.12.fig$fig, layout = pai1.rbans.12.fig$layoutmat)
+dev.off()
 
-ols.figures.rbans.3 <- function(olslist, xvar, xstring){
-  ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'RBANS, 3 Months')
-}
-bdnf.rbans.3.fig <-
-  ols.figures.rbans.3(olslist = 'bdnf.rbans.3', xvar = 'bdnf.log10', xstring = 'BDNF')
-esel.rbans.3.fig <-
-  ols.figures.rbans.3(olslist = 'esel.rbans.3', xvar = 'esel.log10', xstring = 'E-selectin')
-pai1.rbans.3.fig <-
-  ols.figures.rbans.3(olslist = 'pai1.rbans.3', xvar = 'pai1.log10', xstring = 'PAI-1')
-s100b.rbans.3.fig <-
-  ols.figures.rbans.3(olslist = 's100b.rbans.3', xvar = 's100b.log10', xstring = 'S100B')
-uchl.rbans.3.fig <-
-  ols.figures.rbans.3(olslist = 'uchl.rbans.3', xvar = 'uchl.log10', xstring = 'UCHL')
+pdf(file = 's100b_rbans12_results.pdf', width = 8, height = s100b.rbans.12.fig$height)
+multiplot(plotlist = s100b.rbans.12.fig$fig, layout = s100b.rbans.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_rbans12_results.pdf', width = 8, height = uchl.rbans.12.fig$height)
+multiplot(plotlist = uchl.rbans.12.fig$fig, layout = uchl.rbans.12.fig$layoutmat)
+dev.off()
 
 @
 
 
+\clearpage
+\subsection{BDNF vs. RBANS}
+We see no significant overall association between log10(BDNF) at baseline and RBANS scores at
+3-month followup. At 12-month followup, however, there is a marginally significant association that
+is strongly modified by log10(IL-6).
 
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_rbans3_results.pdf}}
+\caption{Log10(BDNF) vs. RBANS at 3 Months}\label{fig:bdnfrbans3}
+\end{figure}
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_rbans12_results.pdf}}
+\caption{Log10(BDNF) vs. RBANS at 12 Months}\label{fig:bdnfrbans12}
+\end{figure}
+
+\clearpage
+\subsection{E-selectin vs. RBANS}
+We see a significant association between log10(E-selectin) at baseline and RBANS scores 3 months
+after discharge. This association is somewhat nonlinear, but essentially, higher log10(E-selectin)
+is associated with lower RBANS scores up to a certain point. This association is not modified by
+either age or log10(IL-6); it remains directionally similar at 12-month followup, but is no longer
+statistically significant.
+
+\begin{figure}[!h]
+{\centering\includegraphics{esel_rbans3_results.pdf}}
+\caption{Log10(E-selectin) vs. RBANS at 3 Months}\label{fig:eselrbans3}
+\end{figure}
+\begin{figure}[!h]
+{\centering\includegraphics{esel_rbans12_results.pdf}}
+\caption{Log10(E-selectin) vs. RBANS at 12 Months}\label{fig:eselrbans12}
+\end{figure}
+
+\clearpage
+\subsection{PAI-1 vs. RBANS}
+We see no significant association between log10(PAI-1) at baseline and RBANS scores at either 3 or
+12 months after discharge.
+
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_rbans3_results.pdf}}
+\caption{Log10(PAI-1) vs. RBANS at 3 Months}\label{fig:pai1rbans3}
+\end{figure}
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_rbans12_results.pdf}}
+\caption{Log10(PAI-1) vs. RBANS at 12 Months}\label{fig:pai1rbans12}
+\end{figure}
+
+\clearpage
+\subsection{S100B vs. RBANS}
+At 3 months, there is a nearly significant relationship between log10(S100B) and RBANS scores; this
+association is potentially modified by both age and log10(IL-6). At 12 months, the overall
+association is highly significant and is still modified by log10(IL-6), but is likely not modified
+by age.
+
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_rbans3_results.pdf}}
+\caption{Log10(S100B) vs. RBANS at 3 Months}\label{fig:s100brbans3}
+\end{figure}
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_rbans12_results.pdf}}
+\caption{Log10(S100B) vs. RBANS at 12 Months}\label{fig:s100brbans12}
+\end{figure}
+
+\clearpage
+\subsection{UCHL vs. RBANS}
+We see a significant, nonlinear relationship between log10(UCHL) and RBANS scores at 3-month
+followup; this association is not modified by either age or log10(IL-6), and disappears by
+12-month followup.
+
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_rbans3_results.pdf}}
+\caption{Log10(UCHL) vs. RBANS at 3 Months}\label{fig:uchlrbans3}
+\end{figure}
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_rbans12_results.pdf}}
+\caption{Log10(UCHL) vs. RBANS at 12 Months}\label{fig:uchlrbans12}
+\end{figure}
+
+
+
+\clearpage
+\section{Endothelial/BBB Injury Markers vs. Trails B T-Score}
+
+To examine the association between endothelial/BBB injury at study enrollment and Trails B T-scores at 3- and 12-month followup, we used linear regression, adjusting for the following covariates:
+\begin{itemize}
+\item Charlson score
+\item Years of education
+\item IQCODE score
+\item Framingham stroke risk score
+\item Mean daily modified SOFA (no GCS) during ICU stay
+\item Duration of severe sepsis
+\item Duration of delirium
+\item Duration of coma
+\end{itemize}
+
+We checked residual vs. fitted and QQ plots to ensure that model assumptions were met adequately.
+
+All continuous variables, including biomarkers, were initially allowed to have a nonlinear
+relationship with the outcome, with the exception of IQCODE, which had too little variability to
+allow for splines. If the global p-value for nonlinearity was clearly nonsignificant
+(p $>$ \Sexpr{pcutoff}), nonlinear terms were removed from the model for parsimony. We allowed for
+potential interactions between endothelial/BBB markers and both systemic inflammation (log10(IL-6))
+on study day 1 and age at study enrollment. If the global p-value for interactions were clearly nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the final
+model for parsimony. All biomarkers are transformed using the log10 transformation in order to improve model fit and reduce the influence of extremely high values. All p-values are calculated using the \Sexpr{use.method} method.
+
+% We used multiple imputation to reduce bias from missing covariates.
+
+For models where interaction terms are kept in the final model, the association of the biomarker is
+shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable.
+
+<<trailbmodels>>=
+## Formula for full delirium model, subbing "markervar" in place of actual biomarker variable
+trailb.righthand <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(markervar, 3) + rcs(age.div10, 3):rcs(markervar, 3) + rcs(il6.log10, 3):rcs(markervar, 3)"
+
+trailb.full.formula.3 <- paste('trail.b.tscore.3', trailb.righthand, sep = ' ~ ')
+trailb.full.formula.12 <- paste('trail.b.tscore.12', trailb.righthand, sep = ' ~ ')
+
+## Set datadist for ols() to work
+dd <- datadist(endo.data); options(datadist = 'dd')
+
+## 3-month models
+fit.trailb.models.3 <- function(marker){
+  fit.reg.models(use.marker = marker, formula.full = trailb.full.formula.3, modtype = 'ols')
+}
+bdnf.trailb.3 <- fit.trailb.models.3('bdnf.log10')
+esel.trailb.3 <- fit.trailb.models.3('esel.log10')
+pai1.trailb.3 <- fit.trailb.models.3('pai1.log10')
+s100b.trailb.3 <- fit.trailb.models.3('s100b.log10')
+uchl.trailb.3 <- fit.trailb.models.3('uchl.log10')
+
+# ## Check assumptions of final models
+# ols.diagnostics(model.obj.ma = bdnf.trailb.3$final.mod, labeltext = 'BDNF vs Trails B, 3m')
+# ols.diagnostics(model.obj.ma = esel.trailb.3$final.mod, labeltext = 'E-selectin vs Trails B, 3m')
+# ols.diagnostics(model.obj.ma = pai1.trailb.3$final.mod, labeltext = 'PAI-1 vs Trails B, 3m')
+# ols.diagnostics(model.obj.ma = s100b.trailb.3$final.mod, labeltext = 'S100B vs Trails B, 3m')
+# ols.diagnostics(model.obj.ma = uchl.trailb.3$final.mod, labeltext = 'UCHL vs Trails B, 3m')
+
+ols.figures.trailb.3 <- function(olslist, xvar, xstring){
+  ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'Trails B, 3 Months')
+}
+bdnf.trailb.3.fig <-
+  ols.figures.trailb.3(olslist = 'bdnf.trailb.3', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.trailb.3.fig <-
+  ols.figures.trailb.3(olslist = 'esel.trailb.3', xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.trailb.3.fig <-
+  ols.figures.trailb.3(olslist = 'pai1.trailb.3', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.trailb.3.fig <-
+  ols.figures.trailb.3(olslist = 's100b.trailb.3', xvar = 's100b.log10', xstring = 'S100B')
+uchl.trailb.3.fig <-
+  ols.figures.trailb.3(olslist = 'uchl.trailb.3', xvar = 'uchl.log10', xstring = 'UCHL')
+
+pdf(file = 'bdnf_trailb3_results.pdf', width = 8, height = bdnf.trailb.3.fig$height)
+multiplot(plotlist = bdnf.trailb.3.fig$fig, layout = bdnf.trailb.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_trailb3_results.pdf', width = 8, height = esel.trailb.3.fig$height)
+multiplot(plotlist = esel.trailb.3.fig$fig, layout = esel.trailb.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_trailb3_results.pdf', width = 8, height = pai1.trailb.3.fig$height)
+multiplot(plotlist = pai1.trailb.3.fig$fig, layout = pai1.trailb.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_trailb3_results.pdf', width = 8, height = s100b.trailb.3.fig$height)
+multiplot(plotlist = s100b.trailb.3.fig$fig, layout = s100b.trailb.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_trailb3_results.pdf', width = 8, height = uchl.trailb.3.fig$height)
+multiplot(plotlist = uchl.trailb.3.fig$fig, layout = uchl.trailb.3.fig$layoutmat)
+dev.off()
+
+## 12-month models
+fit.trailb.models.12 <- function(marker){
+  fit.reg.models(use.marker = marker, formula.full = trailb.full.formula.12, modtype = 'ols')
+}
+bdnf.trailb.12 <- fit.trailb.models.12('bdnf.log10')
+esel.trailb.12 <- fit.trailb.models.12('esel.log10')
+pai1.trailb.12 <- fit.trailb.models.12('pai1.log10')
+s100b.trailb.12 <- fit.trailb.models.12('s100b.log10')
+uchl.trailb.12 <- fit.trailb.models.12('uchl.log10')
+
+# ## Check assumptions of final models
+# ols.diagnostics(model.obj.ma = bdnf.trailb.12$final.mod, labeltext = 'BDNF vs Trails B, 12m')
+# ols.diagnostics(model.obj.ma = esel.trailb.12$final.mod, labeltext = 'E-selectin vs Trails B, 12m')
+# ols.diagnostics(model.obj.ma = pai1.trailb.12$final.mod, labeltext = 'PAI-1 vs Trails B, 12m')
+# ols.diagnostics(model.obj.ma = s100b.trailb.12$final.mod, labeltext = 'S100B vs Trails B, 12m')
+# ols.diagnostics(model.obj.ma = uchl.trailb.12$final.mod, labeltext = 'UCHL vs Trails B, 12m')
+
+# ## Test by hand with E-selectin
+# modvars <- c('trail.b.tscore.12', 'charlson.score', 'edu', 'iqcode.score.e', 'stroke.risk',
+#              'mean.modsofa.icu', 'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp', 'age.div10',
+#              'il6.log10', 'esel.log10')
+# usedata <- endo.data[rowSums(is.na(endo.data[,modvars])) == 0, modvars]
+# 
+# ## Fit full model
+# esel.full.trailb.12 <- ols(trail.b.tscore.12 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                              iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
+#                              rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
+#                              rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(esel.log10, 3) +
+#                              rcs(age.div10, 3):rcs(esel.log10, 3) +
+#                              rcs(il6.log10, 3):rcs(esel.log10, 3),
+#                            data = usedata)
+# 
+# ## Fit model without nonlinear terms
+# esel.lin.trailb.12 <- ols(trail.b.tscore.12 ~ charlson.score + edu + iqcode.score.e + stroke.risk +
+#                             mean.modsofa.icu + icudays.sevseptic.s + del.s.imp + coma.s.imp +
+#                             age.div10 + il6.log10 + esel.log10 + age.div10:esel.log10 +
+#                             il6.log10:esel.log10,
+#                           data = usedata)
+# 
+# lmtest::lrtest(esel.full.trailb.12, esel.lin.trailb.12)
+# esel.trailb.12$p.nonlin
+# 
+# ## Nonlinear terms not needed; fit without interaction terms
+# esel.noint.trailb.12 <- ols(trail.b.tscore.12 ~ charlson.score + edu + iqcode.score.e +
+#                               stroke.risk + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp +
+#                               coma.s.imp + age.div10 + il6.log10 + esel.log10,
+#                             data = usedata)
+# 
+# lmtest::lrtest(esel.lin.trailb.12, esel.noint.trailb.12)
+# esel.trailb.12$p.int
+# 
+# ## Interaction terms not needed; get p-value for biomarker
+# nomark.full.trailb.12 <- ols(trail.b.tscore.12 ~ charlson.score + edu + iqcode.score.e +
+#                               stroke.risk + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp +
+#                               coma.s.imp + age.div10 + il6.log10,
+#                              data = usedata)
+# lmtest::lrtest(esel.noint.trailb.12, nomark.full.trailb.12)
+# esel.trailb.12$p.marker
+
+ols.figures.trailb.12 <- function(olslist, xvar, xstring){
+  ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'Trails B, 12 Months')
+}
+bdnf.trailb.12.fig <-
+  ols.figures.trailb.12(olslist = 'bdnf.trailb.12', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.trailb.12.fig <-
+  ols.figures.trailb.12(olslist = 'esel.trailb.12', xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.trailb.12.fig <-
+  ols.figures.trailb.12(olslist = 'pai1.trailb.12', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.trailb.12.fig <-
+  ols.figures.trailb.12(olslist = 's100b.trailb.12', xvar = 's100b.log10', xstring = 'S100B')
+uchl.trailb.12.fig <-
+  ols.figures.trailb.12(olslist = 'uchl.trailb.12', xvar = 'uchl.log10', xstring = 'UCHL')
+
+pdf(file = 'bdnf_trailb12_results.pdf', width = 8, height = bdnf.trailb.12.fig$height)
+multiplot(plotlist = bdnf.trailb.12.fig$fig, layout = bdnf.trailb.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_trailb12_results.pdf', width = 8, height = esel.trailb.12.fig$height)
+multiplot(plotlist = esel.trailb.12.fig$fig, layout = esel.trailb.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_trailb12_results.pdf', width = 8, height = pai1.trailb.12.fig$height)
+multiplot(plotlist = pai1.trailb.12.fig$fig, layout = pai1.trailb.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_trailb12_results.pdf', width = 8, height = s100b.trailb.12.fig$height)
+multiplot(plotlist = s100b.trailb.12.fig$fig, layout = s100b.trailb.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_trailb12_results.pdf', width = 8, height = uchl.trailb.12.fig$height)
+multiplot(plotlist = uchl.trailb.12.fig$fig, layout = uchl.trailb.12.fig$layoutmat)
+dev.off()
+
+@
+
+
+\clearpage
+\subsection{BDNF vs. Trails B}
+We see no significant overall association between log10(BDNF) at baseline and Trails B T-scores at
+3- or 12-month followup.
+
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_trailb3_results.pdf}}
+\caption{Log10(BDNF) vs. Trails B at 3 Months}\label{fig:bdnftrailb3}
+\end{figure}
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_trailb12_results.pdf}}
+\caption{Log10(BDNF) vs. Trails B at 12 Months}\label{fig:bdnftrailb12}
+\end{figure}
+
+\clearpage
+\subsection{E-selectin vs. Trails B}
+We see no significant overall association between log10(E-selectin) at baseline and Trails B
+T-scores at 3- or 12-month followup.
+
+\begin{figure}[!h]
+{\centering\includegraphics{esel_trailb3_results.pdf}}
+\caption{Log10(E-selectin) vs. Trails B at 3 Months}\label{fig:eseltrailb3}
+\end{figure}
+\begin{figure}[!h]
+{\centering\includegraphics{esel_trailb12_results.pdf}}
+\caption{Log10(E-selectin) vs. Trails B at 12 Months}\label{fig:eseltrailb12}
+\end{figure}
+
+\clearpage
+\subsection{PAI-1 vs. Trails B}
+At 3-month followup, there is a possible midl association between log10(PAI-1) and Trails B
+T-scores, likely modified by log10(IL-6). However, any association disappears by 12 months.
+
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_trailb3_results.pdf}}
+\caption{Log10(PAI-1) vs. Trails B at 3 Months}\label{fig:pai1trailb3}
+\end{figure}
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_trailb12_results.pdf}}
+\caption{Log10(PAI-1) vs. Trails B at 12 Months}\label{fig:pai1trailb12}
+\end{figure}
+
+\clearpage
+\subsection{S100B vs. Trails B}
+At 3 months, there is not a strong association between log10(S100B) and Trails B scores; there is a
+potentially weak interaction with age, but any association is not strong enough to make the overall
+association significant. At 12 months, there is still no significant overall association, but
+log10(IL-6) is a potential effect modifier.
+
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_rbans3_results.pdf}}
+\caption{Log10(S100B) vs. RBANS at 3 Months}\label{fig:s100brbans3}
+\end{figure}
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_rbans12_results.pdf}}
+\caption{Log10(S100B) vs. RBANS at 12 Months}\label{fig:s100brbans12}
+\end{figure}
+
+\clearpage
+\subsection{UCHL vs. Trails B}
+We see no significant overall association between log10(UCHL) at baseline and Trails B T-scores at
+3- or 12-month followup.
+
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_trailb3_results.pdf}}
+\caption{Log10(UCHL) vs. Trails B at 3 Months}\label{fig:uchltrailb3}
+\end{figure}
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_trailb12_results.pdf}}
+\caption{Log10(UCHL) vs. Trails B at 12 Months}\label{fig:uchltrailb12}
+\end{figure}
 
 
 \clearpage
