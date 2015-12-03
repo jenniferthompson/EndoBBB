@@ -598,7 +598,7 @@ fit.reg.models <- function(use.marker,   ## character string; name of biomarker 
   }
   
   ## Initialize all p-values
-  p.nonlin <- p.int <- p.marker <- p.int.age <- p.int.il6 <- NULL
+  p.nonlin <- p.int <- p.marker <- p.il6 <- p.int.age <- p.int.il6 <- NULL
 
   ## Does full model have nonlinear terms?
   has.rcs <- length(grep('rcs(', formula.full, fixed = TRUE)) > 0
@@ -762,9 +762,30 @@ fit.reg.models <- function(use.marker,   ## character string; name of biomarker 
   nomark.mod <- eval(parse(text = sprintf(modfit.text, nomark.form)))
 
   p.marker <- lrpval(mod.final, nomark.mod)
+  
+  ## 6. Calculate overall p-value for IL-6, if included in model
+  if(has.il6){
+    if(modtype == 'zeroinfl'){
+      ## Split twice: once for count vs. zero portion, once to get each variable
+      final.call.split <- strsplit(final.call, '|', fixed = TRUE)
+      final.call.count <- strsplit(final.call.split[[1]][1], ' *\\+ *')[[1]]
+      final.call.zero <- strsplit(final.call.split[[1]][2], ' *\\+ *')[[1]]
+      noil6.form <- create.zeroinfl.form(count.form = final.call.count,
+                                         zero.form = final.call.zero,
+                                         regex.sub = 'il6\\.log10')
+    } else{
+      final.call.split <- strsplit(final.call, ' + ', fixed = TRUE)[[1]]
+      noil6.form <- paste(final.call.split[grep('il6\\.log10', final.call.split, invert = TRUE)],
+                          collapse = ' + ')
+    }
+    noil6.mod <- eval(parse(text = sprintf(modfit.text, noil6.form)))
+    
+    p.il6 <- lrpval(mod.final, noil6.mod)
+  }
 
   return(list('final.mod' = mod.final,
               'p.nonlin' = p.nonlin,
+              'p.il6' = p.il6,
               'p.int' = p.int,
               'p.int.age' = p.int.age,
               'p.int.il6' = p.int.il6,
