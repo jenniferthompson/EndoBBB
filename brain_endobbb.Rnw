@@ -2876,6 +2876,95 @@ multiplot(plotlist = uchl.rbans.12.fig$fig, layout = uchl.rbans.12.fig$layoutmat
 dev.off()
 
 
+## -- Models without IL-6 --------------------------------------------------------------------------
+## Formula for full delirium model, subbing "markervar" in place of actual biomarker variable
+rbans.righthand.noil6 <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(markervar, 3) + rcs(age.div10, 3):rcs(markervar, 3)"
+
+rbans.noil6.formula.3 <- paste('rbans.global.score.3', rbans.righthand.noil6, sep = ' ~ ')
+rbans.noil6.formula.12 <- paste('rbans.global.score.12', rbans.righthand.noil6, sep = ' ~ ')
+
+## 3-month models
+fit.rbans.noil6.models.3 <- function(marker){
+  fit.reg.models(use.marker = marker, formula.full = rbans.noil6.formula.3, modtype = 'ols')
+}
+bdnf.rbans.noil6.3 <- fit.rbans.noil6.models.3('bdnf.log10')
+esel.rbans.noil6.3 <- fit.rbans.noil6.models.3('esel.log10')
+pai1.rbans.noil6.3 <- fit.rbans.noil6.models.3('pai1.log10')
+s100b.rbans.noil6.3 <- fit.rbans.noil6.models.3('s100b.log10')
+uchl.rbans.noil6.3 <- fit.rbans.noil6.models.3('uchl.log10')
+
+bdnf.rbans.noil6.3.fig <-
+  ols.figures.rbans.3(olslist = 'bdnf.rbans.noil6.3', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.rbans.noil6.3.fig <-
+  ols.figures.rbans.3(olslist = 'esel.rbans.noil6.3', xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.rbans.noil6.3.fig <-
+  ols.figures.rbans.3(olslist = 'pai1.rbans.noil6.3', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.rbans.noil6.3.fig <-
+  ols.figures.rbans.3(olslist = 's100b.rbans.noil6.3', xvar = 's100b.log10', xstring = 'S100B')
+uchl.rbans.noil6.3.fig <-
+  ols.figures.rbans.3(olslist = 'uchl.rbans.noil6.3', xvar = 'uchl.log10', xstring = 'UCHL')
+
+pdf(file = 'bdnf_rbansnoil63_results.pdf', width = 8, height = bdnf.rbans.noil6.3.fig$height)
+multiplot(plotlist = bdnf.rbans.noil6.3.fig$fig, layout = bdnf.rbans.noil6.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_rbansnoil63_results.pdf', width = 8, height = esel.rbans.noil6.3.fig$height)
+multiplot(plotlist = esel.rbans.noil6.3.fig$fig, layout = esel.rbans.noil6.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_rbansnoil63_results.pdf', width = 8, height = pai1.rbans.noil6.3.fig$height)
+multiplot(plotlist = pai1.rbans.noil6.3.fig$fig, layout = pai1.rbans.noil6.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_rbansnoil63_results.pdf', width = 8, height = s100b.rbans.noil6.3.fig$height)
+multiplot(plotlist = s100b.rbans.noil6.3.fig$fig, layout = s100b.rbans.noil6.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_rbansnoil63_results.pdf', width = 8, height = uchl.rbans.noil6.3.fig$height)
+multiplot(plotlist = uchl.rbans.noil6.3.fig$fig, layout = uchl.rbans.noil6.3.fig$layoutmat)
+dev.off()
+
+## 12-month models
+fit.rbans.noil6.models.12 <- function(marker){
+  fit.reg.models(use.marker = marker, formula.full = rbans.noil6.formula.12, modtype = 'ols')
+}
+bdnf.rbans.noil6.12 <- fit.rbans.noil6.models.12('bdnf.log10')
+esel.rbans.noil6.12 <- fit.rbans.noil6.models.12('esel.log10')
+pai1.rbans.noil6.12 <- fit.rbans.noil6.models.12('pai1.log10')
+s100b.rbans.noil6.12 <- fit.rbans.noil6.models.12('s100b.log10')
+uchl.rbans.noil6.12 <- fit.rbans.noil6.models.12('uchl.log10')
+
+bdnf.rbans.noil6.12.fig <-
+  ols.figures.rbans.12(olslist = 'bdnf.rbans.noil6.12', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.rbans.noil6.12.fig <-
+  ols.figures.rbans.12(olslist = 'esel.rbans.noil6.12', xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.rbans.noil6.12.fig <-
+  ols.figures.rbans.12(olslist = 'pai1.rbans.noil6.12', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.rbans.noil6.12.fig <-
+  ols.figures.rbans.12(olslist = 's100b.rbans.noil6.12', xvar = 's100b.log10', xstring = 'S100B')
+uchl.rbans.noil6.12.fig <-
+  ols.figures.rbans.12(olslist = 'uchl.rbans.noil6.12', xvar = 'uchl.log10', xstring = 'UCHL')
+
+pdf(file = 'bdnf_rbansnoil612_results.pdf', width = 8, height = bdnf.rbans.noil6.12.fig$height)
+multiplot(plotlist = bdnf.rbans.noil6.12.fig$fig, layout = bdnf.rbans.noil6.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_rbansnoil612_results.pdf', width = 8, height = esel.rbans.noil6.12.fig$height)
+multiplot(plotlist = esel.rbans.noil6.12.fig$fig, layout = esel.rbans.noil6.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_rbansnoil612_results.pdf', width = 8, height = pai1.rbans.noil6.12.fig$height)
+multiplot(plotlist = pai1.rbans.noil6.12.fig$fig, layout = pai1.rbans.noil6.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_rbansnoil612_results.pdf', width = 8, height = s100b.rbans.noil6.12.fig$height)
+multiplot(plotlist = s100b.rbans.noil6.12.fig$fig, layout = s100b.rbans.noil6.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_rbansnoil612_results.pdf', width = 8, height = uchl.rbans.noil6.12.fig$height)
+multiplot(plotlist = uchl.rbans.noil6.12.fig$fig, layout = uchl.rbans.noil6.12.fig$layoutmat)
+dev.off()
+
 @
 
 
