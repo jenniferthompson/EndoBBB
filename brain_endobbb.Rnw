@@ -1064,7 +1064,6 @@ plot.nb.results <- function(nbobj,            ## list, result of fit.reg.models(
                             intvar = NULL,    ## string, name of interacting variable
                             intvals = NULL,   ## vector, levels to set interacting variable to
                             intstring = NULL, ## string, text for panel titles and X axis label
-                            intp = NULL,      ## number, p-value for specific interaction
                             xstring,          ## string, label of X axis variable
                             ystring){         ## string, label of outcome
 
@@ -1503,7 +1502,7 @@ zinf.figures <- function(zinfobj, zinf.preddata, xvar, xstring, ystring){
 calc.ols.results <- function(olsobj,          ## string, name of ols() result
                              xvar,            ## string, variable for X axis
                              intvars = NULL,  ## string, interacting variable
-                             intvals = NULL){ ## numeric vector, values of intvar
+                             intvals = NULL){ ## list of numeric vectors, values of intvars
   if(!is.null(intvars) & (is.null(intvals) | length(intvars) != length(intvals))){
     stop("Interacting variable(s) specified, but length of interacting values does not match number of interacting variables")
   } else{
@@ -1527,7 +1526,6 @@ plot.ols.results <- function(ols.preddata,     ## data frame of predicted values
                              xvar,             ## string; variable on X axis
                              intvar = NULL,    ## string; variable to facet
                              intstring = NULL, ## string; text to describe faceting variable
-                             intp = NULL,      ## either p.int.age or p.int.il6 from ols.list
                              xstring,          ## string; description of X variable (Log10(xstring))
                              ystring){         ## string; description of outcome (Adjusted ystring)
   
@@ -1540,20 +1538,15 @@ plot.ols.results <- function(ols.preddata,     ## data frame of predicted values
     geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = 'navy') +
     geom_line(colour = 'navy') +
     theme_bw() +
+    theme(axis.title.x = element_text(size = 9, vjust = 0),
+          axis.title.y = element_text(size = 9),
+          axis.text = element_text(size = 7)) +
+    xlab(paste0('Log10(', xstring, ')')) +
     ylab(paste0('Adjusted ', ystring))
   
   if(is.null(intvar)){
-    fig <- fig +
-      xlab(paste0('Log10(', xstring, ')\n\nP for biomarker, final model: ',
-                  formatp(ols.list$p.marker),
-                  '\nP for all interactions: ', formatp(ols.list$p.int)))
   } else{
-    fig <- fig +
-      facet_wrap(~ intvar.f, nrow = 1) +
-      xlab(paste0('Log10(', xstring, ')\n\nP for biomarker, final model: ',
-                  formatp(ols.list$p.marker),
-                  '\nP for all interactions: ', formatp(ols.list$p.int),
-                  '\nP for ', intstring, ' interaction: ', formatp(intp))) +
+    fig <- fig + facet_wrap(~ intvar.f, nrow = 1) +
       theme(strip.text = element_text(face = 'bold'))
   }
   
@@ -1575,32 +1568,59 @@ ols.figures <- function(olslist,
                                               xvar = xvar,
                                               xstring = xstring,
                                               ystring = ystring)),
-                'height' =  3.75,
+                'height' =  onepanel.height,
                 'layoutmat' = matrix(1, ncol = 1)))
   } else{
-    use.intvars <- c('age.div10', 'il6.log10')
-    use.intstring <- c('Age / 10', 'Log10(IL-6)')
-    use.intp <- c(olslist.got$p.int.age, olslist.got$p.int.il6)
-    
-    preddata <- calc.ols.results(olsobj = paste0(olslist, '$final.mod'),
-                                 xvar = xvar,
-                                 intvars = use.intvars,
-                                 intvals = list((intvals.age / 10), intvals.il6))
-    
-    figs <- lapply(1:length(use.intvars), FUN = function(ivar){
-      plot.ols.results(ols.preddata = preddata[[ivar]],
-                       ols.list = olslist.got,
-                       xvar = xvar,
-                       intvar = use.intvars[ivar],
-                       intstring = use.intstring[ivar],
-                       intp = use.intp[ivar],
-                       xstring = xstring,
-                       ystring = ystring)
-    })
+    if(!is.null(olslist.got$p.int.age)){
+      preddata.age <- calc.ols.results(olsobj = paste0(olslist, '$final.mod'),
+                                       xvar = xvar,
+                                       intvars = 'age.div10',
+                                       intvals = list(intvals.age / 10))
+      fig1 <- plot.ols.results(ols.preddata = preddata.age[[1]],
+                               ols.list = olslist.got,
+                               xvar = xvar,
+                               intvar = 'age.div10',
+                               intstring = 'Age / 10',
+                               intp = olslist.got$p.int.age,
+                               xstring = xstring, ystring = ystring)
+    }
+    if(!is.null(olslist.got$p.int.il6)){
+      preddata.il6 <- calc.ols.results(olsobj = paste0(olslist, '$final.mod'),
+                                       xvar = xvar,
+                                       intvars = 'il6.log10',
+                                       intvals = list(intvals.il6))
+      fig2 <- plot.ols.results(ols.preddata = preddata.il6[[1]],
+                               ols.list = olslist.got,
+                               xvar = xvar,
+                               intvar = 'il6.log10',
+                               intstring = 'Log10(IL-6)',
+                               intp = olslist.got$p.int.il6,
+                               xstring = xstring, ystring = ystring)
+    }
 
-    return(list('fig' = figs, 'height' = 8, 'layoutmat' = matrix(1:2, ncol = 1)))
+    if(!is.null(olslist.got$p.int.age) & !is.null(olslist.got$p.int.il6)){
+      fig.list <- list(fig1, fig2)
+      fig.height <- twopanel.height
+      fig.layout <- matrix(1:2, ncol = 1)
+    } else{
+      fig.height <- onepanel.height
+      fig.layout <- matrix(1, ncol = 1)
+      
+      if(!is.null(olslist.got$p.int.age)){
+        fig.list <- list(fig1)
+      } else{
+        fig.list <- list(fig2)
+      }
+    }
+    
+    return(list('fig' = fig.list,
+                'height' = fig.height,
+                'layoutmat' = fig.layout))
+    
   }
 }
+
+
 
 ## -- Function to create data frame of relevant p-values from fit.reg.models() result --------------
 create.pval.table <- function(fit.reg.obj, marker.string){
@@ -2854,6 +2874,7 @@ dev.off()
 pdf(file = 'uchl_rbans12_results.pdf', width = 8, height = uchl.rbans.12.fig$height)
 multiplot(plotlist = uchl.rbans.12.fig$fig, layout = uchl.rbans.12.fig$layoutmat)
 dev.off()
+
 
 @
 
