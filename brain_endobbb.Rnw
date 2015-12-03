@@ -1610,7 +1610,37 @@ ols.figures <- function(olslist,
   }
 }
 
+## -- Function to create data frame of relevant p-values from fit.reg.models() result --------------
+create.pval.table <- function(fit.reg.obj, marker.string){
+  p.order <- c('p.nonlin', 'p.int', 'p.marker', 'p.il6', 'p.int.age', 'p.int.il6')
+  
+  p.vec <- unlist(lapply(p.order, FUN = function(usep){
+    if(is.null(fit.reg.obj[[usep]])){
+      '\\emph{Not in final model}'
+    } else{
+      formatp(fit.reg.obj[[usep]])
+    }
+  }))
+  
+  p.df <- data.frame(pval = p.vec)
+  rownames(p.df) <- c('Global nonlinearity',
+                      'Global interactions',
+                      paste0('Log10(', marker.string, '), all terms'),
+                      'Log10(IL-6), all terms',
+                      'Age interaction',
+                      'Log10(IL-6) interaction')
+  p.df
+}
 
+latex.pval.table <- function(p.df, use.colheads = c('P-Value')){
+  latex(p.df, file = '',
+        title = '',
+        where = '!h',
+        colheads = use.colheads,
+        col.just = rep('r', ncol(p.df)),
+        rgroup = c('Model fitting', 'Final model', 'Interactions'),
+        n.rgroup = rep(2, 3))
+}
 
 @
 
@@ -1825,6 +1855,13 @@ dev.off()
 \subsection{BDNF vs. Days of Delirium}
 We see no association between log10(BDNF) at baseline and with delirium duration while in the
 hospital, whether adjusting for systemic inflammation or not.
+
+<<printbdnfdel, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(bdnf.del, 'BDNF'),
+                       create.pval.table(bdnf.del.noil6, 'BDNF')),
+                       use.colheads = c('Adjusting for Log10(IL-6)',
+                                        'No Adjustment for Log10(IL-6)'))
+@
 
 \subsubsection{BDNF vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
