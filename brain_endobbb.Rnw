@@ -56,6 +56,10 @@ nimp <- 50
 ## Set number of bootstraps for zero-inflated models
 n.bootsets <- 500
 
+## Set height for figures
+onepanel.height <- 3.5
+twopanel.height <- 8
+
 ## Set method to use in pool.compare() (Wald or likelihood)
 use.method <- 'likelihood'
 
@@ -598,6 +602,9 @@ fit.reg.models <- function(use.marker,   ## character string; name of biomarker 
 
   ## Does full model have nonlinear terms?
   has.rcs <- length(grep('rcs(', formula.full, fixed = TRUE)) > 0
+  
+  ## Does full model include IL-6 terms?
+  has.il6 <- length(grep('il6', formula.full, fixed = TRUE)) > 0
 
   ## Step 1: Create data set with complete data from initial dataset object
   ## Get variables in formula.full
@@ -608,8 +615,7 @@ fit.reg.models <- function(use.marker,   ## character string; name of biomarker 
 
   ## Step 2: Fit full model
   marker.full.formula <- gsub('markervar', use.marker, formula.full)
-  mod.full <-
-    eval(parse(text = sprintf(modfit.text, marker.full.formula)))
+  mod.full <- eval(parse(text = sprintf(modfit.text, marker.full.formula)))
 
   ## Step 3: Test for whether nonlinear terms are needed
   if(has.rcs){
@@ -659,21 +665,27 @@ fit.reg.models <- function(use.marker,   ## character string; name of biomarker 
         marker.noage.formula <- create.zeroinfl.form(count.form = form.split.count,
                                                      zero.form = form.split.zero,
                                                      regex.sub = 'age\\.[enroll | div10].*:')
-        marker.noil6.formula <- create.zeroinfl.form(count.form = form.split.count,
-                                                     zero.form = form.split.zero,
-                                                     regex.sub = 'il6.log10.*:')
+        if(has.il6){
+          marker.noil6.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                       zero.form = form.split.zero,
+                                                       regex.sub = 'il6.log10.*:')
+        }
       } else{
         marker.noage.formula <- paste(form.split[grep('age\\.[enroll | div10].*:',
                                                       form.split, invert = TRUE)],
                                       collapse = ' + ')
-        marker.noil6.formula <- paste(form.split[grep('il6.log10.*:', form.split, invert = TRUE)],
-                                      collapse = ' + ')
+        if(has.il6){
+          marker.noil6.formula <- paste(form.split[grep('il6.log10.*:', form.split, invert = TRUE)],
+                                        collapse = ' + ')
+        }
       }
       mod.noage <- eval(parse(text = sprintf(modfit.text, marker.noage.formula)))
       p.int.age <- lrpval(mod.lin, mod.noage)
 
-      mod.noil6 <- eval(parse(text = sprintf(modfit.text, marker.noil6.formula)))
-      p.int.il6 <- lrpval(mod.lin, mod.noil6)
+      if(has.il6){
+        mod.noil6 <- eval(parse(text = sprintf(modfit.text, marker.noil6.formula)))
+        p.int.il6 <- lrpval(mod.lin, mod.noil6)
+      }
     }
   } else{
     if(modtype == 'zeroinfl'){
@@ -706,22 +718,28 @@ fit.reg.models <- function(use.marker,   ## character string; name of biomarker 
         marker.noage.formula <- create.zeroinfl.form(count.form = form.split.count,
                                                      zero.form = form.split.zero,
                                                      regex.sub = 'age\\.[enroll | div10].*:')
-        marker.noil6.formula <- create.zeroinfl.form(count.form = form.split.count,
-                                                     zero.form = form.split.zero,
-                                                     regex.sub = 'il6.log10.*:')
+        if(has.il6){
+          marker.noil6.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                       zero.form = form.split.zero,
+                                                       regex.sub = 'il6.log10.*:')
+        }
       } else{
         marker.noage.formula <- paste(form.split[grep('age\\.[enroll | div10].*:',
                                                       form.split, invert = TRUE)],
                                       collapse = ' + ')
-        marker.noil6.formula <- paste(form.split[grep('il6.log10.*:', form.split, invert = TRUE)],
-                                      collapse = ' + ')
+        if(has.il6){
+          marker.noil6.formula <- paste(form.split[grep('il6.log10.*:', form.split, invert = TRUE)],
+                                        collapse = ' + ')
+        }
       }
       
       mod.noage <- eval(parse(text = sprintf(modfit.text, marker.noage.formula)))
       p.int.age <- lrpval(mod.full, mod.noage)
 
-      mod.noil6 <- eval(parse(text = sprintf(modfit.text, marker.noil6.formula)))
-      p.int.il6 <- lrpval(mod.full, mod.noil6)
+      if(has.il6){
+        mod.noil6 <- eval(parse(text = sprintf(modfit.text, marker.noil6.formula)))
+        p.int.il6 <- lrpval(mod.full, mod.noil6)
+      }
     }
   }
 
@@ -1218,6 +1236,51 @@ create.designmat.zinf <- function(modobj,               ## zeroinfl model object
 
 }
 
+## -- Create graphics for regular NB models --------------------------------------------------------
+nb.figures <- function(nbobj, xvar, xstring, ystring){
+  if(nbobj$p.int > 0.20){
+    return(list('fig' = list(plot.nb.results(nbobj = nbobj,
+                                             xvar = xvar,
+                                             xstring = xstring,
+                                             ystring = ystring)),
+                'height' =  onepanel.height,
+                'layoutmat' = matrix(1, ncol = 1)))
+  } else{
+    if(!is.null(nbobj$p.int.age)){
+      fig1 <- plot.nb.results(nbobj = nbobj, xvar = xvar,
+                              intvar = 'age.div10', intvals = intvals.age / 10,
+                              intstring = 'Age / 10', intp = nbobj$p.int.age,
+                              xstring = xstring, ystring = ystring)
+    }
+    
+    if(!is.null(nbobj$p.int.il6)){
+      fig2 <- plot.nb.results(nbobj = nbobj, xvar = xvar,
+                              intvar = 'il6.log10', intvals = intvals.il6,
+                              intstring = 'Log10(IL-6)', intp = nbobj$p.int.il6,
+                              xstring = xstring, ystring = ystring)
+    }
+    
+    if(!is.null(nbobj$p.int.age) & !is.null(nbobj$p.int.il6)){
+      fig.list <- list(fig1, fig2)
+      fig.height <- twopanel.height
+      fig.layout <- matrix(1:2, ncol = 1)
+    } else{
+      fig.height <- onepanel.height
+      fig.layout <- matrix(1, ncol = 1)
+      
+      if(!is.null(nbobj$p.int.age)){
+        fig.list <- list(fig1)
+      } else{
+        fig.list <- list(fig2)
+      }
+    }
+
+    return(list('fig' = fig.list,
+                'height' = fig.height,
+                'layoutmat' = fig.layout))
+  }
+}
+
 ## -- Function to get predicted response values from a zero-inflated NB model ----------------------
 zinf.response <- function(modobj,       ## Original model object
                           design.zinf){ ## List of design matrices
@@ -1549,13 +1612,17 @@ model type were met adequately.)
 
 We allowed all continuous variables to have a nonlinear association with delirium duration using
 restricted cubic splines, with the exceptions of IQCODE and cardiovascular SOFA score, which had
-too little variability to make this sensible. We allowed for potential interactions between
-endothelial/BBB markers and both systemic inflammation (log10(IL-6)) on study day 1 and age at
-study enrollment. If either the global p-value for nonlinearity and/or the global p-value for
-interactions were clearly nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms
-are removed from the final model for parsimony. All biomarkers are transformed using the log10
-transformation in order to improve model fit and reduce the influence of extremely high values. All
-p-values are calculated using the \Sexpr{use.method} method.
+too little variability to make this sensible.
+
+In the original models, we allowed for potential interactions between endothelial/BBB markers and
+both systemic inflammation (log10(IL-6)) on study day 1 and age at study enrollment. If either the global p-value for nonlinearity and/or the global p-value for interactions were clearly
+nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the final model for parsimony. In sensitivity analyses, we excluded all systemic inflammation terms from the
+model in order to see if adjusting for systemic inflammation is the reason behind differences from
+pilot analyses.
+
+All biomarkers are transformed using the log10 transformation in order to improve model fit and
+reduce the influence of extremely high values. All p-values are calculated using the
+\Sexpr{use.method} method.
 
 % We used multiple imputation to reduce bias from missing covariates.
 
@@ -1658,30 +1725,21 @@ uchl.del <- fit.del.models('uchl.log10')
 # lmtest::lrtest(del.s100b.noint, del.nomark)
 # s100b.del$p.marker
 
-## -- Create graphics for delirium models ----------------------------------------------------------
-nb.figures <- function(nbobj, xvar, xstring, ystring){
-  if(nbobj$p.int > 0.20){
-    return(list('fig' = list(plot.nb.results(nbobj = nbobj,
-                                             xvar = xvar,
-                                             xstring = xstring,
-                                             ystring = ystring)),
-                'height' =  3.75,
-                'layoutmat' = matrix(1, ncol = 1)))
-  } else{
-    fig1 <- plot.nb.results(nbobj = nbobj, xvar = xvar,
-                            intvar = 'age.div10', intvals = intvals.age / 10,
-                            intstring = 'Age / 10', intp = nbobj$p.int.age,
-                            xstring = xstring, ystring = ystring)
-    fig2 <- plot.nb.results(nbobj = nbobj, xvar = xvar,
-                            intvar = 'il6.log10', intvals = intvals.il6,
-                            intstring = 'Log10(IL-6)', intp = nbobj$p.int.il6,
-                            xstring = xstring, ystring = ystring)
+## -- Models without IL-6 --------------------------------------------------------------------------
+## Formula for full delirium model, subbing "markervar" in place of actual biomarker variable
+del.noil6.formula <- "del.s.imp ~ rcs(charlson.score, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + cvsofa.day1 + sevsepsis.day1 + rcs(age.div10, 3) + rcs(markervar, 3) + rcs(age.div10, 3):rcs(markervar, 3)"
 
-    return(list('fig' = list(fig1, fig2),
-                'height' = 8,
-                'layoutmat' = matrix(1:2, ncol = 1)))
-  }
+fit.del.noil6.models <- function(marker){
+  fit.reg.models(use.marker = marker,
+                 formula.full = del.noil6.formula,
+                 modtype = 'nb',
+                 dataset = endo.data)
 }
+bdnf.del.noil6 <- fit.del.noil6.models('bdnf.log10')
+esel.del.noil6 <- fit.del.noil6.models('esel.log10')
+pai1.del.noil6 <- fit.del.noil6.models('pai1.log10')
+s100b.del.noil6 <- fit.del.noil6.models('s100b.log10')
+uchl.del.noil6 <- fit.del.noil6.models('uchl.log10')
 
 nb.figures.del <- function(nbobj, xvar, xstring){
   nb.figures(nbobj = nbobj, xvar = xvar, xstring = xstring, ystring = 'Days of Delirium')
@@ -1692,77 +1750,143 @@ pai1.del.fig <- nb.figures.del(nbobj = pai1.del, xvar = 'pai1.log10', xstring = 
 s100b.del.fig <- nb.figures.del(nbobj = s100b.del, xvar = 's100b.log10', xstring = 'S100B')
 uchl.del.fig <- nb.figures.del(nbobj = uchl.del, xvar = 'uchl.log10', xstring = 'UCHL')
 
+bdnf.del.noil6.fig <- nb.figures.del(nbobj = bdnf.del.noil6, xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.del.noil6.fig <-
+  nb.figures.del(nbobj = esel.del.noil6, xvar = 'esel.log10', xstring = 'E-Selectin')
+pai1.del.noil6.fig <- nb.figures.del(nbobj = pai1.del.noil6, xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.del.noil6.fig <-
+  nb.figures.del(nbobj = s100b.del.noil6, xvar = 's100b.log10', xstring = 'S100B')
+uchl.del.noil6.fig <- nb.figures.del(nbobj = uchl.del.noil6, xvar = 'uchl.log10', xstring = 'UCHL')
+
 pdf(file = 'bdnf_del_results.pdf', width = 8, height = bdnf.del.fig$height)
 multiplot(plotlist = bdnf.del.fig$fig, layout = bdnf.del.fig$layoutmat)
+dev.off()
+
+pdf(file = 'bdnf_delnoil6_results.pdf', width = 8, height = bdnf.del.noil6.fig$height)
+multiplot(plotlist = bdnf.del.noil6.fig$fig, layout = bdnf.del.noil6.fig$layoutmat)
 dev.off()
 
 pdf(file = 'esel_del_results.pdf', width = 8, height = esel.del.fig$height)
 multiplot(plotlist = esel.del.fig$fig, layout = esel.del.fig$layoutmat)
 dev.off()
 
+pdf(file = 'esel_delnoil6_results.pdf', width = 8, height = esel.del.noil6.fig$height)
+multiplot(plotlist = esel.del.noil6.fig$fig, layout = esel.del.noil6.fig$layoutmat)
+dev.off()
+
 pdf(file = 'pai1_del_results.pdf', width = 8, height = pai1.del.fig$height)
 multiplot(plotlist = pai1.del.fig$fig, layout = pai1.del.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_delnoil6_results.pdf', width = 8, height = pai1.del.noil6.fig$height)
+multiplot(plotlist = pai1.del.noil6.fig$fig, layout = pai1.del.noil6.fig$layoutmat)
 dev.off()
 
 pdf(file = 's100b_del_results.pdf', width = 8, height = s100b.del.fig$height)
 multiplot(plotlist = s100b.del.fig$fig, layout = s100b.del.fig$layoutmat)
 dev.off()
 
+pdf(file = 's100b_delnoil6_results.pdf', width = 8, height = s100b.del.noil6.fig$height)
+multiplot(plotlist = s100b.del.noil6.fig$fig, layout = s100b.del.noil6.fig$layoutmat)
+dev.off()
+
 pdf(file = 'uchl_del_results.pdf', width = 8, height = uchl.del.fig$height)
 multiplot(plotlist = uchl.del.fig$fig, layout = uchl.del.fig$layoutmat)
 dev.off()
 
+pdf(file = 'uchl_delnoil6_results.pdf', width = 8, height = uchl.del.noil6.fig$height)
+multiplot(plotlist = uchl.del.noil6.fig$fig, layout = uchl.del.noil6.fig$layoutmat)
+dev.off()
+
 @
 
+\clearpage
 \subsection{BDNF vs. Days of Delirium}
 We see no association between log10(BDNF) at baseline and with delirium duration while in the
-hospital.
+hospital, whether adjusting for systemic inflammation or not.
 
+\subsubsection{BDNF vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
 {\centering\includegraphics{bdnf_del_results.pdf}}
-\caption{Log10(BDNF) vs. Delirium Duration}\label{fig:bdnfdel}
+\caption{Log10(BDNF) vs. Delirium Duration, Adjusting for Log10(IL-6)}\label{fig:bdnfdel}
+\end{figure}
+
+\subsubsection{BDNF vs. Delirium, Not Accounting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_delnoil6_results.pdf}}
+\caption{Log10(BDNF) vs. Delirium Duration, Not Accounting for Log10(IL-6)}\label{fig:bdnfdelnoil6}
 \end{figure}
 
 \clearpage
 \subsection{E-Selectin vs. Days of Delirium}
 We see no association between log(E-selectin) at baseline and with delirium duration while in the
-hospital.
+hospital, whether adjusting for systemic inflammation or not.
 
+\subsubsection{E-Selectin vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
 {\centering\includegraphics{esel_del_results.pdf}}
-\caption{Log10(E-Selectin) vs. Delirium Duration}\label{fig:eseldel}
+\caption{Log10(E-selectin) vs. Delirium Duration, Adjusting for Log10(IL-6)}\label{fig:eseldel}
+\end{figure}
+
+\subsubsection{E-Selectin vs. Delirium, Not Accounting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{esel_delnoil6_results.pdf}}
+\caption{Log10(E-selectin) vs. Delirium Duration, Not Accounting for Log10(IL-6)}\label{fig:eseldelnoil6}
 \end{figure}
 
 % \clearpage
 \subsection{PAI-1 vs. Days of Delirium}
-We see no association between log(PAI-1) at baseline and with delirium duration while in the
-hospital.
+We see a nearly significant association between log(PAI-1) at baseline and delirium duration while in the hospital when adjusting for systemic inflammation; this association is modified by age. When
+not accounting for systemic inflammation, however, we do not see a meaningful association between
+log10(PAI-1) and delirium.
 
+\subsubsection{PAI-1 vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
 {\centering\includegraphics{pai1_del_results.pdf}}
-\caption{Log10(PAI-1) vs. Delirium Duration}\label{fig:pai1del}
+\caption{Log10(PAI-1) vs. Delirium Duration, Adjusting for Log10(IL-6)}\label{fig:pai1del}
+\end{figure}
+
+\subsubsection{PAI-1 vs. Delirium, Not Accounting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_delnoil6_results.pdf}}
+\caption{Log10(PAI-1) vs. Delirium Duration, Not Accounting for Log10(IL-6)}\label{fig:pai1delnoil6}
 \end{figure}
 
 \clearpage
 \subsection{S100B vs. Days of Delirium}
 We see no association between log(S100B) at baseline and with delirium duration while in the
-hospital.
+hospital when accounting for systemic inflammation. When not adjusting for systemic inflammation,
+however, we do see a significant association, likely modified by age at enrollment.
 
+\subsubsection{S100B vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
 {\centering\includegraphics{s100b_del_results.pdf}}
-\caption{Log10(S100B) vs. Delirium Duration}\label{fig:s100bdel}
+\caption{Log10(S100B) vs. Delirium Duration, Adjusting for Log10(IL-6)}\label{fig:s100bdel}
+\end{figure}
+
+\subsubsection{S100B vs. Delirium, Not Accounting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_delnoil6_results.pdf}}
+\caption{Log10(S100B) vs. Delirium Duration, Not Accounting for Log10(IL-6)}\label{fig:s100bdelnoil6}
 \end{figure}
 
 % \clearpage
 \subsection{UCHL vs. Days of Delirium}
-UCHL at baseline does show a significant association with days of delirium. This association is not
-significantly nonlinear, so we can say that higher log10(UCHL) at study enrollment is significantly
-associated with fewer days of delirium. This association is not modified by age or systemic
-inflammation (IL-6).
+UCHL at baseline does show a significant or nearly significant association with days of delirium,
+whether adjusting for systemic inflammation or not. When we account for systemic inflammation, the
+association is not modified by age, but when we ignore systemic inflammation, the association 
+becomes stronger (and more nonlinear) with age.
 
+\subsubsection{UCHL vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
 {\centering\includegraphics{uchl_del_results.pdf}}
-\caption{Log10(UCHL) vs. Delirium Duration}\label{fig:uchldel}
+\caption{Log10(UCHL) vs. Delirium Duration, Adjusting for Log10(IL-6)}\label{fig:uchldel}
+\end{figure}
+
+\subsubsection{UCHL vs. Delirium, Not Accounting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_delnoil6_results.pdf}}
+\caption{Log10(UCHL) vs. Delirium Duration, Not Accounting for Log10(IL-6)}\label{fig:uchldelnoil6}
 \end{figure}
 
 
