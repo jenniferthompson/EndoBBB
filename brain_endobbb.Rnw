@@ -662,29 +662,29 @@ fit.reg.models <- function(use.marker,   ## character string; name of biomarker 
 
       ## 4e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
       if(modtype == 'zeroinfl'){
-        marker.noage.formula <- create.zeroinfl.form(count.form = form.split.count,
-                                                     zero.form = form.split.zero,
-                                                     regex.sub = 'age\\.[enroll | div10].*:')
+        marker.noageint.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                        zero.form = form.split.zero,
+                                                        regex.sub = 'age\\.[enroll | div10].*:')
         if(has.il6){
-          marker.noil6.formula <- create.zeroinfl.form(count.form = form.split.count,
-                                                       zero.form = form.split.zero,
-                                                       regex.sub = 'il6.log10.*:')
+          marker.noil6int.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                          zero.form = form.split.zero,
+                                                          regex.sub = 'il6.log10.*:')
         }
       } else{
-        marker.noage.formula <- paste(form.split[grep('age\\.[enroll | div10].*:',
-                                                      form.split, invert = TRUE)],
-                                      collapse = ' + ')
+        marker.noageint.formula <- paste(form.split[grep('age\\.[enroll | div10].*:',
+                                                         form.split, invert = TRUE)],
+                                         collapse = ' + ')
         if(has.il6){
-          marker.noil6.formula <- paste(form.split[grep('il6.log10.*:', form.split, invert = TRUE)],
-                                        collapse = ' + ')
+          marker.noil6int.formula <-
+            paste(form.split[grep('il6.log10.*:', form.split, invert = TRUE)], collapse = ' + ')
         }
       }
-      mod.noage <- eval(parse(text = sprintf(modfit.text, marker.noage.formula)))
-      p.int.age <- lrpval(mod.lin, mod.noage)
+      mod.noageint <- eval(parse(text = sprintf(modfit.text, marker.noageint.formula)))
+      p.int.age <- lrpval(mod.lin, mod.noageint)
 
       if(has.il6){
-        mod.noil6 <- eval(parse(text = sprintf(modfit.text, marker.noil6.formula)))
-        p.int.il6 <- lrpval(mod.lin, mod.noil6)
+        mod.noil6int <- eval(parse(text = sprintf(modfit.text, marker.noil6int.formula)))
+        p.int.il6 <- lrpval(mod.lin, mod.noil6int)
       }
     }
   } else{
@@ -715,30 +715,30 @@ fit.reg.models <- function(use.marker,   ## character string; name of biomarker 
       mod.final <- mod.full
 
       if(modtype == 'zeroinfl'){
-        marker.noage.formula <- create.zeroinfl.form(count.form = form.split.count,
-                                                     zero.form = form.split.zero,
-                                                     regex.sub = 'age\\.[enroll | div10].*:')
+        marker.noageint.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                        zero.form = form.split.zero,
+                                                        regex.sub = 'age\\.[enroll | div10].*:')
         if(has.il6){
-          marker.noil6.formula <- create.zeroinfl.form(count.form = form.split.count,
-                                                       zero.form = form.split.zero,
-                                                       regex.sub = 'il6.log10.*:')
+          marker.noil6int.formula <- create.zeroinfl.form(count.form = form.split.count,
+                                                          zero.form = form.split.zero,
+                                                          regex.sub = 'il6.log10.*:')
         }
       } else{
-        marker.noage.formula <- paste(form.split[grep('age\\.[enroll | div10].*:',
-                                                      form.split, invert = TRUE)],
-                                      collapse = ' + ')
+        marker.noageint.formula <- paste(form.split[grep('age\\.[enroll | div10].*:',
+                                                         form.split, invert = TRUE)],
+                                         collapse = ' + ')
         if(has.il6){
-          marker.noil6.formula <- paste(form.split[grep('il6.log10.*:', form.split, invert = TRUE)],
-                                        collapse = ' + ')
+          marker.noil6int.formula <-
+            paste(form.split[grep('il6.log10.*:', form.split, invert = TRUE)], collapse = ' + ')
         }
       }
       
-      mod.noage <- eval(parse(text = sprintf(modfit.text, marker.noage.formula)))
-      p.int.age <- lrpval(mod.full, mod.noage)
+      mod.noageint <- eval(parse(text = sprintf(modfit.text, marker.noageint.formula)))
+      p.int.age <- lrpval(mod.full, mod.noageint)
 
       if(has.il6){
-        mod.noil6 <- eval(parse(text = sprintf(modfit.text, marker.noil6.formula)))
-        p.int.il6 <- lrpval(mod.full, mod.noil6)
+        mod.noil6int <- eval(parse(text = sprintf(modfit.text, marker.noil6int.formula)))
+        p.int.il6 <- lrpval(mod.full, mod.noil6int)
       }
     }
   }
