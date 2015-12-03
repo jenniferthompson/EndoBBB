@@ -57,8 +57,8 @@ nimp <- 50
 n.bootsets <- 500
 
 ## Set height for figures
-onepanel.height <- 3.5
-twopanel.height <- 8
+onepanel.height <- 2.5
+twopanel.height <- 5.5
 
 ## Set method to use in pool.compare() (Wald or likelihood)
 use.method <- 'likelihood'
@@ -1095,7 +1095,8 @@ plot.nb.results <- function(nbobj,            ## list, result of fit.reg.models(
       xlab(sprintf('Log10(%s)', xstring)) +
       ylab(paste('Adjusted', ystring)) +
       theme_bw() +
-      theme(axis.title.x = element_text(vjust = 0), #face = 'bold', vjust = 0),
+      theme(axis.title.x = element_text(vjust = 0, size = 9), #face = 'bold', vjust = 0),
+            axis.title.y = element_text(size = 9),
             axis.text = element_text(size = 7),
             strip.text = element_text(face = 'bold'))
 
@@ -1850,10 +1851,11 @@ hospital, whether adjusting for systemic inflammation or not.
 <<printbdnfdel, results = 'asis'>>=
 latex.pval.table(cbind(create.pval.table(bdnf.del, 'BDNF'),
                        create.pval.table(bdnf.del.noil6, 'BDNF')),
-                       use.colheads = c('Adjusting for Log10(IL-6)',
-                                        'No Adjustment for Log10(IL-6)'))
+                       use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                        'P, No Adjustment for Log10(IL-6)'))
 @
 
+% \clearpage
 \subsubsection{BDNF vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
 {\centering\includegraphics{bdnf_del_results.pdf}}
@@ -1871,6 +1873,14 @@ latex.pval.table(cbind(create.pval.table(bdnf.del, 'BDNF'),
 We see no association between log(E-selectin) at baseline and with delirium duration while in the
 hospital, whether adjusting for systemic inflammation or not.
 
+<<printeseldel, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(esel.del, 'E-selectin'),
+                       create.pval.table(esel.del.noil6, 'E-selectin')),
+                       use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                        'P, No Adjustment for Log10(IL-6)'))
+@
+
+% \clearpage
 \subsubsection{E-Selectin vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
 {\centering\includegraphics{esel_del_results.pdf}}
@@ -1889,6 +1899,14 @@ We see a nearly significant association between log(PAI-1) at baseline and delir
 not accounting for systemic inflammation, however, we do not see a meaningful association between
 log10(PAI-1) and delirium.
 
+<<printpai1del, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(pai1.del, 'PAI-1'),
+                       create.pval.table(pai1.del.noil6, 'PAI-1')),
+                       use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                        'P, No Adjustment for Log10(IL-6)'))
+@
+
+\clearpage
 \subsubsection{PAI-1 vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
 {\centering\includegraphics{pai1_del_results.pdf}}
@@ -1906,6 +1924,13 @@ log10(PAI-1) and delirium.
 We see no association between log(S100B) at baseline and with delirium duration while in the
 hospital when accounting for systemic inflammation. When not adjusting for systemic inflammation,
 however, we do see a significant association, likely modified by age at enrollment.
+
+<<prints100bdel, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(s100b.del, 'S100B'),
+                       create.pval.table(s100b.del.noil6, 'S100B')),
+                       use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                        'P, No Adjustment for Log10(IL-6)'))
+@
 
 \subsubsection{S100B vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
@@ -1925,6 +1950,13 @@ UCHL at baseline does show a significant or nearly significant association with 
 whether adjusting for systemic inflammation or not. When we account for systemic inflammation, the
 association is not modified by age, but when we ignore systemic inflammation, the association 
 becomes stronger (and more nonlinear) with age.
+
+<<printuchldel, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(uchl.del, 'UCHL'),
+                       create.pval.table(uchl.del.noil6, 'UCHL')),
+                       use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                        'P, No Adjustment for Log10(IL-6)'))
+@
 
 \subsubsection{UCHL vs. Delirium, Adjusting for Log10(IL-6)}
 \begin{figure}[!h]
