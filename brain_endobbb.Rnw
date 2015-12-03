@@ -1092,8 +1092,7 @@ plot.nb.results <- function(nbobj,            ## list, result of fit.reg.models(
     nb.plot <- ggplot(aes(x = xvalue, y = count.pe), data = nb.results) +
       geom_ribbon(aes(ymin = count.lcl, ymax = count.ucl), alpha = 0.3, fill = 'navy') +
       geom_line(colour = 'navy') +
-      xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for all interactions: %s',
-                   xstring, formatp(nbobj$p.marker), formatp(nbobj$p.int))) +
+      xlab(sprintf('Log10(%s)', xstring)) +
       ylab(paste('Adjusted', ystring)) +
       theme_bw() +
       theme(axis.title.x = element_text(vjust = 0), #face = 'bold', vjust = 0),
@@ -1101,17 +1100,9 @@ plot.nb.results <- function(nbobj,            ## list, result of fit.reg.models(
             strip.text = element_text(face = 'bold'))
 
     if(is.null(intvar)){
-      return(nb.plot +
-               xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s',
-                            xstring, formatp(nbobj$p.marker),
-                            formatp(nbobj$p.nonlin),
-                            formatp(nbobj$p.int))))
+      return(nb.plot)
     } else{
-      return(nb.plot +
-               facet_wrap(~ intvalue.f, nrow = 1) +
-               xlab(sprintf('Log10(%s)\n\nP for biomarker, final model: %s\nP for global nonlinearity: %s\nP for all interactions: %s\nP for %s interaction: %s',
-                            xstring, formatp(nbobj$p.marker), formatp(nbobj$p.nonlin),
-                            formatp(nbobj$p.int), intstring, formatp(intp))))
+      return(nb.plot + facet_wrap(~ intvalue.f, nrow = 1))
     }
   }
 }
