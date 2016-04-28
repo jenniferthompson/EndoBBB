@@ -185,6 +185,15 @@ endo.data <- brain.oneobs[brain.oneobs$id %in% marker.data$id, oneobs.vars] %>%
          cog.cohort.12 = !is.na(rbans.global.score.12) | !is.na(trail.b.tscore.12),
          func.cohort.3 = !is.na(adl.totscore.3) | !is.na(faq.totscore.3),
          func.cohort.12 = !is.na(adl.totscore.12) | !is.na(faq.totscore.12),
+         ## Create indicators for whether patient is included in cohort but missing a given test
+         cohort.norbans.3 = ifelse(!cog.cohort.3, NA, is.na(rbans.global.score.3)),
+         cohort.notrailb.3 = ifelse(!cog.cohort.3, NA, is.na(trail.b.tscore.3)),
+         cohort.noadl.3 = ifelse(!func.cohort.3, NA, is.na(adl.totscore.3)),
+         cohort.nofaq.3 = ifelse(!func.cohort.3, NA, is.na(faq.totscore.3)),
+         cohort.norbans.12 = ifelse(!cog.cohort.12, NA, is.na(rbans.global.score.12)),
+         cohort.notrailb.12 = ifelse(!cog.cohort.12, NA, is.na(trail.b.tscore.12)),
+         cohort.noadl.12 = ifelse(!func.cohort.12, NA, is.na(adl.totscore.12)),
+         cohort.nofaq.12 = ifelse(!func.cohort.12, NA, is.na(faq.totscore.12)),
          cog.cohort.either = cog.cohort.3 | cog.cohort.12,
          func.cohort.either = func.cohort.3 | func.cohort.12) %>%
   ## Remove patients who had no RBANS, Trails B, ADL, or FAQ - must have had other partial outcomes
@@ -279,18 +288,26 @@ label(endo.data.desc$pai1.log10) <- 'Log10(PAI-1), study day 1'
 label(endo.data.desc$s100b.log10) <- 'Log10(S100B), study day 1'
 label(endo.data.desc$uchl.log10) <- 'Log10(UCHL), study day 1'
 label(endo.data.desc$rbans.global.score.3) <- 'RBANS global score, 3m'
+label(endo.data.desc$cohort.norbans.3) <- 'In 3m cognitive cohort, but missing 3m RBANS'
 label(endo.data.desc$rbans.global.score.12) <- 'RBANS global score, 12m'
+label(endo.data.desc$cohort.norbans.12) <- 'In 12m cognitive cohort, but missing 12m RBANS'
 label(endo.data.desc$trail.b.tscore.3) <- 'Trails B T-score, 3m'
+label(endo.data.desc$cohort.notrailb.3) <- 'In 3m cognitive cohort, but missing 3m Trails B'
 label(endo.data.desc$trail.b.tscore.12) <- 'Trails B T-score, 12m'
+label(endo.data.desc$cohort.notrailb.12) <- 'In 12m cognitive cohort, but missing 12m Trails B'
 label(endo.data.desc$adl.totscore.3) <- 'ADL score, 3m'
+label(endo.data.desc$cohort.noadl.3) <- 'In 3m functional cohort, but missing 3m ADL'
 label(endo.data.desc$adl.totscore.12) <- 'ADL score, 12m'
+label(endo.data.desc$cohort.noadl.12) <- 'In 12m functional cohort, but missing 12m ADL'
 label(endo.data.desc$faq.totscore.3) <- 'FAQ score, 3m'
+label(endo.data.desc$cohort.nofaq.3) <- 'In 3m functional cohort, but missing 3m FAQ'
 label(endo.data.desc$faq.totscore.12) <- 'FAQ score, 12m'
+label(endo.data.desc$cohort.nofaq.12) <- 'In 12m functional cohort, but missing 12m FAQ'
 
 @
 
 \section{Descriptive Statistics}
-Tables \ref{table:enrollstat} - \ref{table:fustat} present descriptive statistics for the
+Tables \ref{table:enrollstat} - \ref{table:fustatfunc} present descriptive statistics for the
 \Sexpr{length(unique(endo.data$id))} patients with endothelial/BBB injury markers and long-term
 followup data. Cohort definitions are as follows:
 \begin{itemize}
@@ -360,8 +377,9 @@ latex(summaryM(il6.day1 + bdnf.day1 + esel.day1 + pai1.day1 + s100b.day1 + uchl.
 
 \clearpage
 <<printoutcomes, results = 'asis'>>=
-latex(summaryM(rbans.global.score.3 + rbans.global.score.12 + trail.b.tscore.3 +
-                 trail.b.tscore.12 ~ cohort,
+latex(summaryM(rbans.global.score.3 + cohort.norbans.3 + rbans.global.score.12 + cohort.norbans.12 +
+                 trail.b.tscore.3 + cohort.notrailb.3 + trail.b.tscore.12 + cohort.notrailb.12
+               ~ cohort,
                data = subset(endo.data.desc, cohort == 'Cognitive Outcomes')),
       file = '',
       where = '!h',
@@ -369,9 +387,12 @@ latex(summaryM(rbans.global.score.3 + rbans.global.score.12 + trail.b.tscore.3 +
       caption.lot = 'Cognitive Outcomes among Patients with Any Cognitive Data',
       label = 'table:fustatcog',
       digits = 2,
+      what = '%',
+      npct = 'both',
       prmsd = TRUE)
 
-latex(summaryM(adl.totscore.3 + adl.totscore.12 + faq.totscore.3 + faq.totscore.12 ~ cohort,
+latex(summaryM(adl.totscore.3 + cohort.noadl.3 + adl.totscore.12 + cohort.noadl.12 + faq.totscore.3 +
+                 cohort.nofaq.3 + faq.totscore.12 + cohort.nofaq.12 ~ cohort,
                data = subset(endo.data.desc, cohort == 'Functional Outcomes')),
       file = '',
       where = '!h',
@@ -379,6 +400,8 @@ latex(summaryM(adl.totscore.3 + adl.totscore.12 + faq.totscore.3 + faq.totscore.
       caption.lot = 'Functional Outcomes among Patients with Any Functional Data',
       label = 'table:fustatfunc',
       digits = 2,
+      what = '%',
+      npct = 'both',
       prmsd = TRUE)
 
 @
@@ -603,17 +626,22 @@ create.zeroinfl.form <- function(count.form, zero.form, regex.sub){
 ## --  determine whether 1) nonlinear and 2) interaction terms are needed, and
 ## --  return final model object, p-values for nonlinearity and interactions,
 ## --  and final p for biomarker
-fit.reg.models <- function(use.marker,   ## character string; name of biomarker variable
-                           formula.full, ## formula for full model formula
+fit.reg.models <- function(use.marker,           ## character string; name of biomarker variable
+                           formula.full,         ## formula for full model formula
                            modtype = c('nb', 'zeroinfl', 'ols'), ## Model type to use
+                           imp.obj = NULL,       ## aregImpute object to use for ols() if desired
+                           cohort.var = NULL,    ## T/F indicator pts to include, if imputing
                            dataset = endo.data){ ## original data set to use
 
   if(modtype == 'nb'){
     modfit.text = "glm.nb(formula = %s, data = usedata)"
   } else if(modtype == 'zeroinfl'){
     modfit.text = "zeroinfl(formula = %s, data = usedata, dist = 'negbin')"
-  } else if(modtype == 'ols'){
+  } else if(modtype == 'ols' & is.null(imp.obj)){
     modfit.text = "ols(formula = %s, data = usedata)"
+  } else if(modtype == 'ols' & !is.null(imp.obj)){
+    use.xtrans <- imp.obj
+    modfit.text = 'fit.mult.impute(formula = %s, fitter = ols, xtrans = use.xtrans, data = usedata)'
   }
 
   ## Initialize all p-values
@@ -630,7 +658,12 @@ fit.reg.models <- function(use.marker,   ## character string; name of biomarker 
   modvars <- gsub('rcs\\(', '', strsplit(formula.full, ' *[~+] *')[[1]])
   modvars <- unique(gsub(', [0-9]\\)', '', modvars[grep(':', modvars, invert = TRUE)]))
   modvars <- gsub('markervar', use.marker, modvars)
-  usedata <- dataset[rowSums(is.na(dataset[,modvars])) == 0,]
+
+  if(is.null(cohort.var)){
+    usedata <- dataset[rowSums(is.na(dataset[,modvars])) == 0,]
+  } else{
+    usedata <- dataset[dataset[,cohort.var],]
+  }
 
   ## Step 2: Fit full model
   marker.full.formula <- gsub('markervar', use.marker, formula.full)
@@ -2692,7 +2725,8 @@ either 3 or 12 months after discharge.
 
 \section{Endothelial/BBB Injury Markers vs. RBANS Global Score}
 
-To examine the association between endothelial/BBB injury at study enrollment and RBANS global scores at 3- and 12-month followup, we used linear regression, adjusting for the following
+To examine the association between endothelial/BBB injury at study enrollment and RBANS global
+scores at 3- and 12-month followup, we used linear regression, adjusting for the following
 covariates:
 \begin{itemize}
 \item Charlson score
@@ -2715,6 +2749,10 @@ potential interactions between endothelial/BBB markers and both systemic inflamm
 on study day 1 and age at study enrollment. If the global p-value for interactions were clearly nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the final
 model for parsimony. All biomarkers are transformed using the log10 transformation in order to improve model fit and reduce the influence of extremely high values. All p-values are calculated using the \Sexpr{use.method} method.
 
+We used multiple imputation to reduce bias from missing data; there is very little missing covariate
+data, but there is more data missing from outcomes, which could bias our results since the patients
+who would perform the worst are probably less likely to complete testing.
+
 % We used multiple imputation to reduce bias from missing covariates.
 
 For models where interaction terms are kept in the final model, the association of the biomarker is
@@ -2732,7 +2770,11 @@ dd <- datadist(endo.data); options(datadist = 'dd')
 
 ## 3-month models
 fit.rbans.models.3 <- function(marker){
-  fit.reg.models(use.marker = marker, formula.full = rbans.full.formula.3, modtype = 'ols')
+  fit.reg.models(use.marker = marker,
+                 formula.full = rbans.full.formula.3,
+                 modtype = 'ols',
+                 imp.obj = areg.cog.3,
+                 cohort.var = 'cog.cohort.3')
 }
 bdnf.rbans.3 <- fit.rbans.models.3('bdnf.log10')
 esel.rbans.3 <- fit.rbans.models.3('esel.log10')
@@ -2783,7 +2825,11 @@ dev.off()
 
 ## 12-month models
 fit.rbans.models.12 <- function(marker){
-  fit.reg.models(use.marker = marker, formula.full = rbans.full.formula.12, modtype = 'ols')
+  fit.reg.models(use.marker = marker,
+                 formula.full = rbans.full.formula.12,
+                 modtype = 'ols',
+                 imp.obj = areg.cog.12,
+                 cohort.var = 'cog.cohort.12')
 }
 bdnf.rbans.12 <- fit.rbans.models.12('bdnf.log10')
 esel.rbans.12 <- fit.rbans.models.12('esel.log10')
@@ -2900,7 +2946,11 @@ rbans.noil6.formula.12 <- paste('rbans.global.score.12', rbans.righthand.noil6, 
 
 ## 3-month models
 fit.rbans.noil6.models.3 <- function(marker){
-  fit.reg.models(use.marker = marker, formula.full = rbans.noil6.formula.3, modtype = 'ols')
+  fit.reg.models(use.marker = marker,
+                 formula.full = rbans.noil6.formula.3,
+                 modtype = 'ols',
+                 imp.obj = areg.cog.3,
+                 cohort.var = 'cog.cohort.3')
 }
 bdnf.rbans.noil6.3 <- fit.rbans.noil6.models.3('bdnf.log10')
 esel.rbans.noil6.3 <- fit.rbans.noil6.models.3('esel.log10')
@@ -2941,7 +2991,11 @@ dev.off()
 
 ## 12-month models
 fit.rbans.noil6.models.12 <- function(marker){
-  fit.reg.models(use.marker = marker, formula.full = rbans.noil6.formula.12, modtype = 'ols')
+  fit.reg.models(use.marker = marker,
+                 formula.full = rbans.noil6.formula.12,
+                 modtype = 'ols',
+                 imp.obj = areg.cog.12,
+                 cohort.var = 'cog.cohort.12')
 }
 bdnf.rbans.noil6.12 <- fit.rbans.noil6.models.12('bdnf.log10')
 esel.rbans.noil6.12 <- fit.rbans.noil6.models.12('esel.log10')
@@ -3021,11 +3075,9 @@ latex.pval.table(cbind(create.pval.table(bdnf.rbans.12, 'BDNF'),
 
 \clearpage
 \subsection{E-selectin vs. RBANS}
-We see a significant association between log10(E-selectin) at baseline and RBANS scores 3 months
-after discharge. This association is somewhat nonlinear, but essentially, higher log10(E-selectin)
-is associated with lower RBANS scores up to a certain point. This association is not modified by
-either age or log10(IL-6); it remains directionally similar at 12-month followup, but is no longer
-statistically significant.
+We see a significant association between higher log10(E-selectin) at baseline and RBANS scores 3
+months after discharge. This association is not modified by either age or log10(IL-6); it remains
+directionally similar at 12-month followup, but is no longer statistically significant.
 
 \subsubsection{E-selectin vs. RBANS, 3 Months}
 <<printeselrbans3, results = 'asis'>>=
@@ -3094,10 +3146,9 @@ latex.pval.table(cbind(create.pval.table(pai1.rbans.12, 'PAI-1'),
 
 \clearpage
 \subsection{S100B vs. RBANS}
-At 3 months, there is a nearly significant relationship between log10(S100B) and RBANS scores; this
+At 3 months, there is a significant relationship between log10(S100B) and RBANS scores; this
 association is potentially modified by both age and log10(IL-6). At 12 months, the overall
-association is highly significant and is still modified by log10(IL-6), but is likely not modified
-by age.
+association is still present and modified by log10(IL-6), but does not seem to be modified by age.
 
 \subsubsection{S100B vs. RBANS, 3 Months}
 <<prints100brbans3, results = 'asis'>>=
@@ -3131,8 +3182,8 @@ latex.pval.table(cbind(create.pval.table(s100b.rbans.12, 'S100B'),
 
 \clearpage
 \subsection{UCHL vs. RBANS}
-We see a significant, nonlinear relationship between log10(UCHL) and RBANS scores at 3-month
-followup; this association is not modified by either age or log10(IL-6), and disappears by
+We see a marginally significant, nonlinear relationship between log10(UCHL) and RBANS scores at
+3-month followup; this association is not modified by either age or log10(IL-6), and disappears by
 12-month followup.
 
 \subsubsection{UCHL vs. RBANS, 3 Months}
@@ -3192,6 +3243,10 @@ potential interactions between endothelial/BBB markers and both systemic inflamm
 on study day 1 and age at study enrollment. If the global p-value for interactions were clearly nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the final
 model for parsimony. All biomarkers are transformed using the log10 transformation in order to improve model fit and reduce the influence of extremely high values. All p-values are calculated using the \Sexpr{use.method} method.
 
+We used multiple imputation to reduce bias from missing data; there is very little missing covariate
+data, but there is more data missing from outcomes, which could bias our results since the patients
+who would perform the worst are probably less likely to complete testing.
+
 % We used multiple imputation to reduce bias from missing covariates.
 
 For models where interaction terms are kept in the final model, the association of the biomarker is
@@ -3209,7 +3264,11 @@ dd <- datadist(endo.data); options(datadist = 'dd')
 
 ## 3-month models
 fit.trailb.models.3 <- function(marker){
-  fit.reg.models(use.marker = marker, formula.full = trailb.full.formula.3, modtype = 'ols')
+  fit.reg.models(use.marker = marker,
+                 formula.full = trailb.full.formula.3,
+                 modtype = 'ols',
+                 imp.obj = areg.cog.3,
+                 cohort.var = 'cog.cohort.3')
 }
 bdnf.trailb.3 <- fit.trailb.models.3('bdnf.log10')
 esel.trailb.3 <- fit.trailb.models.3('esel.log10')
@@ -3260,7 +3319,11 @@ dev.off()
 
 ## 12-month models
 fit.trailb.models.12 <- function(marker){
-  fit.reg.models(use.marker = marker, formula.full = trailb.full.formula.12, modtype = 'ols')
+  fit.reg.models(use.marker = marker,
+                 formula.full = trailb.full.formula.12,
+                 modtype = 'ols',
+                 imp.obj = areg.cog.12,
+                 cohort.var = 'cog.cohort.12')
 }
 bdnf.trailb.12 <- fit.trailb.models.12('bdnf.log10')
 esel.trailb.12 <- fit.trailb.models.12('esel.log10')
@@ -3360,7 +3423,11 @@ trailb.noil6.formula.12 <- paste('trail.b.tscore.12', trailb.righthand.noil6, se
 
 ## 3-month models
 fit.trailb.noil6.models.3 <- function(marker){
-  fit.reg.models(use.marker = marker, formula.full = trailb.noil6.formula.3, modtype = 'ols')
+  fit.reg.models(use.marker = marker,
+                 formula.full = trailb.noil6.formula.3,
+                 modtype = 'ols',
+                 imp.obj = areg.cog.3,
+                 cohort.var = 'cog.cohort.3')
 }
 bdnf.trailb.noil6.3 <- fit.trailb.noil6.models.3('bdnf.log10')
 esel.trailb.noil6.3 <- fit.trailb.noil6.models.3('esel.log10')
@@ -3401,7 +3468,11 @@ dev.off()
 
 ## 12-month models
 fit.trailb.noil6.models.12 <- function(marker){
-  fit.reg.models(use.marker = marker, formula.full = trailb.noil6.formula.12, modtype = 'ols')
+  fit.reg.models(use.marker = marker,
+                 formula.full = trailb.noil6.formula.12,
+                 modtype = 'ols',
+                 imp.obj = areg.cog.12,
+                 cohort.var = 'cog.cohort.12')
 }
 bdnf.trailb.noil6.12 <- fit.trailb.noil6.models.12('bdnf.log10')
 esel.trailb.noil6.12 <- fit.trailb.noil6.models.12('esel.log10')
@@ -3519,8 +3590,7 @@ latex.pval.table(cbind(create.pval.table(fit.reg.obj = esel.trailb.12, marker.st
 
 \clearpage
 \subsection{PAI-1 vs. Trails B}
-At 3-month followup, there is a possible midl association between log10(PAI-1) and Trails B
-T-scores, likely modified by log10(IL-6). However, any association disappears by 12 months.
+We see no significant association between log10(PAI-1) and Trails B at either time point.
 
 \subsubsection{PAI-1 vs. Trails B, 3 Months}
 <<printpai1trailb3, results = 'asis'>>=
