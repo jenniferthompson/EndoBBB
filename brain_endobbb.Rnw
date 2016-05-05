@@ -134,6 +134,9 @@ marker.data$uchl.day1 <- unlist(lapply(marker.data$uchl.day1,
                                        na.vals = -1,
                                        min.val = 0, max.val = 60))
 
+## Indicator for complete biomarker data
+marker.data$comp.markers <- rowSums(is.na(marker.data[,paste0(endo.names, '.day1')])) == 0
+
 ## -- Merge biomarker data onto BRAIN data ---------------------------------------------------------
 oneobs.vars <- c('id', 'age.enroll', 'sex.pp', 'race.pp', 'edu', 'charlson.score', 'iqcode.score.e',
                  'stroke.risk', 'adl.e', 'faq.e', 'frailty', 'admit.dx', 'icu.type', 'num.apache',
@@ -196,8 +199,10 @@ endo.data <- brain.oneobs[brain.oneobs$id %in% marker.data$id, oneobs.vars] %>%
          cohort.nofaq.12 = ifelse(!func.cohort.12, NA, is.na(faq.totscore.12)),
          cog.cohort.either = cog.cohort.3 | cog.cohort.12,
          func.cohort.either = func.cohort.3 | func.cohort.12) %>%
-  ## Remove patients who had no RBANS, Trails B, ADL, or FAQ - must have had other partial outcomes
-  filter(cog.cohort.either | func.cohort.either)
+  ## Remove patients who had no RBANS, Trails B, ADL, or FAQ (must have had other partial outcomes)
+  ## and/or had incomplete endothelial markers and/or missing IL-6 (do not want to impute biomarker
+  ## values)
+  filter((cog.cohort.either | func.cohort.either) & comp.markers & !is.na(il6.day1))
 
 label(endo.data$mean.benz.icu) <- 'Mean 24h dose of benzos in the ICU (MDZ equiv.)'
 label(endo.data$mean.op.new.icu) <- 'Mean 24h dose of opioids in the ICU (fentanyl equiv.)'
@@ -312,11 +317,12 @@ Tables \ref{table:enrollstat} - \ref{table:fustatfunc} present descriptive stati
 followup data. Cohort definitions are as follows:
 \begin{itemize}
 \item Entire cohort: all patients who had at least one of RBANS global, Trails B, ADL, or FAQ at at
-      least one time point \textbf{and} had endothelial/BBB biomarker data
+      least one time point \textbf{and} had complete biomarker data (all five endothelial/BBB
+      markers present on day 1, as well as IL-6)
 \item Cognitive outcomes: all patients who had at least one of RBANS global or Trails B at at least
-      one time point and had endothelial/BBB biomarker data
+      one time point and had complete biomarker data
 \item Functional outcomes: all patients who had at least one of ADL or FAQ at at least one time
-      point and had endothelial/BBB biomarker data
+      point and had complete biomarker data
 \end{itemize}
 
 <<printdescstats, results='asis'>>=
