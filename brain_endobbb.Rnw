@@ -397,8 +397,8 @@ latex(summaryM(rbans.global.score.3 + cohort.norbans.3 + rbans.global.score.12 +
       npct = 'both',
       prmsd = TRUE)
 
-latex(summaryM(adl.totscore.3 + cohort.noadl.3 + adl.totscore.12 + cohort.noadl.12 + faq.totscore.3 +
-                 cohort.nofaq.3 + faq.totscore.12 + cohort.nofaq.12 ~ cohort,
+latex(summaryM(adl.totscore.3 + cohort.noadl.3 + adl.totscore.12 + cohort.noadl.12 +
+                 faq.totscore.3 + cohort.nofaq.3 + faq.totscore.12 + cohort.nofaq.12 ~ cohort,
                data = subset(endo.data.desc, cohort == 'Functional Outcomes')),
       file = '',
       where = '!h',
@@ -467,26 +467,36 @@ formatp <- function(val){
 }
 
 ## Function to get p-value from lmtest::lrtest()
-lrpval <- function(mod1, mod2){
-  as.data.frame(lmtest::lrtest(mod1, mod2))[2, 'Pr(>Chisq)']
+lrpval <- function(mod1, mod2, pc.method = 'likelihood', mice.obj){
+  if(length(class(mod1)) != length(class(mod2))){
+    stop('mod1 and mod2 must be of the same class')
+  } else if(sum(class(mod1) != class(mod2)) > 0){
+    stop('mod1 and mod2 must be of the same class')
+  } else{
+    if('mira' %in% class(mod1)){
+      pool.compare(mod1, mod2, method = pc.method, data = mice.obj)$pvalue
+    } else{
+      as.data.frame(lmtest::lrtest(mod1, mod2))[2, 'Pr(>Chisq)']
+    }
+  }
 }
 
-# ## -- Create mice objects to use for multiple imputation for all models ----------------------------
-# mice.vars <- c('bdnf.log10', 'esel.log10', 'pai1.log10', 's100b.log10', 'uchl.log10',
-#                'age.div10', 'il6.log10', 'charlson.score', 'iqcode.score.e', 'stroke.risk',
-#                'edu.div10', 'disabled.e', #'adl.e', 'faq.e',
-#                'apache.aps', 'mean.modsofa.icu', 'cvsofa.day1', 'sevsepsis.day1',
-#                'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
-#                'rbans.global.score.3', 'rbans.global.score.12',
-#                'trail.b.tscore.3', 'trail.b.tscore.12',
-#                'adl.totscore.3', 'adl.totscore.12',
-#                'faq.rdscore.3', 'faq.rdscore.12')
-#
-# mice.del <- mice(data = endo.data[,mice.vars], m = nimp, seed = 56)
-# mice.cog.3 <- mice(data = endo.data[endo.data$cog.cohort.3, mice.vars], m = nimp, seed = 56)
-# mice.cog.12 <- mice(data = endo.data[endo.data$cog.cohort.12, mice.vars], m = nimp, seed = 56)
-# mice.func.3 <- mice(data = endo.data[endo.data$func.cohort.3, mice.vars], m = nimp, seed = 56)
-# mice.func.12 <- mice(data = endo.data[endo.data$func.cohort.12, mice.vars], m = nimp, seed = 56)
+## -- Create mice objects to use for multiple imputation for all models ----------------------------
+mice.vars <- c('bdnf.log10', 'esel.log10', 'pai1.log10', 's100b.log10', 'uchl.log10',
+               'age.div10', 'il6.log10', 'charlson.score', 'iqcode.score.e', 'stroke.risk',
+               'edu.div10', 'disabled.e', #'adl.e', 'faq.e',
+               'apache.aps', 'mean.modsofa.icu', 'cvsofa.day1', 'sevsepsis.day1',
+               'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
+               'rbans.global.score.3', 'rbans.global.score.12',
+               'trail.b.tscore.3', 'trail.b.tscore.12',
+               'adl.totscore.3', 'adl.totscore.12',
+               'faq.rdscore.3', 'faq.rdscore.12')
+
+mice.del <- mice(data = endo.data[,mice.vars], m = nimp, seed = 56)
+mice.cog.3 <- mice(data = endo.data[endo.data$cog.cohort.3, mice.vars], m = nimp, seed = 56)
+mice.cog.12 <- mice(data = endo.data[endo.data$cog.cohort.12, mice.vars], m = nimp, seed = 56)
+mice.func.3 <- mice(data = endo.data[endo.data$func.cohort.3, mice.vars], m = nimp, seed = 56)
+mice.func.12 <- mice(data = endo.data[endo.data$func.cohort.12, mice.vars], m = nimp, seed = 56)
 
 ## -- Create aregImpute objects to use for cognitive outcomes --------------------------------------
 areg.form <- as.formula("~ age.div10 + charlson.score + I(edu) + I(iqcode.score.e) + stroke.risk +
@@ -495,7 +505,7 @@ areg.form <- as.formula("~ age.div10 + charlson.score + I(edu) + I(iqcode.score.
                            uchl.log10 + rbans.global.score.3 + rbans.global.score.12 +
                            trail.b.tscore.3 + trail.b.tscore.12")
 
-set.seed(56)
+set.seed(165)
 areg.cog.3 <- aregImpute(areg.form, n.impute = 10, nk = 3, data = subset(endo.data, cog.cohort.3))
 set.seed(65)
 areg.cog.12 <- aregImpute(areg.form, n.impute = 10, nk = 3, data = subset(endo.data, cog.cohort.12))
@@ -635,7 +645,7 @@ create.zeroinfl.form <- function(count.form, zero.form, regex.sub){
 fit.reg.models <- function(use.marker,           ## character string; name of biomarker variable
                            formula.full,         ## formula for full model formula
                            modtype = c('nb', 'zeroinfl', 'ols'), ## Model type to use
-                           imp.obj = NULL,       ## aregImpute object to use for ols() if desired
+                           imp.obj = NULL,       ## aregImpute or mice object, if desired
                            cohort.var = NULL,    ## T/F indicator pts to include, if imputing
                            dataset = endo.data){ ## original data set to use
 
@@ -666,7 +676,11 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
   modvars <- gsub('markervar', use.marker, modvars)
 
   if(is.null(cohort.var)){
-    usedata <- dataset[rowSums(is.na(dataset[,modvars])) == 0,]
+    if(is.null(imp.obj)){
+      usedata <- dataset[rowSums(is.na(dataset[,modvars])) == 0,]
+    } else{
+      usedata <- dataset
+    }
   } else{
     usedata <- dataset[dataset[,cohort.var],]
   }
@@ -738,10 +752,12 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
         }
       }
       mod.noageint <- eval(parse(text = sprintf(modfit.text, marker.noageint.formula)))
+      
       p.int.age <- lrpval(mod.lin, mod.noageint)
 
       if(has.il6){
         mod.noil6int <- eval(parse(text = sprintf(modfit.text, marker.noil6int.formula)))
+        
         p.int.il6 <- lrpval(mod.lin, mod.noil6int)
       }
     }
@@ -839,6 +855,7 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
     noil6.mod <- eval(parse(text = sprintf(modfit.text, noil6.form)))
 
     p.il6 <- lrpval(mod.final, noil6.mod)
+
   }
 
   return(list('final.mod' = mod.final,
@@ -1812,6 +1829,7 @@ fit.del.models <- function(marker){
   fit.reg.models(use.marker = marker,
                  formula.full = del.full.formula,
                  modtype = 'nb',
+                 imp.obj = mice.del,
                  dataset = endo.data)
 }
 bdnf.del <- fit.del.models('bdnf.log10')
@@ -2096,14 +2114,14 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' #
 %' # adl.full.formula.3 <- paste("adl.totscore.3 ~", adl.righthand)
 %' # adl.full.formula.12 <- paste("adl.totscore.12 ~", adl.righthand)
-%'
+%' 
 %' ## Have to force all terms to be linear due to model instability
 %' ## Formulas for full ADL models, subbing "markervar" in place of actual biomarker variable
 %' adl.righthand.lin <- "charlson.score + edu + iqcode.score.e + stroke.risk + adl.e + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp + coma.s.imp + age.div10 + il6.log10 + markervar + age.div10:markervar + il6.log10:markervar | age.div10 + charlson.score + adl.e + mean.modsofa.icu"
-%'
+%' 
 %' adl.lin.formula.3 <- paste("adl.totscore.3 ~", adl.righthand.lin)
 %' adl.lin.formula.12 <- paste("adl.totscore.12 ~", adl.righthand.lin)
-%'
+%' 
 %' ## -- Fit 3-month ADL models -----------------------------------------------------------------------
 %' fit.adl.models.3 <- function(marker){
 %'   fit.reg.models(use.marker = marker,
@@ -2116,7 +2134,7 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' pai1.adl.3 <- fit.adl.models.3('pai1.log10')
 %' s100b.adl.3 <- fit.adl.models.3('s100b.log10')
 %' uchl.adl.3 <- fit.adl.models.3('uchl.log10')
-%'
+%' 
 %' # ## Test PAI-1 by hand to make sure
 %' # endo.data.adl.pai1.3 <-
 %' #   endo.data[rowSums(is.na(endo.data[,c('adl.totscore.3', 'charlson.score', 'edu', 'iqcode.score.e',
@@ -2159,7 +2177,7 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' #                        data = endo.data.adl.pai1.3)
 %' # lmtest::lrtest(pai1.org, pai1.noil6)
 %' # pai1.adl.3$p.int.il6
-%'
+%' 
 %' # ## Test for biomarker
 %' # pai1.nomark <- zeroinfl(adl.totscore.3 ~ charlson.score + edu + iqcode.score.e + stroke.risk +
 %' #                            adl.e + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp + coma.s.imp +
@@ -2169,8 +2187,8 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' #                         data = endo.data.adl.pai1.3)
 %' # lmtest::lrtest(pai1.noint, pai1.nomark)
 %' # pai1.adl.3$p.marker
-%'
-%'
+%' 
+%' 
 %' ## -- Fit 12-month ADL models ----------------------------------------------------------------------
 %' fit.adl.models.12 <- function(marker){
 %'   fit.reg.models(use.marker = marker,
@@ -2183,80 +2201,80 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' pai1.adl.12 <- fit.adl.models.12('pai1.log10')
 %' s100b.adl.12 <- fit.adl.models.12('s100b.log10')
 %' uchl.adl.12 <- fit.adl.models.12('uchl.log10')
-%'
+%' 
 %' ## -- Create data frame of point estimates, CIs for unique values of biomarker ---------------------
 %' ## --  (+ interacting variable, if needed) ---------------------------------------------------------
-%'
-%' # ## Create bootstrapped data sets, save in .Rdata file to save time
-%' # disability.covars <- c('charlson.score', 'edu', 'iqcode.score.e', 'stroke.risk', 'adl.e',
-%' #                        'mean.modsofa.icu', 'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
-%' #                        'age.div10', 'il6.log10')
-%' #
-%' # nboot <- 1000
-%' #
-%' # ## Function to create bootstrapped data sets
-%' # disability.bootdata <- function(use.marker, outcome){
-%' #   nomiss.vars <- c(disability.covars, use.marker, outcome)
-%' #   create.sampdata(org.data = endo.data[rowSums(is.na(endo.data[,nomiss.vars])) == 0,
-%' #                                        c('id', nomiss.vars)],
-%' #                   id.var = 'id',
-%' #                   n.sets = nboot)
-%' # }
-%' #
+%' 
+%' ## Create bootstrapped data sets, save in .Rdata file to save time
+%' disability.covars <- c('charlson.score', 'edu', 'iqcode.score.e', 'stroke.risk', 'adl.e',
+%'                        'mean.modsofa.icu', 'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
+%'                        'age.div10', 'il6.log10')
+%' 
+%' nboot <- 1000
+%' 
+%' ## Function to create bootstrapped data sets
+%' disability.bootdata <- function(use.marker, outcome){
+%'   nomiss.vars <- c(disability.covars, use.marker, outcome)
+%'   create.sampdata(org.data = endo.data[rowSums(is.na(endo.data[,nomiss.vars])) == 0,
+%'                                        c('id', nomiss.vars)],
+%'                   id.var = 'id',
+%'                   n.sets = nboot)
+%' }
+%' 
 %' # bdnf.adl.3.bootdata <- disability.bootdata('bdnf.log10', 'adl.totscore.3')
 %' # esel.adl.3.bootdata <- disability.bootdata('esel.log10', 'adl.totscore.3')
 %' # pai1.adl.3.bootdata <- disability.bootdata('pai1.log10', 'adl.totscore.3')
 %' # s100b.adl.3.bootdata <- disability.bootdata('s100b.log10', 'adl.totscore.3')
 %' # uchl.adl.3.bootdata <- disability.bootdata('uchl.log10', 'adl.totscore.3')
-%' #
+%' # 
 %' # bdnf.adl.12.bootdata <- disability.bootdata('bdnf.log10', 'adl.totscore.12')
 %' # esel.adl.12.bootdata <- disability.bootdata('esel.log10', 'adl.totscore.12')
 %' # pai1.adl.12.bootdata <- disability.bootdata('pai1.log10', 'adl.totscore.12')
 %' # s100b.adl.12.bootdata <- disability.bootdata('s100b.log10', 'adl.totscore.12')
 %' # uchl.adl.12.bootdata <- disability.bootdata('uchl.log10', 'adl.totscore.12')
-%' #
+%' # 
 %' # save(bdnf.adl.3.bootdata, esel.adl.3.bootdata, pai1.adl.3.bootdata, s100b.adl.3.bootdata,
 %' #      uchl.adl.3.bootdata, bdnf.adl.12.bootdata, esel.adl.12.bootdata, pai1.adl.12.bootdata,
 %' #      s100b.adl.12.bootdata, uchl.adl.12.bootdata,
 %' #      file = 'adl_bootdata.Rdata')
-%'
+%' 
 %' load('adl_bootdata.Rdata')
-%'
+%' 
 %' bdnf.adl.3.preddata <- zinf.plotdata(modobj = bdnf.adl.3$final.mod,
 %'                                      xvar = 'bdnf.log10',
 %'                                      bootdata = bdnf.adl.3.bootdata)
 %' bdnf.adl.12.preddata <- zinf.plotdata(modobj = bdnf.adl.12$final.mod,
 %'                                       xvar = 'bdnf.log10',
 %'                                       bootdata = bdnf.adl.12.bootdata)
-%'
+%' 
 %' esel.adl.3.preddata <- zinf.plotdata(modobj = esel.adl.3$final.mod,
 %'                                      xvar = 'esel.log10',
 %'                                      bootdata = esel.adl.3.bootdata)
 %' esel.adl.12.preddata <- zinf.plotdata(modobj = esel.adl.12$final.mod,
 %'                                       xvar = 'esel.log10',
 %'                                       bootdata = esel.adl.12.bootdata)
-%'
+%' 
 %' pai1.adl.3.preddata <- zinf.plotdata(modobj = pai1.adl.3$final.mod,
 %'                                      xvar = 'pai1.log10',
 %'                                      bootdata = pai1.adl.3.bootdata)
 %' pai1.adl.12.preddata <- zinf.plotdata(modobj = pai1.adl.12$final.mod,
 %'                                       xvar = 'pai1.log10',
 %'                                       bootdata = pai1.adl.12.bootdata)
-%'
+%' 
 %' s100b.adl.3.preddata <- zinf.plotdata(modobj = s100b.adl.3$final.mod,
 %'                                       xvar = 's100b.log10',
 %'                                       bootdata = s100b.adl.3.bootdata)
 %' s100b.adl.12.preddata <- zinf.plotdata(modobj = s100b.adl.12$final.mod,
 %'                                        xvar = 's100b.log10',
 %'                                        bootdata = s100b.adl.12.bootdata)
-%'
+%' 
 %' uchl.adl.3.preddata <- zinf.plotdata(modobj = uchl.adl.3$final.mod,
 %'                                      xvar = 'uchl.log10',
 %'                                      bootdata = uchl.adl.3.bootdata)
 %' uchl.adl.12.preddata <- zinf.plotdata(modobj = uchl.adl.12$final.mod,
 %'                                       xvar = 'uchl.log10',
 %'                                       bootdata = uchl.adl.12.bootdata)
-%'
+%' 
 %' ## -- Plot ADL results -----------------------------------------------------------------------------
 %' ## 3 months
 %' bdnf.adl.3.fig <-
@@ -2279,27 +2297,27 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %'   zinf.figures(zinfobj = uchl.adl.3, zinf.preddata = uchl.adl.3.preddata,
 %'                xvar = 'uchl.log10', xstring = 'Log10(UCHL)',
 %'                ystring = 'Adjusted Katz ADL, 3 Months')
-%'
+%' 
 %' pdf(file = 'bdnf_adl3_results.pdf', width = 8, height = bdnf.adl.3.fig$height)
 %' multiplot(plotlist = bdnf.adl.3.fig$fig, layout = bdnf.adl.3.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'esel_adl3_results.pdf', width = 8, height = esel.adl.3.fig$height)
 %' multiplot(plotlist = esel.adl.3.fig$fig, layout = esel.adl.3.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'pai1_adl3_results.pdf', width = 8, height = pai1.adl.3.fig$height)
 %' multiplot(plotlist = pai1.adl.3.fig$fig, layout = pai1.adl.3.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 's100b_adl3_results.pdf', width = 8, height = s100b.adl.3.fig$height)
 %' multiplot(plotlist = s100b.adl.3.fig$fig, layout = s100b.adl.3.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'uchl_adl3_results.pdf', width = 8, height = uchl.adl.3.fig$height)
 %' multiplot(plotlist = uchl.adl.3.fig$fig, layout = uchl.adl.3.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' ## 12 months
 %' bdnf.adl.12.fig <-
 %'   zinf.figures(zinfobj = bdnf.adl.12, zinf.preddata = bdnf.adl.12.preddata,
@@ -2321,27 +2339,27 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %'   zinf.figures(zinfobj = uchl.adl.12, zinf.preddata = uchl.adl.12.preddata,
 %'                xvar = 'uchl.log10', xstring = 'Log10(UCHL)',
 %'                ystring = 'Adjusted Katz ADL, 12 Months')
-%'
+%' 
 %' pdf(file = 'bdnf_adl12_results.pdf', width = 8, height = bdnf.adl.12.fig$height)
 %' multiplot(bdnf.adl.12.fig$fig, layout = bdnf.adl.12.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'esel_adl12_results.pdf', width = 8, height = esel.adl.12.fig$height)
 %' multiplot(esel.adl.12.fig$fig, layout = esel.adl.12.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'pai1_adl12_results.pdf', width = 8, height = pai1.adl.12.fig$height)
 %' multiplot(pai1.adl.12.fig$fig, layout = pai1.adl.12.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 's100b_adl12_results.pdf', width = 8, height = s100b.adl.12.fig$height)
 %' multiplot(s100b.adl.12.fig$fig, layout = s100b.adl.12.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'uchl_adl12_results.pdf', width = 8, height = uchl.adl.12.fig$height)
 %' multiplot(uchl.adl.12.fig$fig, layout = uchl.adl.12.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' @
 
 \clearpage
@@ -2467,10 +2485,10 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' ## Have to force all terms to be linear due to model instability
 %' ## Formulas for full ADL models, subbing "markervar" in place of actual biomarker variable
 %' faq.righthand.lin <- "charlson.score + edu + iqcode.score.e + stroke.risk + adl.e + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp + coma.s.imp + age.div10 + il6.log10 + markervar + age.div10:markervar + il6.log10:markervar | age.div10 + charlson.score + adl.e + mean.modsofa.icu"
-%'
+%' 
 %' faq.lin.formula.3 <- paste("faq.rdscore.3 ~", faq.righthand.lin)
 %' faq.lin.formula.12 <- paste("faq.rdscore.12 ~", faq.righthand.lin)
-%'
+%' 
 %' ## -- Fit 3-month FAQ models -----------------------------------------------------------------------
 %' fit.faq.models.3 <- function(marker){
 %'   fit.reg.models(use.marker = marker,
@@ -2483,7 +2501,7 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' pai1.faq.3 <- fit.faq.models.3('pai1.log10')
 %' s100b.faq.3 <- fit.faq.models.3('s100b.log10')
 %' uchl.faq.3 <- fit.faq.models.3('uchl.log10')
-%'
+%' 
 %' ## -- Fit 12-month FAQ models ----------------------------------------------------------------------
 %' fit.faq.models.12 <- function(marker){
 %'   fit.reg.models(use.marker = marker,
@@ -2496,80 +2514,80 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %' pai1.faq.12 <- fit.faq.models.12('pai1.log10')
 %' s100b.faq.12 <- fit.faq.models.12('s100b.log10')
 %' uchl.faq.12 <- fit.faq.models.12('uchl.log10')
-%'
+%' 
 %' ## -- Create data frame of point estimates, CIs for unique values of biomarker ---------------------
 %' ## --  (+ interacting variable, if needed) ---------------------------------------------------------
-%'
-%' # ## Create bootstrapped data sets, save in .Rdata file to save time
-%' # disability.covars <- c('charlson.score', 'edu', 'iqcode.score.e', 'stroke.risk', 'adl.e',
-%' #                        'mean.modsofa.icu', 'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
-%' #                        'age.div10', 'il6.log10')
-%' #
-%' # nboot <- 1000
-%' #
-%' # ## Function to create bootstrapped data sets
-%' # disability.bootdata <- function(use.marker, outcome){
-%' #   nomiss.vars <- c(disability.covars, use.marker, outcome)
-%' #   create.sampdata(org.data = endo.data[rowSums(is.na(endo.data[,nomiss.vars])) == 0,
-%' #                                        c('id', nomiss.vars)],
-%' #                   id.var = 'id',
-%' #                   n.sets = nboot)
-%' # }
-%' #
+%' 
+%' ## Create bootstrapped data sets, save in .Rdata file to save time
+%' disability.covars <- c('charlson.score', 'edu', 'iqcode.score.e', 'stroke.risk', 'adl.e',
+%'                        'mean.modsofa.icu', 'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
+%'                        'age.div10', 'il6.log10')
+%' 
+%' nboot <- 1000
+%' 
+%' ## Function to create bootstrapped data sets
+%' disability.bootdata <- function(use.marker, outcome){
+%'   nomiss.vars <- c(disability.covars, use.marker, outcome)
+%'   create.sampdata(org.data = endo.data[rowSums(is.na(endo.data[,nomiss.vars])) == 0,
+%'                                        c('id', nomiss.vars)],
+%'                   id.var = 'id',
+%'                   n.sets = nboot)
+%' }
+%' 
 %' # bdnf.faq.3.bootdata <- disability.bootdata('bdnf.log10', 'faq.rdscore.3')
 %' # esel.faq.3.bootdata <- disability.bootdata('esel.log10', 'faq.rdscore.3')
 %' # pai1.faq.3.bootdata <- disability.bootdata('pai1.log10', 'faq.rdscore.3')
 %' # s100b.faq.3.bootdata <- disability.bootdata('s100b.log10', 'faq.rdscore.3')
 %' # uchl.faq.3.bootdata <- disability.bootdata('uchl.log10', 'faq.rdscore.3')
-%' #
+%' # 
 %' # bdnf.faq.12.bootdata <- disability.bootdata('bdnf.log10', 'faq.rdscore.12')
 %' # esel.faq.12.bootdata <- disability.bootdata('esel.log10', 'faq.rdscore.12')
 %' # pai1.faq.12.bootdata <- disability.bootdata('pai1.log10', 'faq.rdscore.12')
 %' # s100b.faq.12.bootdata <- disability.bootdata('s100b.log10', 'faq.rdscore.12')
 %' # uchl.faq.12.bootdata <- disability.bootdata('uchl.log10', 'faq.rdscore.12')
-%' #
+%' # 
 %' # save(bdnf.faq.3.bootdata, esel.faq.3.bootdata, pai1.faq.3.bootdata, s100b.faq.3.bootdata,
 %' #      uchl.faq.3.bootdata, bdnf.faq.12.bootdata, esel.faq.12.bootdata, pai1.faq.12.bootdata,
 %' #      s100b.faq.12.bootdata, uchl.faq.12.bootdata,
 %' #      file = 'faq_bootdata.Rdata')
-%'
+%' 
 %' load('faq_bootdata.Rdata')
-%'
+%' 
 %' bdnf.faq.3.preddata <- zinf.plotdata(modobj = bdnf.faq.3$final.mod,
 %'                                      xvar = 'bdnf.log10',
 %'                                      bootdata = bdnf.faq.3.bootdata)
 %' bdnf.faq.12.preddata <- zinf.plotdata(modobj = bdnf.faq.12$final.mod,
 %'                                       xvar = 'bdnf.log10',
 %'                                       bootdata = bdnf.faq.12.bootdata)
-%'
+%' 
 %' esel.faq.3.preddata <- zinf.plotdata(modobj = esel.faq.3$final.mod,
 %'                                      xvar = 'esel.log10',
 %'                                      bootdata = esel.faq.3.bootdata)
 %' esel.faq.12.preddata <- zinf.plotdata(modobj = esel.faq.12$final.mod,
 %'                                       xvar = 'esel.log10',
 %'                                       bootdata = esel.faq.12.bootdata)
-%'
+%' 
 %' pai1.faq.3.preddata <- zinf.plotdata(modobj = pai1.faq.3$final.mod,
 %'                                      xvar = 'pai1.log10',
 %'                                      bootdata = pai1.faq.3.bootdata)
 %' pai1.faq.12.preddata <- zinf.plotdata(modobj = pai1.faq.12$final.mod,
 %'                                       xvar = 'pai1.log10',
 %'                                       bootdata = pai1.faq.12.bootdata)
-%'
+%' 
 %' s100b.faq.3.preddata <- zinf.plotdata(modobj = s100b.faq.3$final.mod,
 %'                                       xvar = 's100b.log10',
 %'                                       bootdata = s100b.faq.3.bootdata)
 %' s100b.faq.12.preddata <- zinf.plotdata(modobj = s100b.faq.12$final.mod,
 %'                                        xvar = 's100b.log10',
 %'                                        bootdata = s100b.faq.12.bootdata)
-%'
+%' 
 %' uchl.faq.3.preddata <- zinf.plotdata(modobj = uchl.faq.3$final.mod,
 %'                                      xvar = 'uchl.log10',
 %'                                      bootdata = uchl.faq.3.bootdata)
 %' uchl.faq.12.preddata <- zinf.plotdata(modobj = uchl.faq.12$final.mod,
 %'                                       xvar = 'uchl.log10',
 %'                                       bootdata = uchl.faq.12.bootdata)
-%'
+%' 
 %' ## -- Plot FAQ results -----------------------------------------------------------------------------
 %' ## 3 months
 %' bdnf.faq.3.fig <-
@@ -2592,27 +2610,27 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %'   zinf.figures(zinfobj = uchl.faq.3, zinf.preddata = uchl.faq.3.preddata,
 %'                xvar = 'uchl.log10', xstring = 'Log10(UCHL)',
 %'                ystring = 'Adjusted FAQ, 3 Months')
-%'
+%' 
 %' pdf(file = 'bdnf_faq3_results.pdf', width = 8, height = bdnf.faq.3.fig$height)
 %' multiplot(plotlist = bdnf.faq.3.fig$fig, layout = bdnf.faq.3.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'esel_faq3_results.pdf', width = 8, height = esel.faq.3.fig$height)
 %' multiplot(plotlist = esel.faq.3.fig$fig, layout = esel.faq.3.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'pai1_faq3_results.pdf', width = 8, height = pai1.faq.3.fig$height)
 %' multiplot(plotlist = pai1.faq.3.fig$fig, layout = pai1.faq.3.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 's100b_faq3_results.pdf', width = 8, height = s100b.faq.3.fig$height)
 %' multiplot(plotlist = s100b.faq.3.fig$fig, layout = s100b.faq.3.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'uchl_faq3_results.pdf', width = 8, height = uchl.faq.3.fig$height)
 %' multiplot(plotlist = uchl.faq.3.fig$fig, layout = uchl.faq.3.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' ## 12 months
 %' bdnf.faq.12.fig <-
 %'   zinf.figures(zinfobj = bdnf.faq.12, zinf.preddata = bdnf.faq.12.preddata,
@@ -2634,27 +2652,27 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 %'   zinf.figures(zinfobj = uchl.faq.12, zinf.preddata = uchl.faq.12.preddata,
 %'                xvar = 'uchl.log10', xstring = 'Log10(UCHL)',
 %'                ystring = 'Adjusted FAQ, 12 Months')
-%'
+%' 
 %' pdf(file = 'bdnf_faq12_results.pdf', width = 8, height = bdnf.faq.12.fig$height)
 %' multiplot(plotlist = bdnf.faq.12.fig$fig, layout = bdnf.faq.12.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'esel_faq12_results.pdf', width = 8, height = esel.faq.12.fig$height)
 %' multiplot(plotlist = esel.faq.12.fig$fig, layout = esel.faq.12.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'pai1_faq12_results.pdf', width = 8, height = pai1.faq.12.fig$height)
 %' multiplot(plotlist = pai1.faq.12.fig$fig, layout = pai1.faq.12.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 's100b_faq12_results.pdf', width = 8, height = s100b.faq.12.fig$height)
 %' multiplot(plotlist = s100b.faq.12.fig$fig, layout = s100b.faq.12.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' pdf(file = 'uchl_faq12_results.pdf', width = 8, height = uchl.faq.12.fig$height)
 %' multiplot(plotlist = uchl.faq.12.fig$fig, layout = uchl.faq.12.fig$layoutmat)
 %' dev.off()
-%'
+%' 
 %' @
 
 \clearpage
