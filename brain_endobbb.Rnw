@@ -649,15 +649,23 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
                            cohort.var = NULL,    ## T/F indicator pts to include, if imputing
                            dataset = endo.data){ ## original data set to use
 
-  if(modtype == 'nb'){
-    modfit.text = "glm.nb(formula = %s, data = usedata)"
-  } else if(modtype == 'zeroinfl'){
-    modfit.text = "zeroinfl(formula = %s, data = usedata, dist = 'negbin')"
-  } else if(modtype == 'ols' & is.null(imp.obj)){
-    modfit.text = "ols(formula = %s, data = usedata)"
-  } else if(modtype == 'ols' & !is.null(imp.obj)){
-    use.xtrans <- imp.obj
-    modfit.text = 'fit.mult.impute(formula = %s, fitter = ols, xtrans = use.xtrans, data = usedata)'
+  ## Create text for fitting model, depending on model type and whether imputation is used
+  if(is.null(imp.obj)){
+    if(modtype == 'nb'){
+      modfit.text = "glm.nb(formula = %s, data = usedata)"
+    } else if(modtype == 'zeroinfl'){
+      modfit.text = "zeroinfl(formula = %s, data = usedata, dist = 'negbin')"
+    } else if(modtype == 'ols'){
+      modfit.text = "ols(formula = %s, data = usedata)"
+    }
+  } else{
+    if(modtype == 'nb'){
+      modfit.text = "with(imp.obj, glm.nb(formula = %s))"
+    } else if(modtype == 'zeroinfl'){
+      modfit.text = "with(imp.obj, zeroinfl(formula = %s, dist = 'negbin'))"
+    } else if(modtype == 'ols'){
+      modfit.text = 'fit.mult.impute(formula = %s, fitter = ols, xtrans = imp.obj, data = usedata)'
+    }
   }
 
   ## Initialize all p-values
@@ -669,14 +677,15 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
   ## Does full model include IL-6 terms?
   has.il6 <- length(grep('il6', formula.full, fixed = TRUE)) > 0
 
-  ## Step 1: Create data set with complete data from initial dataset object
-  ## Get variables in formula.full
-  modvars <- gsub('rcs\\(', '', strsplit(formula.full, ' *[~+] *')[[1]])
-  modvars <- unique(gsub(', [0-9]\\)', '', modvars[grep(':', modvars, invert = TRUE)]))
-  modvars <- gsub('markervar', use.marker, modvars)
-
+  ## Step 1: Define data set: if no imputation, complete data from initial dataset object;
+  ##         otherwise, either full data set or data set with cohort indicator = TRUE
   if(is.null(cohort.var)){
     if(is.null(imp.obj)){
+      ## Get variables in formula.full
+      modvars <- gsub('rcs\\(', '', strsplit(formula.full, ' *[~+] *')[[1]])
+      modvars <- unique(gsub(', [0-9]\\)', '', modvars[grep(':', modvars, invert = TRUE)]))
+      modvars <- gsub('markervar', use.marker, modvars)
+      
       usedata <- dataset[rowSums(is.na(dataset[,modvars])) == 0,]
     } else{
       usedata <- dataset
@@ -685,8 +694,8 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
     usedata <- dataset[dataset[,cohort.var],]
   }
 
-  ## Step 2: Fit full model
-  marker.full.formula <- gsub('markervar', use.marker, formula.full)
+  ## Step 2: Fit full model; save formula as "final" formula for now
+  final.formula <- marker.full.formula <- gsub('markervar', use.marker, formula.full)
   mod.full <- eval(parse(text = sprintf(modfit.text, marker.full.formula)))
 
   ## Step 3: Test for whether nonlinear terms are needed
@@ -696,7 +705,9 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
     mod.lin <- eval(parse(text = sprintf(modfit.text, marker.lin.formula)))
 
     ## 3b. Calculate p-value for all nonlinear terms
-    p.nonlin <- lrpval(mod.full, mod.lin)
+    p.nonlin <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
+                       lrpval(mod.full, mod.lin),
+                       lrpval(mod.full, mod.lin, mice.obj = imp.obj))
   } else{
     marker.lin.formula <- marker.full.formula
     mod.lin <- mod.full
@@ -724,13 +735,17 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
     mod.noint <- eval(parse(text = sprintf(modfit.text, marker.noint.formula)))
 
     ## 4c. Calculate p-value for all interaction terms
-    p.int <- lrpval(mod.lin, mod.noint)
+    p.int <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
+                    lrpval(mod.lin, mod.noint),
+                    lrpval(mod.lin, mod.noint, mice.obj = imp.obj))
 
     ## 4d. Save final model object
     if(p.int > pcutoff){
       mod.final <- mod.noint
+      final.formula <- marker.noint.formula
     } else{
       mod.final <- mod.lin
+      final.formula <- marker.lin.formula
 
       ## 4e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
       if(modtype == 'zeroinfl'){
@@ -753,12 +768,17 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
       }
       mod.noageint <- eval(parse(text = sprintf(modfit.text, marker.noageint.formula)))
       
-      p.int.age <- lrpval(mod.lin, mod.noageint)
-
+      p.int.age <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
+                          lrpval(mod.lin, mod.noageint),
+                          lrpval(mod.lin, mod.noageint, mice.obj = imp.obj))
+      
       if(has.il6){
         mod.noil6int <- eval(parse(text = sprintf(modfit.text, marker.noil6int.formula)))
         
-        p.int.il6 <- lrpval(mod.lin, mod.noil6int)
+        p.int.il6 <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
+                            lrpval(mod.lin, mod.noil6int),
+                            lrpval(mod.lin, mod.noil6int, mice.obj = imp.obj))
+        
       }
     }
   } else{
@@ -780,11 +800,14 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
     mod.noint <- eval(parse(text = sprintf(modfit.text, marker.noint.formula)))
 
     ## 4c. Calculate p-value for all interaction terms
-    p.int <- lrpval(mod.full, mod.noint)
+    p.int <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
+                    lrpval(mod.full, mod.noint),
+                    lrpval(mod.full, mod.noint, mice.obj = imp.obj))
 
     ## 4d. Save final model object
     if(p.int > 0.2){
       mod.final <- mod.noint
+      final.formula <- marker.noint.formula
     } else{
       mod.final <- mod.full
 
@@ -808,53 +831,74 @@ fit.reg.models <- function(use.marker,           ## character string; name of bi
       }
 
       mod.noageint <- eval(parse(text = sprintf(modfit.text, marker.noageint.formula)))
-      p.int.age <- lrpval(mod.full, mod.noageint)
+      p.int.age <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
+                          lrpval(mod.full, mod.noageint),
+                          lrpval(mod.full, mod.noageint, mice.obj = imp.obj))
 
       if(has.il6){
         mod.noil6int <- eval(parse(text = sprintf(modfit.text, marker.noil6int.formula)))
-        p.int.il6 <- lrpval(mod.full, mod.noil6int)
+        p.int.il6 <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
+                            lrpval(mod.full, mod.noil6int),
+                            lrpval(mod.full, mod.noil6int, mice.obj = imp.obj))
+        
       }
     }
   }
 
   ## 5. Calculate overall p-value for biomarker
   ## 5a. Fit model without any biomarker terms, using same data set
-  final.call <- as.character(mod.final$call)[2]
+  # final.call <- as.character(mod.final$call)[2]
   if(modtype == 'zeroinfl'){
     ## Split twice: once for count vs. zero portion, once to get each variable
-    final.call.split <- strsplit(final.call, '|', fixed = TRUE)
+    final.call.split <- strsplit(final.formula, '|', fixed = TRUE)
     final.call.count <- strsplit(final.call.split[[1]][1], ' *\\+ *')[[1]]
     final.call.zero <- strsplit(final.call.split[[1]][2], ' *\\+ *')[[1]]
     nomark.form <- create.zeroinfl.form(count.form = final.call.count,
                                         zero.form = final.call.zero,
                                         regex.sub = use.marker)
   } else{
-    final.call.split <- strsplit(final.call, ' + ', fixed = TRUE)[[1]]
+    final.call.split <- strsplit(final.formula, ' + ', fixed = TRUE)[[1]]
     nomark.form <- paste(final.call.split[grep(use.marker, final.call.split, invert = TRUE)],
                          collapse = ' + ')
   }
   nomark.mod <- eval(parse(text = sprintf(modfit.text, nomark.form)))
 
-  p.marker <- lrpval(mod.final, nomark.mod)
+  p.marker <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
+                     lrpval(mod.final, nomark.mod),
+                     lrpval(mod.final, nomark.mod, mice.obj = imp.obj))
 
   ## 6. Calculate overall p-value for IL-6, if included in model
   if(has.il6){
+    ## Initialize object that might be needed if we use mice imputation
+    refit.il6.mod <- NULL
+    
     if(modtype == 'zeroinfl'){
       ## Split twice: once for count vs. zero portion, once to get each variable
-      final.call.split <- strsplit(final.call, '|', fixed = TRUE)
+      final.call.split <- strsplit(final.formula, '|', fixed = TRUE)
       final.call.count <- strsplit(final.call.split[[1]][1], ' *\\+ *')[[1]]
       final.call.zero <- strsplit(final.call.split[[1]][2], ' *\\+ *')[[1]]
       noil6.form <- create.zeroinfl.form(count.form = final.call.count,
                                          zero.form = final.call.zero,
                                          regex.sub = 'il6\\.log10')
     } else{
-      final.call.split <- strsplit(final.call, ' + ', fixed = TRUE)[[1]]
+      final.call.split <- strsplit(final.formula, ' + ', fixed = TRUE)[[1]]
       noil6.form <- paste(final.call.split[grep('il6\\.log10', final.call.split, invert = TRUE)],
                           collapse = ' + ')
+      
+      ## If using mice object, pool.compare() requires IL-6 to be at the very end; refit final model
+      if(!is.null(imp.obj) & class(imp.obj) == 'mids'){
+        noil6.vars <- grep('il6\\.log10', final.call.split, invert = TRUE)
+        il6.var <- grep('il6\\.log10', final.call.split)
+        refit.il6.form <- paste(c(final.call.split[noil6.vars], final.call.split[il6.var]),
+                                collapse = ' + ')
+        refit.il6.mod <- eval(parse(text = sprintf(modfit.text, refit.il6.form)))
+      }
     }
     noil6.mod <- eval(parse(text = sprintf(modfit.text, noil6.form)))
 
-    p.il6 <- lrpval(mod.final, noil6.mod)
+    p.il6 <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
+                    lrpval(mod.final, noil6.mod),
+                    lrpval(refit.il6.mod, noil6.mod, mice.obj = imp.obj))
 
   }
 
