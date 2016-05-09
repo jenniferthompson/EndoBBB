@@ -1033,7 +1033,7 @@ catvars <- "sevsepsis.day1"
 #
 # }
 
-## -- Function to create design matrices given a glm.nb object, X & interacting variables ---------
+## -- Function to create design matrices given a glm.nb object, X & interacting variables ----------
 create.designmat.nb <- function(nbobj,                ## glm.nb model object
                                 xvar,                 ## string; variable for x axis
                                 intvar = NULL,        ## string; variable to interact
@@ -1883,25 +1883,26 @@ s100b.del <- fit.del.models('s100b.log10')
 uchl.del <- fit.del.models('uchl.log10')
 
 # ## Test by hand with S100B
-# s100b.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) + sevsepsis.day1 + rcs(age.enroll, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3) + rcs(age.enroll, 3):rcs(s100b.log10, 3) + rcs(il6.log10, 3):rcs(s100b.log10, 3)"
-# del.s100b.full <- glm.nb(formula = as.formula(s100b.full.formula), data = endo.data)
-#
+# s100b.full.formula <- "del.s.imp ~ rcs(charlson.score, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(apache.aps, 3) + cvsofa.day1 + sevsepsis.day1 + rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(s100b.log10, 3) + rcs(age.div10, 3):rcs(s100b.log10, 3) + rcs(il6.log10, 3):rcs(s100b.log10, 3)"
+# del.s100b.full <- with(mice.del, glm.nb(formula = as.formula(s100b.full.formula)))
+# 
 # ## Test nonlinear terms
-# s100b.lin.formula <- "del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.enroll + il6.log10 + s100b.log10 + age.enroll:s100b.log10 + il6.log10:s100b.log10"
-# del.s100b.lin <- glm.nb(formula = as.formula(s100b.lin.formula), data = endo.data)
-# lmtest::lrtest(del.s100b.full, del.s100b.lin)
+# s100b.lin.formula <- "del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.div10 + il6.log10 + s100b.log10 + age.div10:s100b.log10 + il6.log10:s100b.log10"
+# del.s100b.lin <- with(mice.del, glm.nb(formula = as.formula(s100b.lin.formula)))
+# # lmtest::lrtest(del.s100b.full, del.s100b.lin)
+# pool.compare(del.s100b.full, del.s100b.lin, method = 'likelihood', data = mice.del)
 # s100b.del$p.nonlin
-#
+# 
 # ## Nonlinear terms not necessary; test interaction terms
-# s100b.noint.formula <- "del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.enroll + il6.log10 + s100b.log10"
-# del.s100b.noint <- glm.nb(formula = as.formula(s100b.noint.formula), data = endo.data)
-# lmtest::lrtest(del.s100b.lin, del.s100b.noint)
+# s100b.noint.formula <- "del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.div10 + il6.log10 + s100b.log10"
+# del.s100b.noint <- with(mice.del, glm.nb(formula = as.formula(s100b.noint.formula)))
+# pool.compare(del.s100b.lin, del.s100b.noint, method = 'likelihood', data = mice.del)
 # s100b.del$p.int
-#
+# 
 # ## Interaction nonsignificant; test overall p-value for S100B
-# nomark.formula <- "del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.enroll + il6.log10"
-# del.nomark <- glm.nb(formula = as.formula(nomark.formula), data = endo.data)
-# lmtest::lrtest(del.s100b.noint, del.nomark)
+# nomark.formula <- "del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.div10 + il6.log10"
+# del.nomark <- with(mice.del, glm.nb(formula = as.formula(nomark.formula)))
+# pool.compare(del.s100b.noint, del.nomark, method = 'likelihood', data = mice.del)
 # s100b.del$p.marker
 
 ## -- Models without IL-6 --------------------------------------------------------------------------
@@ -1912,6 +1913,7 @@ fit.del.noil6.models <- function(marker){
   fit.reg.models(use.marker = marker,
                  formula.full = del.noil6.formula,
                  modtype = 'nb',
+                 imp.obj = mice.del,
                  dataset = endo.data)
 }
 bdnf.del.noil6 <- fit.del.noil6.models('bdnf.log10')
