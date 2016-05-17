@@ -74,12 +74,14 @@ if(Sys.info()['sysname'] == 'Darwin'){
     source('/Volumes/thomps23/R/rmsHelpers/model_results.R')
     source('/Volumes/thomps23/R/rmsHelpers/combine_cohorts.R')
     source('/Volumes/thomps23/R/rmsHelpers/latex_rms_results.R')
+    source('/Volumes/thomps23/R/JTMisc/calc_ratioci.R')
   } else{
     load('braindata.Rdata')
     source('multiplot.r')
     source('model_results.R')
     source('combine_cohorts.R')
     source('latex_rms_results.R')
+    source('calc_ratioci.R')
   }
 } else{
   load('/home/thomps23/ICUDelirium/BRAINICU/braindata.Rdata')
@@ -87,6 +89,7 @@ if(Sys.info()['sysname'] == 'Darwin'){
   source('/home/thomps23/R/rmsHelpers/model_results.R')
   source('/home/thomps23/R/rmsHelpers/combine_cohorts.R')
   source('/home/thomps23/R/rmsHelpers/latex_rms_results.R')
+  source('/home/thomps23/R/JTMisc/calc_ratioci.R')
 }
 
 ## Read in biomarker data from .csv files from Brennan
@@ -1034,105 +1037,145 @@ catvars <- "sevsepsis.day1"
 # }
 
 ## -- Function to create design matrices given a glm.nb object, X & interacting variables ----------
-create.designmat.nb <- function(nbobj,                ## glm.nb model object
+create.designmat.nb <- function(nbobj,                ## glm.nb model object, or mice object
+                                                      ##  with glm.nb fits
                                 xvar,                 ## string; variable for x axis
                                 intvar = NULL,        ## string; variable to interact
                                 intvals = NULL,       ## vector; values to set int. variable to
                                 dataset = endo.data){ ## data frame to get unique X values from
 
-  ## miceobj must be of class zeroinfl
-  if(length(grep('negbin', class(nbobj))) == 0){
-    stop('nbobj must be of class negbin from glm.nb()')
-  } else if(!is.null(intvar) & length(grep(':', names(coef(nbobj)))) == 0){
-    stop('Interacting variable is specified, but model does not include interaction terms')
-  } else if(!is.null(intvar) & is.null(intvals)){
-    stop('Interacting variable is specified, but no interacting values are specified')
+  is.mice <- 'mira' %in% class(nbobj)
+  
+  ## Model object must be fit using glm.nb()
+  if(!('negbin' %in% class(nbobj) | (is.mice & 'negbin' %in% class(nbobj$analyses[[1]])))){
+    stop('nbobj must be of class negbin from glm.nb(), or a mice object using glm.nb to fit')
+  }
+  
+  ## Get coefficients, depending on whether object is imputed via mice or not
+  if(is.mice){
+    use.coefs <- pool(nbobj)$qbar
   } else{
-
-    ## Get coefficient names for count and zero portions
-    coefnames <- names(coef(nbobj))
-
-    ## Strip out "rcs(...)" and "count_/zero_"
-    coefnames2 <- unlist(lapply(coefnames, FUN = function(x){
-      tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
-      ## try pmatch(): res <- catvars[which(!is.na(pmatch(catvars, x)))]
-      if(sum(!is.na(pmatch(catvars, tmp1))) > 0){
-        tmp2 <- catvars[which(!is.na(pmatch(catvars, tmp1)))]
-      } else{ tmp2 <- tmp1 }
-      tmp2
-    }))
-
-    ## Get unique values of variable on X axis
-    xvals <- sort(unique(dataset[,xvar]))
-    xknots <- rcspline.eval(xvals, nk = 3, knots.only = TRUE)
-    xvals <- xvals[xvals >= xknots[1] & xvals <= xknots[3]]
-    if(length(grep(paste0(xvar, "'"), coefnames2)) > 0){
-      xvals.spline <- unlist(lapply(xvals,
-                                    FUN = calc.spline,
-                                    k1 = xknots[1], k2 = xknots[2], k3 = xknots[3]))
-    }
-
-    ## Set values for all non-interaction columns
-    coefs.noint <- coefnames2[grep(':', coefnames2, invert = TRUE)]
-    coefs.int <- coefnames2[grep(':', coefnames2)]
-
-    ## Function to fill in non-interaction columns
-    fill.predvals.noint <- function(name){
-      if(name == '(Intercept)'){
-        rep(1, length(xvals))
-      } else if(name == xvar){
-        xvals
-      } else if(name == paste0(xvar, "'")){
-        xvals.spline
-      } else if(!is.null(intvar) & name %in% c(intvar, paste0(intvar, "'"))){
-        rep(NA, length(xvals))
-      } else if(name %in% catvars){
-        rep(0, length(xvals))
-      } else if(length(grep("'", name)) == 0){
-        get.med(name)
-      } else{
-        get.med.spline(gsub('.$', '', name))
-      }
-    }
-
-    predmat.noint <- do.call(cbind, lapply(coefs.noint, FUN = fill.predvals.noint))
-    colnames(predmat.noint) <- coefs.noint
-
-    ## If there is an interacting variable, repeat predmat.noint x number of unique values, then
-    ##  fill in NA columns with unique values
-    if(!is.null(intvar)){
-      predmat.noint <-
-        do.call(rbind, replicate(length(intvals), predmat.noint, simplify = FALSE))
-      if(intvar %in% colnames(predmat.noint)){
-        predmat.noint[,intvar] <-
-          unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
-      }
-
-      ## If interacting variable is nonlinear, determine knots for spline term
-      if(length(grep(paste0(intvar, "'"), coefnames2)) > 0){
-        intknots <- rcspline.eval(dataset[,intvar], nk = 3, knots.only = TRUE)
-        intspline <- unlist(lapply(intvals,
-                                   FUN = calc.spline,
-                                   k1 = intknots[1], k2 = intknots[2], k3 = intknots[3]))
-        predmat.noint[,paste0(intvar, "'")] <-
-          unlist(lapply(intspline, FUN = function(x){ rep(x, length(xvals)) }))
-      }
-    }
-
-    if(length(coefs.int) > 0){
-      predmat.int <- do.call(cbind,
-                             lapply(coefs.int, FUN = function(name){
-                               tmp <- strsplit(name, ':')[[1]]
-                               predmat.noint[,tmp[1]] * predmat.noint[,tmp[2]]
-                             }))
-      colnames(predmat.int) <- coefs.int
-      predmat <- cbind(predmat.noint, predmat.int)[,coefnames2]
-    } else{
-      predmat <- predmat.noint[,coefnames2]
-    }
+    use.coefs <- coef(nbobj)
+  }
+  coefnames <- names(use.coefs)
+  
+  if(!is.null(intvar) & length(grep(':', names(use.coefs))) == 0){
+    stop('Interacting variable is specified, but model does not include interaction terms')
+  }
+  
+  if(!is.null(intvar) & is.null(intvals)){
+    stop('Interacting variable is specified, but no interacting values are specified')
   }
 
-  return('predmat' = predmat)
+  ## Strip out "rcs(...)"
+  coefnames2 <- unlist(lapply(coefnames, FUN = function(x){
+    tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
+    ## try pmatch(): res <- catvars[which(!is.na(pmatch(catvars, x)))]
+    if(sum(!is.na(pmatch(catvars, tmp1))) > 0){
+      tmp2 <- catvars[which(!is.na(pmatch(catvars, tmp1)))]
+    } else{ tmp2 <- tmp1 }
+    tmp2
+  }))
+  
+  ## -- Set values for all non-interaction columns -------------------------------------------------
+  ## Get vector of all unique pieces of use.coefs
+  ##  (eg, age.enroll, age.enroll', charlson.score, charlson.score')
+  all.term.names <- unique(unlist(lapply(coefnames2, FUN = function(x){
+    strsplit(x, ' *[:*] *')[[1]]
+  })))
+
+  ## Get vector of all unique variable names (stripping 's from all.term.names)
+  all.var.names <- unique(gsub("'+$", "", all.term.names))
+  
+  ## Get vector of information for each covariate:
+  ## - nonlinear?
+  ## - if so, how many and where are knots?
+  ## - all values to adjust variable to: 1 if Intercept; 0 if categorical; median if linear;
+  ##   median + spline values for median if nonlinear
+  covariate.info <- lapply(all.var.names, FUN = function(v){
+    is.nonlin <- length(grep(paste0('^', v, "'"), all.term.names)) > 0
+    
+    adj.main <- NULL
+    if(v == '(Intercept)'){
+      adj.main <- 1
+    } else if(v %in% catvars){
+      adj.main <- 0
+    } else{
+      adj.main <- median(dataset[,v], na.rm = TRUE)
+    }
+
+    ## If variable is nonlinear (using rcs), get knot locations and spline values for adj.main    
+    if(is.nonlin){
+      v.nknots <- length(gregexpr("'",
+                                  tail(sort(grep(paste0("^", gsub('.', '\\.', v, fixed = TRUE)),
+                                                 all.term.names, value = TRUE)), n = 1))[[1]]) + 2
+      knot.loc <- rcspline.eval(dataset[,v], nk = v.nknots, knots.only = TRUE)
+      adj.values <- as.numeric(rcspline.eval(adj.main, knots = knot.loc, inclx = TRUE))
+    } else{
+      v.nknots <- knot.loc <- NULL
+      adj.values <- adj.main
+    }
+    return(list('nl' = is.nonlin,
+                'knot.n' = v.nknots,
+                'knot.loc' = knot.loc,
+                'adj.to' = adj.values))
+  })
+  names(covariate.info) <- all.var.names
+  
+  adjust.values <- unlist(lapply(covariate.info, FUN = function(c){ c$adj.to }))
+  names(adjust.values) <- all.term.names
+  
+  ## Get matrix of X values, including spline terms if needed
+  xvals <- sort(unique(dataset[,xvar]))
+  xvals <- xvals[xvals >= xknots[1] & xvals <= xknots[3]]
+  if(covariate.info[[xvar]]$nl){
+    xvals.mat <- rcspline.eval(xvals, knots = covariate.info[[xvar]]$knot.loc, inclx = TRUE)
+    colnames(xvals.mat) <- unlist(lapply(1:ncol(xvals.mat), FUN = function(k){
+      paste0(xvar, paste(rep("'", times = k - 1), collapse = '')) }))
+  } else{
+    xvals.mat <- as.matrix(xvals, ncol = 1)
+    colnames(xvals.mat) <- xvar
+  }
+
+  ## Create matrix with adjusting values to use
+  ## - For non-xvar/intvar-related columns, this is adjust.values * length(xvals)
+  ## - For xvar-related columns, this is xvals.mat columns
+  pred.matrix <- do.call(cbind,
+                         lapply(all.term.names, FUN = function(v){
+                           if(v %in% colnames(xvals.mat)){
+                             xvals.mat[,v]
+                           } else{
+                             rep(adjust.values[v], nrow(xvals.mat))
+                           }
+                         }))
+  colnames(pred.matrix) <- all.term.names
+  
+  ## If intvars are specified, repeat pred.matrix for each value in intvals and change interaction
+  ## columns accordingly
+  if(!is.null(intvar)){
+    ## If interacting variable is nonlinear, get spline terms for each value in intvals
+    if(covariate.info[[intvar]]$nl){
+      intvals.mat <- rcspline.eval(intvals, knots = covariate.info[[intvar]]$knot.loc, inclx = TRUE)
+      colnames(intvals.mat) <- unlist(lapply(1:ncol(intvals.mat), FUN = function(k){
+        paste0(intvar, paste(rep("'", times = k - 1), collapse = '')) }))
+    } else{
+      intvals.mat <- matrix(intvals, ncol = 1)
+      colnames(intvals.mat) <- intvar
+    }
+    
+    pred.matrix <- do.call(rbind,
+                           lapply(1:nrow(intvals.mat), FUN = function(i){
+                             tmp <- matrix(rep(intvals.mat[i,], nrow(pred.matrix)),
+                                           ncol = ncol(intvals.mat), byrow = TRUE)
+                             tmp2 <- pred.matrix
+                             for(j in 1:ncol(tmp)){
+                               tmp2[,colnames(intvals.mat)[j]] <- tmp[,j]
+                             }
+                             tmp2
+                           }))
+  }
+  
+  return('predmat' = pred.matrix)
 
 }
 
