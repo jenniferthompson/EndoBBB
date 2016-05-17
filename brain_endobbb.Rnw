@@ -1141,14 +1141,27 @@ create.designmat.nb <- function(nbobj,                ## glm.nb model object, or
   ## - For non-xvar/intvar-related columns, this is adjust.values * length(xvals)
   ## - For xvar-related columns, this is xvals.mat columns
   pred.matrix <- do.call(cbind,
-                         lapply(all.term.names, FUN = function(v){
-                           if(v %in% colnames(xvals.mat)){
-                             xvals.mat[,v]
+                         lapply(coefnames2, FUN = function(v){
+                           v.vars <- strsplit(v, ' *[:*] *')[[1]]
+                           
+                           tmp <- do.call(cbind,
+                                          lapply(v.vars, FUN = function(i){
+                                            if(i %in% colnames(xvals.mat)){
+                                              xvals.mat[,i]
+                                            } else{
+                                              rep(adjust.values[i], nrow(xvals.mat))
+                                            }
+                                          }))
+
+                           ## If interaction term, need product of all components;
+                           ## otherwise, need original column
+                           if(length(v.vars) > 1){
+                             apply(tmp, MARGIN = 1, FUN = prod)
                            } else{
-                             rep(adjust.values[v], nrow(xvals.mat))
+                             tmp
                            }
                          }))
-  colnames(pred.matrix) <- all.term.names
+  colnames(pred.matrix) <- coefnames2
   
   ## If intvars are specified, repeat pred.matrix for each value in intvals and change interaction
   ## columns accordingly
@@ -1244,41 +1257,52 @@ plot.nb.results <- function(nbobj,            ## list, result of fit.reg.models(
 
   if(length(grep('final\\.mod', names(nbobj))) == 0){
     stop("Argument nbobj should be a result of fit.reg.models()")
-  } else if(!is.null(intvar) & length(grep(':', names(coef(nbobj$final.mod)))) == 0){
-    stop('Interacting variable is specified, but model does not include interaction terms')
-  } else if(!is.null(intvar) & is.null(intvals)){
-    stop('Interacting variable is specified, but no interacting values are specified')
+  }
+  
+  is.mice <- 'mira' %in% class(nbobj$final.mod)
+  if(is.mice){
+    coef.names <- names(pool(nbobj$final.mod)$qbar)
   } else{
-    if(is.null(intvar)){
-      nb.designmat <- create.designmat.nb(nbobj = nbobj$final.mod, xvar = xvar)
-      nb.results <- calc.nbresults(nbobj = nbobj$final.mod, designmat = nb.designmat, xvar = xvar)
-    } else{
-      nb.designmat <- create.designmat.nb(nbobj = nbobj$final.mod, xvar = xvar,
-                                          intvar = intvar, intvals = intvals)
-
-      nb.results <- calc.nbresults(nbobj = nbobj$final.mod, designmat = nb.designmat,
-                                   xvar = xvar, intvar = intvar)
-
-      nb.results$intvalue.f <-
-        with(nb.results, factor(paste(intstring, '=', rndformat(intvalue, 2))))
-    }
-
-    nb.plot <- ggplot(aes(x = xvalue, y = count.pe), data = nb.results) +
-      geom_ribbon(aes(ymin = count.lcl, ymax = count.ucl), alpha = 0.3, fill = 'navy') +
-      geom_line(colour = 'navy') +
-      xlab(sprintf('Log10(%s)', xstring)) +
-      ylab(paste('Adjusted', ystring)) +
-      theme_bw() +
-      theme(axis.title.x = element_text(vjust = 0, size = 9), #face = 'bold', vjust = 0),
-            axis.title.y = element_text(size = 9),
-            axis.text = element_text(size = 7),
-            strip.text = element_text(face = 'bold'))
-
-    if(is.null(intvar)){
-      return(nb.plot)
-    } else{
-      return(nb.plot + facet_wrap(~ intvalue.f, nrow = 1))
-    }
+    coef.names <- names(coef(nbobj$final.mod))
+  }
+  
+  if(!is.null(intvar) & length(grep(':', coef.names)) == 0){
+    stop('Interacting variable is specified, but model does not include interaction terms')
+  }
+  
+  if(!is.null(intvar) & is.null(intvals)){
+    stop('Interacting variable is specified, but no interacting values are specified')
+  }
+  
+  if(is.null(intvar)){
+    nb.designmat <- create.designmat.nb(nbobj = nbobj$final.mod, xvar = xvar)
+    nb.results <- calc.nbresults(nbobj = nbobj$final.mod, designmat = nb.designmat, xvar = xvar)
+  } else{
+    nb.designmat <- create.designmat.nb(nbobj = nbobj$final.mod, xvar = xvar,
+                                        intvar = intvar, intvals = intvals)
+    
+    nb.results <- calc.nbresults(nbobj = nbobj$final.mod, designmat = nb.designmat,
+                                 xvar = xvar, intvar = intvar)
+    
+    nb.results$intvalue.f <-
+      with(nb.results, factor(paste(intstring, '=', rndformat(intvalue, 2))))
+  }
+  
+  nb.plot <- ggplot(aes(x = xvalue, y = count.pe), data = nb.results) +
+    geom_ribbon(aes(ymin = count.lcl, ymax = count.ucl), alpha = 0.3, fill = 'navy') +
+    geom_line(colour = 'navy') +
+    xlab(sprintf('Log10(%s)', xstring)) +
+    ylab(paste('Adjusted', ystring)) +
+    theme_bw() +
+    theme(axis.title.x = element_text(vjust = 0, size = 9), #face = 'bold', vjust = 0),
+          axis.title.y = element_text(size = 9),
+          axis.text = element_text(size = 7),
+          strip.text = element_text(face = 'bold'))
+  
+  if(is.null(intvar)){
+    return(nb.plot)
+  } else{
+    return(nb.plot + facet_wrap(~ intvalue.f, nrow = 1))
   }
 }
 
