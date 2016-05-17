@@ -1185,38 +1185,51 @@ calc.nbresults <- function(nbobj,          ## negbin model object (from glm.nb()
                            xvar,           ## character string: name of variable to put on X axis
                            intvar = NULL){ ## character string: name of interacting variable
 
-  if(length(grep('negbin', class(nbobj))) == 0){
-    stop("nbobj must be of class negbin, from glm.nb()")
-  } else if(ncol(designmat) != length(names(coef(nbobj)))){
-    stop("Number of columns in design matrix does not match number of coefficients in nbobj")
-  } else if(xvar %nin% colnames(designmat)){
-    stop("X axis variable name not in column names of design matrix")
+  is.mice <- 'mira' %in% class(nbobj)
+  
+  ## Model object must be fit using glm.nb()
+  if(!('negbin' %in% class(nbobj) | (is.mice & 'negbin' %in% class(nbobj$analyses[[1]])))){
+    stop('nbobj must be of class negbin from glm.nb(), or a mice object using glm.nb to fit')
+  }
+  
+  ## Get coefficients and vcov matrix, depending on whether object is imputed via mice or not
+  if(is.mice){
+    nb.coefs <- pool(nbobj)$qbar
+    nb.vcov <- pool(nbobj)$t
   } else{
-    ## Get coefficients and vcov matrix
     nb.coefs <- coef(nbobj)
     nb.vcov <- vcov(nbobj)
+  }
+  coefnames <- names(use.coefs)
 
-    ## Calculate linear predictors and their SEs
-    lp <- apply(designmat, MARGIN = 1, FUN = function(x){ sum(nb.coefs * as.numeric(x)) })
-    lp.se <- apply(designmat, MARGIN = 1, FUN = function(x){ sqrt(t(x) %*% nb.vcov %*% x) })
-
-    ## Calculate LCL, UCLs for linear predictors
-    lp.lcl <- lp - qnorm(0.975)*lp.se
-    lp.ucl <- lp + qnorm(0.975)*lp.se
-
-    ## Calculate predicted counts, CIs as exp(quantities)
-    count.pe <- exp(lp)
-    count.lcl <- exp(lp.lcl)
-    count.ucl <- exp(lp.ucl)
-
-    ## Bind all results into data frame for plotting
-    xvalue <- designmat[,xvar]
-    if(!is.null(intvar)){
-      intvalue <- designmat[,intvar]
-      return(as.data.frame(cbind(xvalue, intvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
-    } else{
-      return(as.data.frame(cbind(xvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
-    }
+  if(ncol(designmat) != length(nb.coefs)){
+    stop("Number of columns in design matrix does not match number of coefficients in nbobj")
+  }
+  
+  if(xvar %nin% colnames(designmat)){
+    stop("X axis variable name not in column names of design matrix")
+  }
+  
+  ## Calculate linear predictors and their SEs
+  lp <- apply(designmat, MARGIN = 1, FUN = function(x){ sum(nb.coefs * as.numeric(x)) })
+  lp.se <- apply(designmat, MARGIN = 1, FUN = function(x){ sqrt(t(x) %*% nb.vcov %*% x) })
+  
+  ## Calculate LCL, UCLs for linear predictors
+  lp.lcl <- lp - qnorm(0.975)*lp.se
+  lp.ucl <- lp + qnorm(0.975)*lp.se
+  
+  ## Calculate predicted counts, CIs as exp(quantities)
+  count.pe <- exp(lp)
+  count.lcl <- exp(lp.lcl)
+  count.ucl <- exp(lp.ucl)
+  
+  ## Bind all results into data frame for plotting
+  xvalue <- designmat[,xvar]
+  if(!is.null(intvar)){
+    intvalue <- designmat[,intvar]
+    return(as.data.frame(cbind(xvalue, intvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
+  } else{
+    return(as.data.frame(cbind(xvalue, lp, lp.se, count.pe, count.lcl, count.ucl)))
   }
 }
 
