@@ -205,13 +205,13 @@ endo.data <- brain.oneobs[brain.oneobs$id %in% marker.data$id, oneobs.vars] %>%
   filter((cog.cohort.either | func.cohort.either) & comp.markers & !is.na(il6.day1))
 
 ## -- Manually create spline, interaction terms for all biomarkers ---------------------------------
-endo.data$bdnf.prime <- rcspline.eval(endo.data$bdnf.log10, nk = 3)
-endo.data$esel.prime <- rcspline.eval(endo.data$esel.log10, nk = 3)
-endo.data$pai1.prime <- rcspline.eval(endo.data$pai1.log10, nk = 3)
-endo.data$s100b.prime <- rcspline.eval(endo.data$s100b.log10, nk = 3)
-endo.data$uchl.prime <- rcspline.eval(endo.data$uchl.log10, nk = 3)
-endo.data$il6.prime <- rcspline.eval(endo.data$il6.log10, nk = 3)
-endo.data$age.prime <- rcspline.eval(endo.data$age.div10, nk = 3)
+endo.data$bdnf.prime <- as.numeric(rcspline.eval(endo.data$bdnf.log10, nk = 3))
+endo.data$esel.prime <- as.numeric(rcspline.eval(endo.data$esel.log10, nk = 3))
+endo.data$pai1.prime <- as.numeric(rcspline.eval(endo.data$pai1.log10, nk = 3))
+endo.data$s100b.prime <- as.numeric(rcspline.eval(endo.data$s100b.log10, nk = 3))
+endo.data$uchl.prime <- as.numeric(rcspline.eval(endo.data$uchl.log10, nk = 3))
+endo.data$il6.prime <- as.numeric(rcspline.eval(endo.data$il6.log10, nk = 3))
+endo.data$age.prime <- as.numeric(rcspline.eval(endo.data$age.div10, nk = 3))
 endo.data$bdnf.il6 <- with(endo.data, bdnf.log10 * il6.log10)
 endo.data$bdnfp.il6 <- with(endo.data, bdnf.prime * il6.log10)
 endo.data$bdnf.il6p <- with(endo.data, bdnf.log10 * il6.prime)
@@ -1308,6 +1308,217 @@ nb.figures <- function(nbobj, marker, xstring, ystring){
 }
 
 
+## -- FUNCTIONS FOR LINEAR MODELS (RBANS, Trails B) ------------------------------------------------
+
+## -- Function to fit linear regression models, using either mice or complete case -----------------
+## -- Tests (in order) 1) nonlinear terms, 2) interaction terms, 3) age and IL-6 interactions, -----
+## -- 4) biomarker variables -----------------------------------------------------------------------
+## Nonlinear terms are included manually
+
+fit.ols.models <- function(formula.right,     ## original model covariates
+                           outcome,           ## string; outcome variable
+                           impobj = NULL,     ## mice or aregImpute imputation object
+                           dataset = NULL,    ## data set to use
+                           cohort.var = NULL, ## Indicator variable in dataset for cohort
+                                              ##  (eg, func.cohort.3)
+                           marker = c('bdnf', 'esel', 'pai1', 's100b', 'uchl')){
+  
+  if(is.null(impobj) & is.null(dataset)){
+    stop('At least one of impobj, dataset must be supplied')
+  }
+  if(!is.null(impobj) & !(is.mids(impobj) | class(impobj) == 'aregImpute')){
+    stop('impobj must be of class mids or aregImpute')
+  }
+  
+  ## -- Setup --------------------------------------------------------------------------------------
+  ## Create text for fitting model, depending on whether imputation is used
+  if(is.null(impobj)){
+    modfit.text <- "ols(formula = %s, data = usedata)"
+  } else if(is.mids(impobj)){
+    modfit.text <- "with(impobj, ols(formula = %s))"
+  } else{
+    modfit.text <- "fit.mult.impute(formula = %s, fitter = ols, xtrans = impobj, data = usedata)"
+  }
+  
+  ## Is impobj a) defined and b) of class mids?
+  imp.mice <- !is.null(impobj) & is.mids(impobj)
+  
+  ## Define data set: if no imputation, complete data from initial dataset object;
+  ##   otherwise, either full data set or data set with cohort indicator = TRUE
+  if(is.null(cohort.var)){
+    if(is.null(impobj)){
+      usedata <- dataset[rowSums(is.na(dataset[,c(gsub('marker', marker, covars), outcome)])) == 0,]
+    } else{
+      usedata <- dataset
+    }
+  } else{
+    usedata <- dataset[dataset[,cohort.var],]
+  }
+
+  ## Is IL-6 included in model?
+  has.il6 <- length(grep('il6', formula.right)) > 0
+  
+  ## Initialize values
+  need.nonlin <- p.nonlin <- need.int <- p.int <- p.int.age <- p.int.il6 <- p.il6 <- p.marker <-
+    marker.ci <- marker.cistr <- il6.ci <- il6.cistr <- NULL
+  
+  ## -- Hypothesis testing -------------------------------------------------------------------------
+  ## 1: Nonlinear terms
+  nl.form <- paste(outcome, formula.right, sep = ' ~ ')
+  nl.mod <- eval(parse(text = sprintf(modfit.text, gsub('marker', marker, nl.form))))
+  
+  if('TOTAL NONLINEAR' %in% rownames(anova(nl.mod))){
+    p.nonlin <- anova(nl.mod)['TOTAL NONLINEAR', 'P']
+  }
+
+  need.nonlin <- p.nonlin < pcutoff
+  
+  ## If nonlinear terms are not meaningful, remove them from all future model fits
+  if(!need.nonlin){
+    formula.right <- gsub('rcs\\(', '', gsub(', *[0-9]+\\)', '', formula.right))
+  }
+
+  ## 2: Interaction terms
+  int.form <- paste(outcome, formula.right, sep = ' ~ ')
+  int.mod <- eval(parse(text = sprintf(modfit.text, gsub('marker', marker, int.form))))
+
+  vars.involved.int <- strsplit(gsub('  (Factor+Higher Order Factors)', '',
+                                     rownames(anova(int.mod)),
+                                     fixed = TRUE),
+                                ' *[*] *')
+  ageint.row <- grep(TRUE,
+                     unlist(lapply(vars.involved.int,
+                                   FUN = function(i){
+                                     length(i) > 1 & length(grep('age\\.div10', i)) > 0 })))
+  
+  if('TOTAL INTERACTION' %in% rownames(anova(int.mod))){
+    p.int <- anova(int.mod)['TOTAL INTERACTION', 'P']
+  } else{
+    p.int <- anova(int.mod)[ageint.row, 'P']
+  }
+  
+  need.int <- p.int < pcutoff
+
+  ## 3: If interactions needed, get p-values for age and IL-6 interactions separately
+  if(need.int){
+    p.int.age <- anova(int.mod)[ageint.row, 'P']
+    if(has.il6){
+      il6int.row <- grep(TRUE,
+                         unlist(lapply(vars.involved.int,
+                                       FUN = function(i){
+                                         length(i) > 1 & length(grep('il6\\.log10', i)) > 0 })))
+      p.int.il6 <- anova(int.mod)[il6int.row, 'P']
+    }
+  } else{
+    ## If interactions not needed, remove them from formula righthand side
+    formula.right <- gsub('*', '+', formula.right, fixed = TRUE)
+  }
+
+  ## 4: Get p-value for overall effect of biomarker
+  final.formula <- gsub('marker', marker, paste(outcome, formula.right, sep = ' ~ '))
+  final.mod <- eval(parse(text = sprintf(modfit.text, final.formula)))
+  
+  vars.involved.final <- strsplit(gsub('  (Factor+Higher Order Factors)', '',
+                                       rownames(anova(final.mod)),
+                                       fixed = TRUE),
+                                  ' *[*] *')
+  marker.row <- grep(TRUE,
+                     unlist(lapply(vars.involved.final,
+                                   FUN = function(i){
+                                     length(i) == 1 &
+                                       length(grep(paste0(marker, '\\.log10'), i)) > 0 })))
+  p.marker <- anova(final.mod)[marker.row, 'P']
+
+  ## 4b: Get p-value for overall effect of IL-6, if included
+  if(has.il6){
+    il6.row <- grep(TRUE,
+                     unlist(lapply(vars.involved.final,
+                                   FUN = function(i){
+                                     length(i) == 1 & length(grep('il6\\.log10', i)) > 0 })))
+    p.il6 <- anova(final.mod)[il6.row, 'P']
+  }
+  
+  dd <<- datadist(endo.data); options(datadist = 'dd')
+    
+  ## 5: Get IRR/CI for 75th vs 25th percentile for final model
+  marker.ci <- summary(final.mod)[paste0(marker, '.log10'), c('Effect', 'Lower 0.95', 'Upper 0.95')]
+  names(marker.ci) <- c('pointest', 'lcl', 'ucl')
+  marker.cistr <- paste0(rndformat(marker.ci['pointest']), ' (',
+                         rndformat(marker.ci['lcl']), ', ',
+                         rndformat(marker.ci['ucl']), ')')
+  
+  if(has.il6){
+    il6.ci <- summary(final.mod)['il6.log10', c('Effect', 'Lower 0.95', 'Upper 0.95')]
+    names(il6.ci) <- c('pointest', 'lcl', 'ucl')
+    il6.cistr <- paste0(rndformat(il6.ci['pointest']), ' (',
+                        rndformat(il6.ci['lcl']), ', ',
+                        rndformat(il6.ci['ucl']), ')')
+  }
+
+  return(list('marker' = paste0(marker, '.log10'),
+              'final.mod' = final.mod,
+              'marker.ci' = marker.ci,
+              'marker.cistr' = marker.cistr,
+              'il6.ci' = il6.ci,
+              'il6.cistr' = il6.cistr,
+              'p.nonlin' = p.nonlin,
+              'p.int' = p.int,
+              'p.int.age' = p.int.age,
+              'p.int.il6' = p.int.il6,
+              'p.marker' = p.marker,
+              'p.il6' = p.il6))
+}
+
+
+# ## -- Check manually -------------------------------------------------------------------------------
+# ## Checked with BDNF, PAI-1
+# 
+# pai1.form <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) * rcs(marker.log10, 3)"
+# 
+# pai1.test <- fit.ols.models(formula.right = pai1.form, outcome = 'rbans.global.score.3',
+#                             impobj = areg.cog.3, dataset = endo.data, cohort.var = 'cog.cohort.3',
+#                             marker = 'pai1')
+# 
+# pai1.nl <- fit.mult.impute(formula = rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                              iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
+#                              rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
+#                              rcs(age.div10, 3) * rcs(pai1.log10, 3),
+#                            fitter = ols, xtrans = areg.cog.3,
+#                            data = endo.data[endo.data$cog.cohort.3,])
+# anova(pai1.nl); pai1.test$p.nonlin; pai1.test$p.int
+# 
+# pai1.noint <- fit.mult.impute(formula = rbans.global.score.3 ~ rcs(charlson.score, 3) +
+#                                 rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) +
+#                                 rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) +
+#                                 rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) +
+#                                 rcs(pai1.log10, 3),
+#                               fitter = ols, xtrans = areg.cog.3,
+#                               data = endo.data[endo.data$cog.cohort.3,])
+# anova(pai1.noint); pai1.test$p.marker
+# 
+# summary(pai1.noint); pai1.test$marker.cistr
+# 
+# pai1.il6.form <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) * rcs(marker.log10, 3) + rcs(il6.log10, 3) * rcs(marker.log10, 3)"
+# 
+# pai1.il6.test <- fit.ols.models(formula.right = pai1.il6.form, outcome = 'rbans.global.score.3',
+#                                 impobj = areg.cog.3, dataset = endo.data,
+#                                 cohort.var = 'cog.cohort.3', marker = 'pai1')
+# 
+# pai1.il6.nl <- fit.mult.impute(rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                                  iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
+#                                  rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) +
+#                                  rcs(coma.s.imp, 3) + rcs(age.div10, 3) * rcs(pai1.log10, 3) +
+#                                  rcs(il6.log10, 3) * rcs(pai1.log10, 3),
+#                                fitter = ols, xtrans = areg.cog.3,
+#                                data = endo.data[endo.data$cog.cohort.3,])
+# anova(pai1.il6.nl); pai1.il6.test$p.nonlin
+# 
+# pai1.il6.lin <- fit.mult.impute(rbans.global.score.3 ~ charlson.score + edu + iqcode.score.e +
+#                                   stroke.risk + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp +
+#                                   coma.s.imp + age.div10 * pai1.log10 + il6.log10 * pai1.log10,
+#                                fitter = ols, xtrans = areg.cog.3,
+#                                data = endo.data[endo.data$cog.cohort.3,])
+# anova(pai1.il6.lin); pai1.il6.test$p.int; pai1.il6.test$p.marker; pai1.il6.test$p.il6
 
 calc.ols.results <- function(olsobj,          ## string, name of ols() result
                              xvar,            ## string, variable for X axis
