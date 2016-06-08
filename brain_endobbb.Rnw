@@ -1541,6 +1541,8 @@ calc.ols.results <- function(olsobj,          ## string, name of ols() result
   }
 }
 
+## Testing Github commit integration
+
 ## -- Create plot using one data set of predicted values -------------------------------------------
 plot.ols.results <- function(ols.preddata,     ## data frame of predicted values
                              ols.list,         ## result of fit.reg.models()
