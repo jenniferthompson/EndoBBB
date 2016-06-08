@@ -3937,9 +3937,7 @@ latex.pval.table(cbind(create.pval.table(uchl.faq.il6.12, 'UCHL'),
 \end{figure}
 
 
-
-
-
+\clearpage
 \section{Endothelial/BBB Injury Markers vs. RBANS Global Score}
 
 To examine the association between endothelial/BBB injury at study enrollment and RBANS global
@@ -4212,187 +4210,183 @@ dev.off()
 @
 
 
-%' \clearpage
-%' \subsection{BDNF vs. RBANS}
-%' We see no significant overall association between log10(BDNF) at baseline and RBANS scores at
-%' 3-month followup. At 12-month followup, however, there is a marginally significant association that
-%' is strongly modified by log10(IL-6).
-%'
-%' \subsubsection{BDNF vs. RBANS, 3 Months}
-%' <<printbdnfrbans3, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(bdnf.rbans.3, 'BDNF'),
-%'                        create.pval.table(bdnf.rbans.noil6.3, 'BDNF')),
-%'                        use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                         'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{bdnf_rbans3_results.pdf}}
-%' \caption{Log10(BDNF) vs. RBANS at 3 Months, Adjusting for Log10(IL-6)}\label{fig:bdnfrbans3}
-%' {\centering\includegraphics{bdnf_rbansnoil63_results.pdf}}
-%' \caption{Log10(BDNF) vs. RBANS at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:bdnfrbansnoil63}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsubsection{BDNF vs. RBANS, 12 Months}
-%' <<printbdnfrbans12, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(bdnf.rbans.12, 'BDNF'),
-%'                        create.pval.table(bdnf.rbans.noil6.12, 'BDNF')),
-%'                        use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                         'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{bdnf_rbans12_results.pdf}}
-%' \caption{Log10(BDNF) vs. RBANS at 12 Months, Adjusting for Log10(IL-6)}\label{fig:bdnfrbans12}
-%' {\centering\includegraphics{bdnf_rbansnoil612_results.pdf}}
-%' \caption{Log10(BDNF) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:bdnfrbansnoil612}\end{figure}
-%'
-%' \clearpage
-%' \subsection{E-selectin vs. RBANS}
-%' We see a significant association between higher log10(E-selectin) at baseline and RBANS scores 3
-%' months after discharge. This association is not modified by either age or log10(IL-6); it remains
-%' directionally similar at 12-month followup, but is no longer statistically significant.
-%'
-%' \subsubsection{E-selectin vs. RBANS, 3 Months}
-%' <<printeselrbans3, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(esel.rbans.3, 'E-selectin'),
-%'                        create.pval.table(esel.rbans.noil6.3, 'E-selectin')),
-%'                        use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                         'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{esel_rbans3_results.pdf}}
-%' \caption{Log10(E-Selectin) vs. RBANS at 3 Months, Adjusting for Log10(IL-6)}\label{fig:eselrbans3}
-%' {\centering\includegraphics{esel_rbansnoil63_results.pdf}}
-%' \caption{Log10(E-Selectin) vs. RBANS at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:eselrbansnoil63}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsubsection{E-Selectin vs. RBANS, 12 Months}
-%' <<printeselrbans12, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(esel.rbans.12, 'E-selectin'),
-%'                        create.pval.table(esel.rbans.noil6.12, 'E-selectin')),
-%'                        use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                         'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{esel_rbans12_results.pdf}}
-%' \caption{Log10(E-Selectin) vs. RBANS at 12 Months, Adjusting for Log10(IL-6)}\label{fig:eselrbans12}
-%' {\centering\includegraphics{esel_rbansnoil612_results.pdf}}
-%' \caption{Log10(E-Selectin) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:eselrbansnoil612}\end{figure}
-%'
-%' \clearpage
-%' \subsection{PAI-1 vs. RBANS}
-%' We see no significant association between log10(PAI-1) at baseline and RBANS scores at either 3 or
-%' 12 months after discharge.
-%'
-%' \subsubsection{PAI-1 vs. RBANS, 3 Months}
-%' <<printpai1rbans3, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(pai1.rbans.3, 'PAI-1'),
-%'                        create.pval.table(pai1.rbans.noil6.3, 'PAI-1')),
-%'                        use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                         'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{pai1_rbans3_results.pdf}}
-%' \caption{Log10(PAI-1) vs. RBANS at 3 Months, Adjusting for Log10(IL-6)}\label{fig:pai1rbans3}
-%' {\centering\includegraphics{pai1_rbansnoil63_results.pdf}}
-%' \caption{Log10(PAI-1) vs. RBANS at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:pai1rbansnoil63}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsubsection{PAI-1 vs. RBANS, 12 Months}
-%' <<printpai1rbans12, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(pai1.rbans.12, 'PAI-1'),
-%'                        create.pval.table(pai1.rbans.noil6.12, 'PAI-1')),
-%'                        use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                         'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{pai1_rbans12_results.pdf}}
-%' \caption{Log10(PAI-1) vs. RBANS at 12 Months, Adjusting for Log10(IL-6)}\label{fig:pai1rbans12}
-%' {\centering\includegraphics{pai1_rbansnoil612_results.pdf}}
-%' \caption{Log10(PAI-1) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:pai1rbansnoil612}\end{figure}
-%'
-%' \clearpage
-%' \subsection{S100B vs. RBANS}
-%' At 3 months, there is a significant relationship between log10(S100B) and RBANS scores; this
-%' association is potentially modified by both age and log10(IL-6). At 12 months, the overall
-%' association is still present and modified by log10(IL-6), but does not seem to be modified by age.
-%'
-%' \subsubsection{S100B vs. RBANS, 3 Months}
-%' <<prints100brbans3, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(s100b.rbans.3, 'S100B'),
-%'                        create.pval.table(s100b.rbans.noil6.3, 'S100B')),
-%'                        use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                         'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{s100b_rbans3_results.pdf}}
-%' \caption{Log10(S100B) vs. RBANS at 3 Months, Adjusting for Log10(IL-6)}\label{fig:s100brbans3}
-%' {\centering\includegraphics{s100b_rbansnoil63_results.pdf}}
-%' \caption{Log10(S100B) vs. RBANS at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:s100brbansnoil63}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsubsection{S100B vs. RBANS, 12 Months}
-%' <<prints100brbans12, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(s100b.rbans.12, 'S100B'),
-%'                        create.pval.table(s100b.rbans.noil6.12, 'S100B')),
-%'                        use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                         'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{s100b_rbans12_results.pdf}}
-%' \caption{Log10(S100B) vs. RBANS at 12 Months, Adjusting for Log10(IL-6)}\label{fig:s100brbans12}
-%' {\centering\includegraphics{s100b_rbansnoil612_results.pdf}}
-%' \caption{Log10(S100B) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:s100brbansnoil612}\end{figure}
-%'
-%' \clearpage
-%' \subsection{UCHL vs. RBANS}
-%' We see a marginally significant, nonlinear relationship between log10(UCHL) and RBANS scores at
-%' 3-month followup; this association is not modified by either age or log10(IL-6), and disappears by
-%' 12-month followup.
-%'
-%' \subsubsection{UCHL vs. RBANS, 3 Months}
-%' <<printuchlrbans3, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(uchl.rbans.3, 'UCHL'),
-%'                        create.pval.table(uchl.rbans.noil6.3, 'UCHL')),
-%'                        use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                         'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{uchl_rbans3_results.pdf}}
-%' \caption{Log10(UCHL) vs. RBANS at 3 Months, Adjusting for Log10(IL-6)}\label{fig:uchlrbans3}
-%' {\centering\includegraphics{uchl_rbansnoil63_results.pdf}}
-%' \caption{Log10(UCHL) vs. RBANS at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:uchlrbansnoil63}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsubsection{UCHL vs. RBANS, 12 Months}
-%' <<printuchlrbans12, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(uchl.rbans.12, 'UCHL'),
-%'                        create.pval.table(uchl.rbans.noil6.12, 'UCHL')),
-%'                        use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                         'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{uchl_rbans12_results.pdf}}
-%' \caption{Log10(UCHL) vs. RBANS at 12 Months, Adjusting for Log10(IL-6)}\label{fig:uchlrbans12}
-%' {\centering\includegraphics{uchl_rbansnoil612_results.pdf}}
-%' \caption{Log10(UCHL) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:uchlrbansnoil612}\end{figure}
-%'
-%'
-%'
+\clearpage
+\subsection{BDNF vs. RBANS}
+We see no significant overall association between log10(BDNF) at baseline and RBANS scores at
+3-month followup. At 12-month followup, however, there is a marginally significant association that
+is strongly modified by log10(IL-6).
+
+<<printbdnfrbans3, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(bdnf.rbans.3, 'BDNF'),
+                       create.pval.table(bdnf.rbans.noil6.3, 'BDNF')),
+                 caption = 'BDNF vs 3-Month RBANS',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+<<printbdnfrbans12, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(bdnf.rbans.12, 'BDNF'),
+                       create.pval.table(bdnf.rbans.noil6.12, 'BDNF')),
+                 caption = 'BDNF vs 12-Month RBANS',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_rbans3_results.pdf}}
+\caption{Log10(BDNF) vs. RBANS at 3 Months, Adjusting for Log10(IL-6)}\label{fig:bdnfrbans3}
+{\centering\includegraphics{bdnf_rbansnoil63_results.pdf}}
+\caption{Log10(BDNF) vs. RBANS at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:bdnfrbansnoil63}
+\end{figure}
+
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_rbans12_results.pdf}}
+\caption{Log10(BDNF) vs. RBANS at 12 Months, Adjusting for Log10(IL-6)}\label{fig:bdnfrbans12}
+{\centering\includegraphics{bdnf_rbansnoil612_results.pdf}}
+\caption{Log10(BDNF) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:bdnfrbansnoil612}\end{figure}
+
+\clearpage
+\subsection{E-selectin vs. RBANS}
+We see a significant association between log10(E-selectin) at baseline and RBANS scores at
+3-month followup. This association has weakened by 12-month followup.
+
+<<printeselrbans3, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(esel.rbans.3, 'E-selectin'),
+                       create.pval.table(esel.rbans.noil6.3, 'E-selectin')),
+                 caption = 'E-selectin vs 3-Month RBANS',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+<<printeselrbans12, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(esel.rbans.12, 'E-selectin'),
+                       create.pval.table(esel.rbans.noil6.12, 'E-selectin')),
+                 caption = 'E-selectin vs 12-Month RBANS',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+
+\begin{figure}[!h]
+{\centering\includegraphics{esel_rbans3_results.pdf}}
+\caption{Log10(E-selectin) vs. RBANS at 3 Months, Adjusting for Log10(IL-6)}\label{fig:eselrbans3}
+{\centering\includegraphics{esel_rbansnoil63_results.pdf}}
+\caption{Log10(E-selectin) vs. RBANS at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:eselrbansnoil63}
+\end{figure}
+
+\begin{figure}[!h]
+{\centering\includegraphics{esel_rbans12_results.pdf}}
+\caption{Log10(E-selectin) vs. RBANS at 12 Months, Adjusting for Log10(IL-6)}\label{fig:eselrbans12}
+{\centering\includegraphics{esel_rbansnoil612_results.pdf}}
+\caption{Log10(E-selectin) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:eselrbansnoil612}\end{figure}
+
+\clearpage
+\subsection{PAI-1 vs. RBANS}
+We see a marginally significant association between log10(PAI-1) and RBANS scores at 3 months when
+adjusting for IL-6. This association has disappeared by 12-month followup.
+
+<<printpai1rbans3, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(pai1.rbans.3, 'PAI-1'),
+                       create.pval.table(pai1.rbans.noil6.3, 'PAI-1')),
+                 caption = 'PAI-1 vs 3-Month RBANS',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+<<printpai1rbans12, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(pai1.rbans.12, 'PAI-1'),
+                       create.pval.table(pai1.rbans.noil6.12, 'PAI-1')),
+                 caption = 'PAI-1 vs 12-Month RBANS',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_rbans3_results.pdf}}
+\caption{Log10(PAI-1) vs. RBANS at 3 Months, Adjusting for Log10(IL-6)}\label{fig:pai1rbans3}
+{\centering\includegraphics{pai1_rbansnoil63_results.pdf}}
+\caption{Log10(PAI-1) vs. RBANS at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:pai1rbansnoil63}
+\end{figure}
+
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_rbans12_results.pdf}}
+\caption{Log10(PAI-1) vs. RBANS at 12 Months, Adjusting for Log10(IL-6)}\label{fig:pai1rbans12}
+{\centering\includegraphics{pai1_rbansnoil612_results.pdf}}
+\caption{Log10(PAI-1) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:pai1rbansnoil612}\end{figure}
+
+\clearpage
+\subsection{S100B vs. RBANS}
+We see, at most, a marginally significant overall association between log10(S100B) at baseline and
+RBANS scores at 3-month followup. At 12-month followup, however, there is a significant association
+that is modified by log10(IL-6).
+
+<<prints100brbans3, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(s100b.rbans.3, 'S100B'),
+                       create.pval.table(s100b.rbans.noil6.3, 'S100B')),
+                 caption = 'S100B vs 3-Month RBANS',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+<<prints100brbans12, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(s100b.rbans.12, 'S100B'),
+                       create.pval.table(s100b.rbans.noil6.12, 'S100B')),
+                 caption = 'S100B vs 12-Month RBANS',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_rbans3_results.pdf}}
+\caption{Log10(S100B) vs. RBANS at 3 Months, Adjusting for Log10(IL-6)}\label{fig:s100brbans3}
+{\centering\includegraphics{s100b_rbansnoil63_results.pdf}}
+\caption{Log10(S100B) vs. RBANS at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:s100brbansnoil63}
+\end{figure}
+
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_rbans12_results.pdf}}
+\caption{Log10(S100B) vs. RBANS at 12 Months, Adjusting for Log10(IL-6)}\label{fig:s100brbans12}
+{\centering\includegraphics{s100b_rbansnoil612_results.pdf}}
+\caption{Log10(S100B) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:s100brbansnoil612}\end{figure}
+
+\clearpage
+\subsection{UCHL vs. RBANS}
+We see a significant, or nearly significant, association between log10(UCHL) at baseline and RBANS
+scores at 3-month followup. By 12-month followup, however, this association is no longer present.
+
+<<printuchlrbans3, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(uchl.rbans.3, 'UCHL'),
+                       create.pval.table(uchl.rbans.noil6.3, 'UCHL')),
+                 caption = 'UCHL vs 3-Month RBANS',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+<<printuchlrbans12, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(uchl.rbans.12, 'UCHL'),
+                       create.pval.table(uchl.rbans.noil6.12, 'UCHL')),
+                 caption = 'UCHl vs 12-Month RBANS',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_rbans3_results.pdf}}
+\caption{Log10(UCHL) vs. RBANS at 3 Months, Adjusting for Log10(IL-6)}\label{fig:uchlrbans3}
+{\centering\includegraphics{uchl_rbansnoil63_results.pdf}}
+\caption{Log10(UCHL) vs. RBANS at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:uchlrbansnoil63}
+\end{figure}
+
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_rbans12_results.pdf}}
+\caption{Log10(UCHL) vs. RBANS at 12 Months, Adjusting for Log10(IL-6)}\label{fig:uchlrbans12}
+{\centering\includegraphics{uchl_rbansnoil612_results.pdf}}
+\caption{Log10(UCHL) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:uchlrbansnoil612}\end{figure}
+
 %' \clearpage
 %' \section{Endothelial/BBB Injury Markers vs. Trails B T-Score}
 %'
