@@ -46,6 +46,8 @@ inflammation, as measured by IL-6 at study enrollment.
 with long-term followup outcomes available, the results are \textbf{only} applicable to that
 population.
 
+Latex and R code used for this analysis can be found here: \url{https://github.com/jenniferthompson/EndoBBB/blob/master/brain_endobbb.Rnw}.
+
 <<datamgmt>>=
 ## Set cutoff for p-values for keeping nonlinear, interaction terms in model
 pcutoff <- 0.2
@@ -2968,8 +2970,9 @@ hospital, whether adjusting for systemic inflammation or not.
 <<printbdnfdel, results = 'asis'>>=
 latex.pval.table(cbind(create.pval.table(bdnf.del.il6, 'BDNF'),
                        create.pval.table(bdnf.del, 'BDNF')),
-                       use.colheads = c('P, Adjusting for Log10(IL-6)',
-                                        'P, No Adjustment for Log10(IL-6)'))
+                 caption = 'BDNF vs Days of Delirium',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
 @
 
 \clearpage
@@ -2993,8 +2996,9 @@ hospital, whether adjusting for systemic inflammation or not.
 <<printeseldel, results = 'asis'>>=
 latex.pval.table(cbind(create.pval.table(esel.del.il6, 'E-selectin'),
                        create.pval.table(esel.del, 'E-selectin')),
-                       use.colheads = c('P, Adjusting for Log10(IL-6)',
-                                        'P, No Adjustment for Log10(IL-6)'))
+                 caption = 'E-selectin vs Days of Delirium',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
 @
 
 \clearpage
@@ -3018,8 +3022,9 @@ in the hospital, regardless of adjustment for systemic inflammation.
 <<printpai1del, results = 'asis'>>=
 latex.pval.table(cbind(create.pval.table(pai1.del.il6, 'PAI-1'),
                        create.pval.table(pai1.del, 'PAI-1')),
-                       use.colheads = c('P, Adjusting for Log10(IL-6)',
-                                        'P, No Adjustment for Log10(IL-6)'))
+                 caption = 'PAI-1 vs Days of Delirium',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
 @
 
 \clearpage
@@ -3044,8 +3049,9 @@ association is no longer present.
 <<prints100bdel, results = 'asis'>>=
 latex.pval.table(cbind(create.pval.table(s100b.del.il6, 'S100B'),
                        create.pval.table(s100b.del, 'S100B')),
-                       use.colheads = c('P, Adjusting for Log10(IL-6)',
-                                        'P, No Adjustment for Log10(IL-6)'))
+                 caption = 'S100B vs Days of Delirium',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
 @
 
 \clearpage
@@ -3069,8 +3075,9 @@ systemic inflammation; this association is weaker if systemic inflammation is ig
 <<printuchldel, results = 'asis'>>=
 latex.pval.table(cbind(create.pval.table(uchl.del.il6, 'UCHL'),
                        create.pval.table(uchl.del, 'UCHL')),
-                       use.colheads = c('P, Adjusting for Log10(IL-6)',
-                                        'P, No Adjustment for Log10(IL-6)'))
+                 caption = 'UCHL vs Days of Delirium',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
 @
 
 \clearpage
@@ -4056,25 +4063,25 @@ uchl.rbans.12 <- fit.rbans.models.12('uchl')
 # ols.diagnostics(model.obj.ma = s100b.rbans.12$final.mod, labeltext = 'S100B vs RBANS, 12m')
 # ols.diagnostics(model.obj.ma = uchl.rbans.12$final.mod, labeltext = 'UCHL vs RBANS, 12m')
 
-## Test by hand with S100B
-## Fit full model
-s100b.full.rbans.3 <- fit.mult.impute(rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
-                                        iqcode.score.e + rcs(stroke.risk, 3) +
-                                        rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) +
-                                        rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
-                                        rcs(age.div10, 3)*rcs(s100b.log10, 3) +
-                                        rcs(il6.log10, 3)*rcs(s100b.log10, 3),
-                                      fitter = ols,
-                                      xtrans = areg.cog.3,
-                                      data = endo.data[endo.data$cog.cohort.3,])
-anova(s100b.full.rbans.3); s100b.rbans.3$p.nonlin
-
-## Nonlinear terms needed; test interactions
-s100b.rbans.3$p.int
-
-## Interactions needed; test marker, IL-6
-s100b.rbans.3$p.marker
-s100b.rbans.3$p.il6
+# ## Test by hand with S100B
+# ## Fit full model
+# s100b.full.rbans.3 <- fit.mult.impute(rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
+#                                         iqcode.score.e + rcs(stroke.risk, 3) +
+#                                         rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) +
+#                                         rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
+#                                         rcs(age.div10, 3)*rcs(s100b.log10, 3) +
+#                                         rcs(il6.log10, 3)*rcs(s100b.log10, 3),
+#                                       fitter = ols,
+#                                       xtrans = areg.cog.3,
+#                                       data = endo.data[endo.data$cog.cohort.3,])
+# anova(s100b.full.rbans.3); s100b.rbans.3$p.nonlin
+# 
+# ## Nonlinear terms needed; test interactions
+# s100b.rbans.3$p.int
+# 
+# ## Interactions needed; test marker, IL-6
+# s100b.rbans.3$p.marker
+# s100b.rbans.3$p.il6
 
 ols.figures.rbans.12 <- function(olslist, xvar, xstring){
   ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'RBANS, 12 Months')
@@ -4387,514 +4394,455 @@ latex.pval.table(cbind(create.pval.table(uchl.rbans.12, 'UCHL'),
 {\centering\includegraphics{uchl_rbansnoil612_results.pdf}}
 \caption{Log10(UCHL) vs. RBANS at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:uchlrbansnoil612}\end{figure}
 
+
+\clearpage
+\section{Endothelial/BBB Injury Markers vs. Trails B T-Score}
+
+To examine the association between endothelial/BBB injury at study enrollment and Trails B t-scores
+at 3- and 12-month followup, we used linear regression, adjusting for the following covariates:
+\begin{itemize}
+\item Charlson score
+\item Years of education
+\item IQCODE score
+\item Framingham stroke risk score
+\item Mean daily modified SOFA (no GCS) during ICU stay
+\item Duration of severe sepsis
+\item Duration of delirium
+\item Duration of coma
+\end{itemize}
+
+We checked residual vs. fitted and QQ plots to ensure that model assumptions were met adequately.
+
+All continuous variables, including biomarkers, were initially allowed to have a nonlinear
+relationship with the outcome, with the exception of IQCODE, which had too little variability to
+allow for splines. If the global p-value for nonlinearity was clearly nonsignificant
+(p $>$ \Sexpr{pcutoff}), nonlinear terms were removed from the model for parsimony. We allowed for
+potential interactions between endothelial/BBB markers and both systemic inflammation (log10(IL-6))
+on study day 1 and age at study enrollment. If the global p-value for interactions were clearly nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the final
+model for parsimony. All biomarkers are transformed using the log10 transformation in order to improve model fit and reduce the influence of extremely high values. All p-values are calculated using the Wald method.
+
+We used multiple imputation to reduce bias from missing data; there is very little missing covariate
+data, but there is more data missing from outcomes, which could bias our results since the patients
+who would perform the worst are probably less likely to complete testing.
+
+For models where interaction terms are kept in the final model, the association of the biomarker is
+shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable.
+
+<<trailbmodels>>=
+## 3-month models
+fit.trailb.models.3 <- function(marker){
+  fit.ols.models(formula.right = cog.righthand,
+                 outcome = 'trail.b.tscore.3',
+                 impobj = areg.cog.3,
+                 dataset = endo.data,
+                 cohort.var = 'cog.cohort.3',
+                 marker = marker)
+}
+bdnf.trailb.3 <- fit.trailb.models.3('bdnf')
+esel.trailb.3 <- fit.trailb.models.3('esel')
+pai1.trailb.3 <- fit.trailb.models.3('pai1')
+s100b.trailb.3 <- fit.trailb.models.3('s100b')
+uchl.trailb.3 <- fit.trailb.models.3('uchl')
+
+# ## Check assumptions of final models
+# ols.diagnostics(model.obj.ma = bdnf.trailb.3$final.mod, labeltext = 'BDNF vs Trails B, 3m')
+# ols.diagnostics(model.obj.ma = esel.trailb.3$final.mod, labeltext = 'E-selectin vs Trails B, 3m')
+# ols.diagnostics(model.obj.ma = pai1.trailb.3$final.mod, labeltext = 'PAI-1 vs Trails B, 3m')
+# ols.diagnostics(model.obj.ma = s100b.trailb.3$final.mod, labeltext = 'S100B vs Trails B, 3m')
+# ols.diagnostics(model.obj.ma = uchl.trailb.3$final.mod, labeltext = 'UCHL vs Trails B, 3m')
+
+ols.figures.trailb.3 <- function(olslist, xvar, xstring){
+  ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'Trails B, 3 Months')
+}
+bdnf.trailb.3.fig <-
+  ols.figures.trailb.3(olslist = 'bdnf.trailb.3', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.trailb.3.fig <-
+  ols.figures.trailb.3(olslist = 'esel.trailb.3', xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.trailb.3.fig <-
+  ols.figures.trailb.3(olslist = 'pai1.trailb.3', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.trailb.3.fig <-
+  ols.figures.trailb.3(olslist = 's100b.trailb.3', xvar = 's100b.log10', xstring = 'S100B')
+uchl.trailb.3.fig <-
+  ols.figures.trailb.3(olslist = 'uchl.trailb.3', xvar = 'uchl.log10', xstring = 'UCHL')
+
+pdf(file = 'bdnf_trailb3_results.pdf', width = 8, height = bdnf.trailb.3.fig$height)
+multiplot(plotlist = bdnf.trailb.3.fig$fig, layout = bdnf.trailb.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_trailb3_results.pdf', width = 8, height = esel.trailb.3.fig$height)
+multiplot(plotlist = esel.trailb.3.fig$fig, layout = esel.trailb.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_trailb3_results.pdf', width = 8, height = pai1.trailb.3.fig$height)
+multiplot(plotlist = pai1.trailb.3.fig$fig, layout = pai1.trailb.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_trailb3_results.pdf', width = 8, height = s100b.trailb.3.fig$height)
+multiplot(plotlist = s100b.trailb.3.fig$fig, layout = s100b.trailb.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_trailb3_results.pdf', width = 8, height = uchl.trailb.3.fig$height)
+multiplot(plotlist = uchl.trailb.3.fig$fig, layout = uchl.trailb.3.fig$layoutmat)
+dev.off()
+
+## 12-month models
+fit.trailb.models.12 <- function(marker){
+  fit.ols.models(formula.right = cog.righthand,
+                 outcome = 'trail.b.tscore.12',
+                 impobj = areg.cog.12,
+                 dataset = endo.data,
+                 cohort.var = 'cog.cohort.12',
+                 marker = marker)
+}
+bdnf.trailb.12 <- fit.trailb.models.12('bdnf')
+esel.trailb.12 <- fit.trailb.models.12('esel')
+pai1.trailb.12 <- fit.trailb.models.12('pai1')
+s100b.trailb.12 <- fit.trailb.models.12('s100b')
+uchl.trailb.12 <- fit.trailb.models.12('uchl')
+
+# ## Check assumptions of final models
+# ols.diagnostics(model.obj.ma = bdnf.trailb.12$final.mod, labeltext = 'BDNF vs Trails B, 12m')
+# ols.diagnostics(model.obj.ma = esel.trailb.12$final.mod, labeltext = 'E-selectin vs Trails B, 12m')
+# ols.diagnostics(model.obj.ma = pai1.trailb.12$final.mod, labeltext = 'PAI-1 vs Trails B, 12m')
+# ols.diagnostics(model.obj.ma = s100b.trailb.12$final.mod, labeltext = 'S100B vs Trails B, 12m')
+# ols.diagnostics(model.obj.ma = uchl.trailb.12$final.mod, labeltext = 'UCHL vs Trails B, 12m')
+
+ols.figures.trailb.12 <- function(olslist, xvar, xstring){
+  ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'Trails B, 12 Months')
+}
+bdnf.trailb.12.fig <-
+  ols.figures.trailb.12(olslist = 'bdnf.trailb.12', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.trailb.12.fig <-
+  ols.figures.trailb.12(olslist = 'esel.trailb.12', xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.trailb.12.fig <-
+  ols.figures.trailb.12(olslist = 'pai1.trailb.12', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.trailb.12.fig <-
+  ols.figures.trailb.12(olslist = 's100b.trailb.12', xvar = 's100b.log10', xstring = 'S100B')
+uchl.trailb.12.fig <-
+  ols.figures.trailb.12(olslist = 'uchl.trailb.12', xvar = 'uchl.log10', xstring = 'UCHL')
+
+pdf(file = 'bdnf_trailb12_results.pdf', width = 8, height = bdnf.trailb.12.fig$height)
+multiplot(plotlist = bdnf.trailb.12.fig$fig, layout = bdnf.trailb.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_trailb12_results.pdf', width = 8, height = esel.trailb.12.fig$height)
+multiplot(plotlist = esel.trailb.12.fig$fig, layout = esel.trailb.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_trailb12_results.pdf', width = 8, height = pai1.trailb.12.fig$height)
+multiplot(plotlist = pai1.trailb.12.fig$fig, layout = pai1.trailb.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_trailb12_results.pdf', width = 8, height = s100b.trailb.12.fig$height)
+multiplot(plotlist = s100b.trailb.12.fig$fig, layout = s100b.trailb.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_trailb12_results.pdf', width = 8, height = uchl.trailb.12.fig$height)
+multiplot(plotlist = uchl.trailb.12.fig$fig, layout = uchl.trailb.12.fig$layoutmat)
+dev.off()
+
+
+## -- Models without IL-6 --------------------------------------------------------------------------
+## 3-month models
+fit.trailb.noil6.models.3 <- function(marker){
+  fit.ols.models(formula.right = cog.righthand.noil6,
+                 outcome = 'trail.b.tscore.3',
+                 impobj = areg.cog.3,
+                 dataset = endo.data,
+                 cohort.var = 'cog.cohort.3',
+                 marker = marker)
+}
+bdnf.trailb.noil6.3 <- fit.trailb.noil6.models.3('bdnf')
+esel.trailb.noil6.3 <- fit.trailb.noil6.models.3('esel')
+pai1.trailb.noil6.3 <- fit.trailb.noil6.models.3('pai1')
+s100b.trailb.noil6.3 <- fit.trailb.noil6.models.3('s100b')
+uchl.trailb.noil6.3 <- fit.trailb.noil6.models.3('uchl')
+
+bdnf.trailb.noil6.3.fig <-
+  ols.figures.trailb.3(olslist = 'bdnf.trailb.noil6.3', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.trailb.noil6.3.fig <-
+  ols.figures.trailb.3(olslist = 'esel.trailb.noil6.3', xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.trailb.noil6.3.fig <-
+  ols.figures.trailb.3(olslist = 'pai1.trailb.noil6.3', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.trailb.noil6.3.fig <-
+  ols.figures.trailb.3(olslist = 's100b.trailb.noil6.3', xvar = 's100b.log10', xstring = 'S100B')
+uchl.trailb.noil6.3.fig <-
+  ols.figures.trailb.3(olslist = 'uchl.trailb.noil6.3', xvar = 'uchl.log10', xstring = 'UCHL')
+
+pdf(file = 'bdnf_trailbnoil63_results.pdf', width = 8, height = bdnf.trailb.noil6.3.fig$height)
+multiplot(plotlist = bdnf.trailb.noil6.3.fig$fig, layout = bdnf.trailb.noil6.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_trailbnoil63_results.pdf', width = 8, height = esel.trailb.noil6.3.fig$height)
+multiplot(plotlist = esel.trailb.noil6.3.fig$fig, layout = esel.trailb.noil6.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_trailbnoil63_results.pdf', width = 8, height = pai1.trailb.noil6.3.fig$height)
+multiplot(plotlist = pai1.trailb.noil6.3.fig$fig, layout = pai1.trailb.noil6.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_trailbnoil63_results.pdf', width = 8, height = s100b.trailb.noil6.3.fig$height)
+multiplot(plotlist = s100b.trailb.noil6.3.fig$fig, layout = s100b.trailb.noil6.3.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_trailbnoil63_results.pdf', width = 8, height = uchl.trailb.noil6.3.fig$height)
+multiplot(plotlist = uchl.trailb.noil6.3.fig$fig, layout = uchl.trailb.noil6.3.fig$layoutmat)
+dev.off()
+
+## 12-month models
+fit.trailb.noil6.models.12 <- function(marker){
+  fit.ols.models(formula.right = cog.righthand.noil6,
+                 outcome = 'trail.b.tscore.12',
+                 impobj = areg.cog.12,
+                 dataset = endo.data,
+                 cohort.var = 'cog.cohort.12',
+                 marker = marker)
+}
+bdnf.trailb.noil6.12 <- fit.trailb.noil6.models.12('bdnf')
+esel.trailb.noil6.12 <- fit.trailb.noil6.models.12('esel')
+pai1.trailb.noil6.12 <- fit.trailb.noil6.models.12('pai1')
+s100b.trailb.noil6.12 <- fit.trailb.noil6.models.12('s100b')
+uchl.trailb.noil6.12 <- fit.trailb.noil6.models.12('uchl')
+
+bdnf.trailb.noil6.12.fig <-
+  ols.figures.trailb.12(olslist = 'bdnf.trailb.noil6.12', xvar = 'bdnf.log10', xstring = 'BDNF')
+esel.trailb.noil6.12.fig <- ols.figures.trailb.12(olslist = 'esel.trailb.noil6.12',
+                                                  xvar = 'esel.log10', xstring = 'E-selectin')
+pai1.trailb.noil6.12.fig <-
+  ols.figures.trailb.12(olslist = 'pai1.trailb.noil6.12', xvar = 'pai1.log10', xstring = 'PAI-1')
+s100b.trailb.noil6.12.fig <-
+  ols.figures.trailb.12(olslist = 's100b.trailb.noil6.12', xvar = 's100b.log10', xstring = 'S100B')
+uchl.trailb.noil6.12.fig <-
+  ols.figures.trailb.12(olslist = 'uchl.trailb.noil6.12', xvar = 'uchl.log10', xstring = 'UCHL')
+
+pdf(file = 'bdnf_trailbnoil612_results.pdf', width = 8, height = bdnf.trailb.noil6.12.fig$height)
+multiplot(plotlist = bdnf.trailb.noil6.12.fig$fig, layout = bdnf.trailb.noil6.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'esel_trailbnoil612_results.pdf', width = 8, height = esel.trailb.noil6.12.fig$height)
+multiplot(plotlist = esel.trailb.noil6.12.fig$fig, layout = esel.trailb.noil6.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'pai1_trailbnoil612_results.pdf', width = 8, height = pai1.trailb.noil6.12.fig$height)
+multiplot(plotlist = pai1.trailb.noil6.12.fig$fig, layout = pai1.trailb.noil6.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 's100b_trailbnoil612_results.pdf', width = 8, height = s100b.trailb.noil6.12.fig$height)
+multiplot(plotlist = s100b.trailb.noil6.12.fig$fig, layout = s100b.trailb.noil6.12.fig$layoutmat)
+dev.off()
+
+pdf(file = 'uchl_trailbnoil612_results.pdf', width = 8, height = uchl.trailb.noil6.12.fig$height)
+multiplot(plotlist = uchl.trailb.noil6.12.fig$fig, layout = uchl.trailb.noil6.12.fig$layoutmat)
+dev.off()
+
+@
+
+
+\clearpage
+\subsection{BDNF vs. Trails B}
+We see no significant overall association between log10(BDNF) at baseline and Trails B t-scores at
+either time point.
+
+<<printbdnftrailb3, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(bdnf.trailb.3, 'BDNF'),
+                       create.pval.table(bdnf.trailb.noil6.3, 'BDNF')),
+                 caption = 'BDNF vs 3-Month Trails B',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+<<printbdnftrailb12, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(bdnf.trailb.12, 'BDNF'),
+                       create.pval.table(bdnf.trailb.noil6.12, 'BDNF')),
+                 caption = 'BDNF vs 12-Month Trails B',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_trailb3_results.pdf}}
+\caption{Log10(BDNF) vs. Trails B at 3 Months, Adjusting for Log10(IL-6)}\label{fig:bdnftrailb3}
+{\centering\includegraphics{bdnf_trailbnoil63_results.pdf}}
+\caption{Log10(BDNF) vs. Trails B at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:bdnftrailbnoil63}
+\end{figure}
+
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_trailb12_results.pdf}}
+\caption{Log10(BDNF) vs. Trails B at 12 Months, Adjusting for Log10(IL-6)}\label{fig:bdnftrailb12}
+{\centering\includegraphics{bdnf_trailbnoil612_results.pdf}}
+\caption{Log10(BDNF) vs. Trails B at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:bdnftrailbnoil612}\end{figure}
+
+\clearpage
+\subsection{E-selectin vs. Trails B}
+We see no significant association between log10(E-selectin) at baseline and Trails B t-scores at
+either time point.
+
+<<printeseltrailb3, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(esel.trailb.3, 'E-selectin'),
+                       create.pval.table(esel.trailb.noil6.3, 'E-selectin')),
+                 caption = 'E-selectin vs 3-Month Trails B',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+<<printeseltrailb12, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(esel.trailb.12, 'E-selectin'),
+                       create.pval.table(esel.trailb.noil6.12, 'E-selectin')),
+                 caption = 'E-selectin vs 12-Month Trails B',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+
+\begin{figure}[!h]
+{\centering\includegraphics{esel_trailb3_results.pdf}}
+\caption{Log10(E-selectin) vs. Trails B at 3 Months, Adjusting for Log10(IL-6)}\label{fig:eseltrailb3}
+{\centering\includegraphics{esel_trailbnoil63_results.pdf}}
+\caption{Log10(E-selectin) vs. Trails B at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:eseltrailbnoil63}
+\end{figure}
+
+\begin{figure}[!h]
+{\centering\includegraphics{esel_trailb12_results.pdf}}
+\caption{Log10(E-selectin) vs. Trails B at 12 Months, Adjusting for Log10(IL-6)}\label{fig:eseltrailb12}
+{\centering\includegraphics{esel_trailbnoil612_results.pdf}}
+\caption{Log10(E-selectin) vs. Trails B at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:eseltrailbnoil612}\end{figure}
+
+\clearpage
+\subsection{PAI-1 vs. Trails B}
+We see a marginally significant association between log10(PAI-1) and Trails B t-scores at 3 months
+only when adjusting for IL-6. This association has disappeared by 12-month followup.
+
+<<printpai1trailb3, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(pai1.trailb.3, 'PAI-1'),
+                       create.pval.table(pai1.trailb.noil6.3, 'PAI-1')),
+                 caption = 'PAI-1 vs 3-Month Trails B',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+<<printpai1trailb12, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(pai1.trailb.12, 'PAI-1'),
+                       create.pval.table(pai1.trailb.noil6.12, 'PAI-1')),
+                 caption = 'PAI-1 vs 12-Month Trails B',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_trailb3_results.pdf}}
+\caption{Log10(PAI-1) vs. Trails B at 3 Months, Adjusting for Log10(IL-6)}\label{fig:pai1trailb3}
+{\centering\includegraphics{pai1_trailbnoil63_results.pdf}}
+\caption{Log10(PAI-1) vs. Trails B at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:pai1trailbnoil63}
+\end{figure}
+
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_trailb12_results.pdf}}
+\caption{Log10(PAI-1) vs. Trails B at 12 Months, Adjusting for Log10(IL-6)}\label{fig:pai1trailb12}
+{\centering\includegraphics{pai1_trailbnoil612_results.pdf}}
+\caption{Log10(PAI-1) vs. Trails B at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:pai1trailbnoil612}\end{figure}
+
+\clearpage
+\subsection{S100B vs. Trails B}
+We see no significant association between log10(S100B) and Trails B t-scores at either time point.
+
+<<prints100btrailb3, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(s100b.trailb.3, 'S100B'),
+                       create.pval.table(s100b.trailb.noil6.3, 'S100B')),
+                 caption = 'S100B vs 3-Month Trails B',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+<<prints100btrailb12, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(s100b.trailb.12, 'S100B'),
+                       create.pval.table(s100b.trailb.noil6.12, 'S100B')),
+                 caption = 'S100B vs 12-Month Trails B',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_trailb3_results.pdf}}
+\caption{Log10(S100B) vs. Trails B at 3 Months, Adjusting for Log10(IL-6)}\label{fig:s100btrailb3}
+{\centering\includegraphics{s100b_trailbnoil63_results.pdf}}
+\caption{Log10(S100B) vs. Trails B at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:s100btrailbnoil63}
+\end{figure}
+
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_trailb12_results.pdf}}
+\caption{Log10(S100B) vs. Trails B at 12 Months, Adjusting for Log10(IL-6)}\label{fig:s100btrailb12}
+{\centering\includegraphics{s100b_trailbnoil612_results.pdf}}
+\caption{Log10(S100B) vs. Trails B at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:s100btrailbnoil612}\end{figure}
+
+\clearpage
+\subsection{UCHL vs. Trails B}
+We see no substantial association between log10(UCHL) at baseline and Trails B t-scores at either time point.
+
+<<printuchltrailb3, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(uchl.trailb.3, 'UCHL'),
+                       create.pval.table(uchl.trailb.noil6.3, 'UCHL')),
+                 caption = 'UCHL vs 3-Month Trails B',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+<<printuchltrailb12, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(uchl.trailb.12, 'UCHL'),
+                       create.pval.table(uchl.trailb.noil6.12, 'UCHL')),
+                 caption = 'UCHL vs 12-Month Trails B',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_trailb3_results.pdf}}
+\caption{Log10(UCHL) vs. Trails B at 3 Months, Adjusting for Log10(IL-6)}\label{fig:uchltrailb3}
+{\centering\includegraphics{uchl_trailbnoil63_results.pdf}}
+\caption{Log10(UCHL) vs. Trails B at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:uchltrailbnoil63}
+\end{figure}
+
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_trailb12_results.pdf}}
+\caption{Log10(UCHL) vs. Trails B at 12 Months, Adjusting for Log10(IL-6)}\label{fig:uchltrailb12}
+{\centering\includegraphics{uchl_trailbnoil612_results.pdf}}
+\caption{Log10(UCHL) vs. Trails B at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:uchltrailbnoil612}\end{figure}
+
 %' \clearpage
-%' \section{Endothelial/BBB Injury Markers vs. Trails B T-Score}
-%'
-%' To examine the association between endothelial/BBB injury at study enrollment and Trails B T-scores at 3- and 12-month followup, we used linear regression, adjusting for the following covariates:
-%' \begin{itemize}
-%' \item Charlson score
-%' \item Years of education
-%' \item IQCODE score
-%' \item Framingham stroke risk score
-%' \item Mean daily modified SOFA (no GCS) during ICU stay
-%' \item Duration of severe sepsis
-%' \item Duration of delirium
-%' \item Duration of coma
-%' \end{itemize}
-%'
-%' We checked residual vs. fitted and QQ plots to ensure that model assumptions were met adequately.
-%'
-%' All continuous variables, including biomarkers, were initially allowed to have a nonlinear
-%' relationship with the outcome, with the exception of IQCODE, which had too little variability to
-%' allow for splines. If the global p-value for nonlinearity was clearly nonsignificant
-%' (p $>$ \Sexpr{pcutoff}), nonlinear terms were removed from the model for parsimony. We allowed for
-%' potential interactions between endothelial/BBB markers and both systemic inflammation (log10(IL-6))
-%' on study day 1 and age at study enrollment. If the global p-value for interactions were clearly nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the final
-%' model for parsimony. All biomarkers are transformed using the log10 transformation in order to improve model fit and reduce the influence of extremely high values. All p-values are calculated using the \Sexpr{use.method} method.
-%'
-%' We used multiple imputation to reduce bias from missing data; there is very little missing covariate
-%' data, but there is more data missing from outcomes, which could bias our results since the patients
-%' who would perform the worst are probably less likely to complete testing.
-%'
-%' % We used multiple imputation to reduce bias from missing covariates.
-%'
-%' For models where interaction terms are kept in the final model, the association of the biomarker is
-%' shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable.
-%'
-%' <<trailbmodels>>=
-%' ## Formula for full delirium model, subbing "markervar" in place of actual biomarker variable
-%' trailb.righthand <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(markervar, 3) + rcs(age.div10, 3):rcs(markervar, 3) + rcs(il6.log10, 3):rcs(markervar, 3)"
-%'
-%' trailb.full.formula.3 <- paste('trail.b.tscore.3', trailb.righthand, sep = ' ~ ')
-%' trailb.full.formula.12 <- paste('trail.b.tscore.12', trailb.righthand, sep = ' ~ ')
-%'
-%' ## Set datadist for ols() to work
-%' dd <- datadist(endo.data); options(datadist = 'dd')
-%'
-%' ## 3-month models
-%' fit.trailb.models.3 <- function(marker){
-%'   fit.reg.models(use.marker = marker,
-%'                  formula.full = trailb.full.formula.3,
-%'                  modtype = 'ols',
-%'                  imp.obj = areg.cog.3,
-%'                  cohort.var = 'cog.cohort.3')
-%' }
-%' bdnf.trailb.3 <- fit.trailb.models.3('bdnf.log10')
-%' esel.trailb.3 <- fit.trailb.models.3('esel.log10')
-%' pai1.trailb.3 <- fit.trailb.models.3('pai1.log10')
-%' s100b.trailb.3 <- fit.trailb.models.3('s100b.log10')
-%' uchl.trailb.3 <- fit.trailb.models.3('uchl.log10')
-%'
-%' # ## Check assumptions of final models
-%' # ols.diagnostics(model.obj.ma = bdnf.trailb.3$final.mod, labeltext = 'BDNF vs Trails B, 3m')
-%' # ols.diagnostics(model.obj.ma = esel.trailb.3$final.mod, labeltext = 'E-selectin vs Trails B, 3m')
-%' # ols.diagnostics(model.obj.ma = pai1.trailb.3$final.mod, labeltext = 'PAI-1 vs Trails B, 3m')
-%' # ols.diagnostics(model.obj.ma = s100b.trailb.3$final.mod, labeltext = 'S100B vs Trails B, 3m')
-%' # ols.diagnostics(model.obj.ma = uchl.trailb.3$final.mod, labeltext = 'UCHL vs Trails B, 3m')
-%'
-%' ols.figures.trailb.3 <- function(olslist, xvar, xstring){
-%'   ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'Trails B, 3 Months')
-%' }
-%' bdnf.trailb.3.fig <-
-%'   ols.figures.trailb.3(olslist = 'bdnf.trailb.3', xvar = 'bdnf.log10', xstring = 'BDNF')
-%' esel.trailb.3.fig <-
-%'   ols.figures.trailb.3(olslist = 'esel.trailb.3', xvar = 'esel.log10', xstring = 'E-selectin')
-%' pai1.trailb.3.fig <-
-%'   ols.figures.trailb.3(olslist = 'pai1.trailb.3', xvar = 'pai1.log10', xstring = 'PAI-1')
-%' s100b.trailb.3.fig <-
-%'   ols.figures.trailb.3(olslist = 's100b.trailb.3', xvar = 's100b.log10', xstring = 'S100B')
-%' uchl.trailb.3.fig <-
-%'   ols.figures.trailb.3(olslist = 'uchl.trailb.3', xvar = 'uchl.log10', xstring = 'UCHL')
-%'
-%' pdf(file = 'bdnf_trailb3_results.pdf', width = 8, height = bdnf.trailb.3.fig$height)
-%' multiplot(plotlist = bdnf.trailb.3.fig$fig, layout = bdnf.trailb.3.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'esel_trailb3_results.pdf', width = 8, height = esel.trailb.3.fig$height)
-%' multiplot(plotlist = esel.trailb.3.fig$fig, layout = esel.trailb.3.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'pai1_trailb3_results.pdf', width = 8, height = pai1.trailb.3.fig$height)
-%' multiplot(plotlist = pai1.trailb.3.fig$fig, layout = pai1.trailb.3.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 's100b_trailb3_results.pdf', width = 8, height = s100b.trailb.3.fig$height)
-%' multiplot(plotlist = s100b.trailb.3.fig$fig, layout = s100b.trailb.3.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'uchl_trailb3_results.pdf', width = 8, height = uchl.trailb.3.fig$height)
-%' multiplot(plotlist = uchl.trailb.3.fig$fig, layout = uchl.trailb.3.fig$layoutmat)
-%' dev.off()
-%'
-%' ## 12-month models
-%' fit.trailb.models.12 <- function(marker){
-%'   fit.reg.models(use.marker = marker,
-%'                  formula.full = trailb.full.formula.12,
-%'                  modtype = 'ols',
-%'                  imp.obj = areg.cog.12,
-%'                  cohort.var = 'cog.cohort.12')
-%' }
-%' bdnf.trailb.12 <- fit.trailb.models.12('bdnf.log10')
-%' esel.trailb.12 <- fit.trailb.models.12('esel.log10')
-%' pai1.trailb.12 <- fit.trailb.models.12('pai1.log10')
-%' s100b.trailb.12 <- fit.trailb.models.12('s100b.log10')
-%' uchl.trailb.12 <- fit.trailb.models.12('uchl.log10')
-%'
-%' # ## Check assumptions of final models
-%' # ols.diagnostics(model.obj.ma = bdnf.trailb.12$final.mod, labeltext = 'BDNF vs Trails B, 12m')
-%' # ols.diagnostics(model.obj.ma = esel.trailb.12$final.mod, labeltext = 'E-selectin vs Trails B, 12m')
-%' # ols.diagnostics(model.obj.ma = pai1.trailb.12$final.mod, labeltext = 'PAI-1 vs Trails B, 12m')
-%' # ols.diagnostics(model.obj.ma = s100b.trailb.12$final.mod, labeltext = 'S100B vs Trails B, 12m')
-%' # ols.diagnostics(model.obj.ma = uchl.trailb.12$final.mod, labeltext = 'UCHL vs Trails B, 12m')
-%'
-%' # ## Test by hand with E-selectin
-%' # modvars <- c('trail.b.tscore.12', 'charlson.score', 'edu', 'iqcode.score.e', 'stroke.risk',
-%' #              'mean.modsofa.icu', 'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp', 'age.div10',
-%' #              'il6.log10', 'esel.log10')
-%' # usedata <- endo.data[rowSums(is.na(endo.data[,modvars])) == 0, modvars]
-%' #
-%' # ## Fit full model
-%' # esel.full.trailb.12 <- ols(trail.b.tscore.12 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
-%' #                              iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
-%' #                              rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
-%' #                              rcs(age.div10, 3) + rcs(il6.log10, 3) + rcs(esel.log10, 3) +
-%' #                              rcs(age.div10, 3):rcs(esel.log10, 3) +
-%' #                              rcs(il6.log10, 3):rcs(esel.log10, 3),
-%' #                            data = usedata)
-%' #
-%' # ## Fit model without nonlinear terms
-%' # esel.lin.trailb.12 <- ols(trail.b.tscore.12 ~ charlson.score + edu + iqcode.score.e + stroke.risk +
-%' #                             mean.modsofa.icu + icudays.sevseptic.s + del.s.imp + coma.s.imp +
-%' #                             age.div10 + il6.log10 + esel.log10 + age.div10:esel.log10 +
-%' #                             il6.log10:esel.log10,
-%' #                           data = usedata)
-%' #
-%' # lmtest::lrtest(esel.full.trailb.12, esel.lin.trailb.12)
-%' # esel.trailb.12$p.nonlin
-%' #
-%' # ## Nonlinear terms not needed; fit without interaction terms
-%' # esel.noint.trailb.12 <- ols(trail.b.tscore.12 ~ charlson.score + edu + iqcode.score.e +
-%' #                               stroke.risk + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp +
-%' #                               coma.s.imp + age.div10 + il6.log10 + esel.log10,
-%' #                             data = usedata)
-%' #
-%' # lmtest::lrtest(esel.lin.trailb.12, esel.noint.trailb.12)
-%' # esel.trailb.12$p.int
-%' #
-%' # ## Interaction terms not needed; get p-value for biomarker
-%' # nomark.full.trailb.12 <- ols(trail.b.tscore.12 ~ charlson.score + edu + iqcode.score.e +
-%' #                               stroke.risk + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp +
-%' #                               coma.s.imp + age.div10 + il6.log10,
-%' #                              data = usedata)
-%' # lmtest::lrtest(esel.noint.trailb.12, nomark.full.trailb.12)
-%' # esel.trailb.12$p.marker
-%'
-%' ols.figures.trailb.12 <- function(olslist, xvar, xstring){
-%'   ols.figures(olslist = olslist, xvar = xvar, xstring = xstring, ystring = 'Trails B, 12 Months')
-%' }
-%' bdnf.trailb.12.fig <-
-%'   ols.figures.trailb.12(olslist = 'bdnf.trailb.12', xvar = 'bdnf.log10', xstring = 'BDNF')
-%' esel.trailb.12.fig <-
-%'   ols.figures.trailb.12(olslist = 'esel.trailb.12', xvar = 'esel.log10', xstring = 'E-selectin')
-%' pai1.trailb.12.fig <-
-%'   ols.figures.trailb.12(olslist = 'pai1.trailb.12', xvar = 'pai1.log10', xstring = 'PAI-1')
-%' s100b.trailb.12.fig <-
-%'   ols.figures.trailb.12(olslist = 's100b.trailb.12', xvar = 's100b.log10', xstring = 'S100B')
-%' uchl.trailb.12.fig <-
-%'   ols.figures.trailb.12(olslist = 'uchl.trailb.12', xvar = 'uchl.log10', xstring = 'UCHL')
-%'
-%' pdf(file = 'bdnf_trailb12_results.pdf', width = 8, height = bdnf.trailb.12.fig$height)
-%' multiplot(plotlist = bdnf.trailb.12.fig$fig, layout = bdnf.trailb.12.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'esel_trailb12_results.pdf', width = 8, height = esel.trailb.12.fig$height)
-%' multiplot(plotlist = esel.trailb.12.fig$fig, layout = esel.trailb.12.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'pai1_trailb12_results.pdf', width = 8, height = pai1.trailb.12.fig$height)
-%' multiplot(plotlist = pai1.trailb.12.fig$fig, layout = pai1.trailb.12.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 's100b_trailb12_results.pdf', width = 8, height = s100b.trailb.12.fig$height)
-%' multiplot(plotlist = s100b.trailb.12.fig$fig, layout = s100b.trailb.12.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'uchl_trailb12_results.pdf', width = 8, height = uchl.trailb.12.fig$height)
-%' multiplot(plotlist = uchl.trailb.12.fig$fig, layout = uchl.trailb.12.fig$layoutmat)
-%' dev.off()
-%'
-%'
-%' ## -- Models without IL-6 --------------------------------------------------------------------------
-%' trailb.righthand.noil6 <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) + rcs(markervar, 3) + rcs(age.div10, 3):rcs(markervar, 3)"
-%'
-%' trailb.noil6.formula.3 <- paste('trail.b.tscore.3', trailb.righthand.noil6, sep = ' ~ ')
-%' trailb.noil6.formula.12 <- paste('trail.b.tscore.12', trailb.righthand.noil6, sep = ' ~ ')
-%'
-%' ## 3-month models
-%' fit.trailb.noil6.models.3 <- function(marker){
-%'   fit.reg.models(use.marker = marker,
-%'                  formula.full = trailb.noil6.formula.3,
-%'                  modtype = 'ols',
-%'                  imp.obj = areg.cog.3,
-%'                  cohort.var = 'cog.cohort.3')
-%' }
-%' bdnf.trailb.noil6.3 <- fit.trailb.noil6.models.3('bdnf.log10')
-%' esel.trailb.noil6.3 <- fit.trailb.noil6.models.3('esel.log10')
-%' pai1.trailb.noil6.3 <- fit.trailb.noil6.models.3('pai1.log10')
-%' s100b.trailb.noil6.3 <- fit.trailb.noil6.models.3('s100b.log10')
-%' uchl.trailb.noil6.3 <- fit.trailb.noil6.models.3('uchl.log10')
-%'
-%' bdnf.trailb.noil6.3.fig <-
-%'   ols.figures.trailb.3(olslist = 'bdnf.trailb.noil6.3', xvar = 'bdnf.log10', xstring = 'BDNF')
-%' esel.trailb.noil6.3.fig <-
-%'   ols.figures.trailb.3(olslist = 'esel.trailb.noil6.3', xvar = 'esel.log10', xstring = 'E-selectin')
-%' pai1.trailb.noil6.3.fig <-
-%'   ols.figures.trailb.3(olslist = 'pai1.trailb.noil6.3', xvar = 'pai1.log10', xstring = 'PAI-1')
-%' s100b.trailb.noil6.3.fig <-
-%'   ols.figures.trailb.3(olslist = 's100b.trailb.noil6.3', xvar = 's100b.log10', xstring = 'S100B')
-%' uchl.trailb.noil6.3.fig <-
-%'   ols.figures.trailb.3(olslist = 'uchl.trailb.noil6.3', xvar = 'uchl.log10', xstring = 'UCHL')
-%'
-%' pdf(file = 'bdnf_trailbnoil63_results.pdf', width = 8, height = bdnf.trailb.noil6.3.fig$height)
-%' multiplot(plotlist = bdnf.trailb.noil6.3.fig$fig, layout = bdnf.trailb.noil6.3.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'esel_trailbnoil63_results.pdf', width = 8, height = esel.trailb.noil6.3.fig$height)
-%' multiplot(plotlist = esel.trailb.noil6.3.fig$fig, layout = esel.trailb.noil6.3.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'pai1_trailbnoil63_results.pdf', width = 8, height = pai1.trailb.noil6.3.fig$height)
-%' multiplot(plotlist = pai1.trailb.noil6.3.fig$fig, layout = pai1.trailb.noil6.3.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 's100b_trailbnoil63_results.pdf', width = 8, height = s100b.trailb.noil6.3.fig$height)
-%' multiplot(plotlist = s100b.trailb.noil6.3.fig$fig, layout = s100b.trailb.noil6.3.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'uchl_trailbnoil63_results.pdf', width = 8, height = uchl.trailb.noil6.3.fig$height)
-%' multiplot(plotlist = uchl.trailb.noil6.3.fig$fig, layout = uchl.trailb.noil6.3.fig$layoutmat)
-%' dev.off()
-%'
-%' ## 12-month models
-%' fit.trailb.noil6.models.12 <- function(marker){
-%'   fit.reg.models(use.marker = marker,
-%'                  formula.full = trailb.noil6.formula.12,
-%'                  modtype = 'ols',
-%'                  imp.obj = areg.cog.12,
-%'                  cohort.var = 'cog.cohort.12')
-%' }
-%' bdnf.trailb.noil6.12 <- fit.trailb.noil6.models.12('bdnf.log10')
-%' esel.trailb.noil6.12 <- fit.trailb.noil6.models.12('esel.log10')
-%' pai1.trailb.noil6.12 <- fit.trailb.noil6.models.12('pai1.log10')
-%' s100b.trailb.noil6.12 <- fit.trailb.noil6.models.12('s100b.log10')
-%' uchl.trailb.noil6.12 <- fit.trailb.noil6.models.12('uchl.log10')
-%'
-%' bdnf.trailb.noil6.12.fig <-
-%'   ols.figures.trailb.12(olslist = 'bdnf.trailb.noil6.12', xvar = 'bdnf.log10', xstring = 'BDNF')
-%' esel.trailb.noil6.12.fig <-
-%'   ols.figures.trailb.12(olslist = 'esel.trailb.noil6.12', xvar = 'esel.log10', xstring = 'E-selectin')
-%' pai1.trailb.noil6.12.fig <-
-%'   ols.figures.trailb.12(olslist = 'pai1.trailb.noil6.12', xvar = 'pai1.log10', xstring = 'PAI-1')
-%' s100b.trailb.noil6.12.fig <-
-%'   ols.figures.trailb.12(olslist = 's100b.trailb.noil6.12', xvar = 's100b.log10', xstring = 'S100B')
-%' uchl.trailb.noil6.12.fig <-
-%'   ols.figures.trailb.12(olslist = 'uchl.trailb.noil6.12', xvar = 'uchl.log10', xstring = 'UCHL')
-%'
-%' pdf(file = 'bdnf_trailbnoil612_results.pdf', width = 8, height = bdnf.trailb.noil6.12.fig$height)
-%' multiplot(plotlist = bdnf.trailb.noil6.12.fig$fig, layout = bdnf.trailb.noil6.12.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'esel_trailbnoil612_results.pdf', width = 8, height = esel.trailb.noil6.12.fig$height)
-%' multiplot(plotlist = esel.trailb.noil6.12.fig$fig, layout = esel.trailb.noil6.12.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'pai1_trailbnoil612_results.pdf', width = 8, height = pai1.trailb.noil6.12.fig$height)
-%' multiplot(plotlist = pai1.trailb.noil6.12.fig$fig, layout = pai1.trailb.noil6.12.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 's100b_trailbnoil612_results.pdf', width = 8, height = s100b.trailb.noil6.12.fig$height)
-%' multiplot(plotlist = s100b.trailb.noil6.12.fig$fig, layout = s100b.trailb.noil6.12.fig$layoutmat)
-%' dev.off()
-%'
-%' pdf(file = 'uchl_trailbnoil612_results.pdf', width = 8, height = uchl.trailb.noil6.12.fig$height)
-%' multiplot(plotlist = uchl.trailb.noil6.12.fig$fig, layout = uchl.trailb.noil6.12.fig$layoutmat)
-%' dev.off()
-%'
-%'
+%' \section{Code Used for Analysis}
+%' <<all-code, ref.label=all_labels(), echo = TRUE, eval = FALSE>>=
 %' @
-%'
-%'
-%' \clearpage
-%' \subsection{BDNF vs. Trails B}
-%' We see no significant overall association between log10(BDNF) at baseline and Trails B T-scores at
-%' 3- or 12-month followup.
-%'
-%' \subsubsection{BDNF vs. Trails B, 3 Months}
-%' <<printbdnftrailb3, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(fit.reg.obj = bdnf.trailb.3, marker.string = 'BDNF'),
-%'                        create.pval.table(fit.reg.obj = bdnf.trailb.noil6.3, marker.string = 'BDNF')),
-%'                  use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                   'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{bdnf_trailb3_results.pdf}}
-%' \caption{Log10(BDNF) vs. Trails B at 3 Months, Adjusting for Log10(IL-6)}\label{fig:bdnftrailb3}
-%' {\centering\includegraphics{bdnf_trailbnoil63_results.pdf}}
-%' \caption{Log10(BDNF) vs. Trails B at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:bdnftrailbnoil63}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsubsection{BDNF vs. Trails B, 12 Months}
-%' <<printbdnftrailb12, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(fit.reg.obj = bdnf.trailb.12, marker.string = 'BDNF'),
-%'                        create.pval.table(fit.reg.obj = bdnf.trailb.noil6.12, marker.string = 'BDNF')),
-%'                  use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                   'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{bdnf_trailb12_results.pdf}}
-%' \caption{Log10(BDNF) vs. Trails B at 12 Months, Adjusting for Log10(IL-6)}\label{fig:bdnftrailb12}
-%' {\centering\includegraphics{bdnf_trailbnoil612_results.pdf}}
-%' \caption{Log10(BDNF) vs. Trails B at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:bdnftrailbnoil612}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsection{E-Selectin vs. Trails B}
-%' We see no significant overall association between log10(E-selectin) at baseline and Trails B
-%' T-scores at 3- or 12-month followup.
-%'
-%' \subsubsection{E-Selectin vs. Trails B, 3 Months}
-%' <<printeseltrailb3, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(fit.reg.obj = esel.trailb.3, marker.string = 'E-selectin'),
-%'                        create.pval.table(fit.reg.obj = esel.trailb.noil6.3, marker.string = 'E-selectin')),
-%'                  use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                   'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{esel_trailb3_results.pdf}}
-%' \caption{Log10(E-Selectin) vs. Trails B at 3 Months, Adjusting for Log10(IL-6)}\label{fig:eseltrailb3}
-%' {\centering\includegraphics{esel_trailbnoil63_results.pdf}}
-%' \caption{Log10(E-Selectin) vs. Trails B at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:eseltrailbnoil63}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsubsection{E-Selectin vs. Trails B, 12 Months}
-%' <<printeseltrailb12, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(fit.reg.obj = esel.trailb.12, marker.string = 'E-selectin'),
-%'                        create.pval.table(fit.reg.obj = esel.trailb.noil6.12, marker.string = 'E-selectin')),
-%'                  use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                   'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{esel_trailb12_results.pdf}}
-%' \caption{Log10(E-selectin) vs. Trails B at 12 Months, Adjusting for Log10(IL-6)}\label{fig:eseltrailb12}
-%' {\centering\includegraphics{esel_trailbnoil612_results.pdf}}
-%' \caption{Log10(E-selectin) vs. Trails B at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:eseltrailbnoil612}
-%' \end{figure}
-%'
-%'
-%' \clearpage
-%' \subsection{PAI-1 vs. Trails B}
-%' We see no significant association between log10(PAI-1) and Trails B at either time point.
-%'
-%' \subsubsection{PAI-1 vs. Trails B, 3 Months}
-%' <<printpai1trailb3, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(fit.reg.obj = pai1.trailb.3, marker.string = 'PAI-1'),
-%'                        create.pval.table(fit.reg.obj = pai1.trailb.noil6.3, marker.string = 'PAI-1')),
-%'                  use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                   'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{pai1_trailb3_results.pdf}}
-%' \caption{Log10(PAI-1) vs. Trails B at 3 Months, Adjusting for Log10(IL-6)}\label{fig:pai1trailb3}
-%' {\centering\includegraphics{pai1_trailbnoil63_results.pdf}}
-%' \caption{Log10(PAI-1) vs. Trails B at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:pai1trailbnoil63}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsubsection{PAI-1 vs. Trails B, 12 Months}
-%' <<printpai1trailb12, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(fit.reg.obj = pai1.trailb.12, marker.string = 'PAI-1'),
-%'                        create.pval.table(fit.reg.obj = pai1.trailb.noil6.12, marker.string = 'PAI-1')),
-%'                  use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                   'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{pai1_trailb12_results.pdf}}
-%' \caption{Log10(PAI-1) vs. Trails B at 12 Months, Adjusting for Log10(IL-6)}\label{fig:pai1trailb12}
-%' {\centering\includegraphics{pai1_trailbnoil612_results.pdf}}
-%' \caption{Log10(PAI-1) vs. Trails B at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:pai1trailbnoil612}
-%' \end{figure}
-%'
-%'
-%' \clearpage
-%' \subsection{S100B vs. Trails B}
-%' At 3 months, there is not a strong association between log10(S100B) and Trails B scores; there is a
-%' potentially weak interaction with age, but any association is not strong enough to make the overall
-%' association significant. At 12 months, there is still no significant overall association, but
-%' log10(IL-6) is a potential effect modifier.
-%'
-%' \subsubsection{S100B vs. Trails B, 3 Months}
-%' <<prints100btrailb3, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(fit.reg.obj = s100b.trailb.3, marker.string = 'S100B'),
-%'                        create.pval.table(fit.reg.obj = s100b.trailb.noil6.3, marker.string = 'S100B')),
-%'                  use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                   'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{s100b_trailb3_results.pdf}}
-%' \caption{Log10(S100B) vs. Trails B at 3 Months, Adjusting for Log10(IL-6)}\label{fig:s100btrailb3}
-%' {\centering\includegraphics{s100b_trailbnoil63_results.pdf}}
-%' \caption{Log10(S100B) vs. Trails B at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:s100btrailbnoil63}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsubsection{S100B vs. Trails B, 12 Months}
-%' <<prints100btrailb12, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(fit.reg.obj = s100b.trailb.12, marker.string = 'S100B'),
-%'                        create.pval.table(fit.reg.obj = s100b.trailb.noil6.12, marker.string = 'S100B')),
-%'                  use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                   'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{s100b_trailb12_results.pdf}}
-%' \caption{Log10(S100B) vs. Trails B at 12 Months, Adjusting for Log10(IL-6)}\label{fig:s100btrailb12}
-%' {\centering\includegraphics{s100b_trailbnoil612_results.pdf}}
-%' \caption{Log10(S100B) vs. Trails B at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:s100btrailbnoil612}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsection{UCHL vs. Trails B}
-%' We see no significant overall association between log10(UCHL) at baseline and Trails B T-scores at
-%' 3- or 12-month followup.
-%'
-%' \subsubsection{UCHL vs. Trails B, 3 Months}
-%' <<printuchltrailb3, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(fit.reg.obj = uchl.trailb.3, marker.string = 'UCHL'),
-%'                        create.pval.table(fit.reg.obj = uchl.trailb.noil6.3, marker.string = 'UCHL')),
-%'                  use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                   'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{uchl_trailb3_results.pdf}}
-%' \caption{Log10(UCHL) vs. Trails B at 3 Months, Adjusting for Log10(IL-6)}\label{fig:uchltrailb3}
-%' {\centering\includegraphics{uchl_trailbnoil63_results.pdf}}
-%' \caption{Log10(UCHL) vs. Trails B at 3 Months, Not Accounting for Log10(IL-6)}\label{fig:uchltrailbnoil63}
-%' \end{figure}
-%'
-%' \clearpage
-%' \subsubsection{UCHL vs. Trails B, 12 Months}
-%' <<printuchltrailb12, results = 'asis'>>=
-%' latex.pval.table(cbind(create.pval.table(fit.reg.obj = uchl.trailb.12, marker.string = 'UCHL'),
-%'                        create.pval.table(fit.reg.obj = uchl.trailb.noil6.12, marker.string = 'UCHL')),
-%'                  use.colheads = c('P, Adjusting for Log10(IL-6)',
-%'                                   'P, No Adjustment for Log10(IL-6)'))
-%' @
-%'
-%' \begin{figure}[!h]
-%' {\centering\includegraphics{uchl_trailb12_results.pdf}}
-%' \caption{Log10(UCHL) vs. Trails B at 12 Months, Adjusting for Log10(IL-6)}\label{fig:uchltrailb12}
-%' {\centering\includegraphics{uchl_trailbnoil612_results.pdf}}
-%' \caption{Log10(UCHL) vs. Trails B at 12 Months, Not Accounting for Log10(IL-6)}\label{fig:uchltrailbnoil612}
-%' \end{figure}
-%'
-%'
-%' \clearpage
-%' \section{Technical Details}
-%'
-%' <<choosepkgs>>=
-%' relevant.pkgs <-
-%'   data.frame(pkg = c('dplyr', 'ggplot2', 'knitr', 'Hmisc', 'MASS', 'mice', 'rms', 'tidyr'),
-%'              rsn = c('Data management', 'Plotting', 'Reproducible reporting',
-%'                      'Descriptive statistics', 'Modeling (spec. negative binomial)',
-%'                      'Multiple imputation', 'Modeling (spec. linear regression)',
-%'                      'Data management'))
-%' use.packages <- session_info()$packages %>%
-%'   filter(package %in% relevant.pkgs$pkg) %>%
-%'   mutate(reason = relevant.pkgs$rsn[match(package, relevant.pkgs$pkg)]) %>%
-%'   select(-2)
-%'
-%' @
-%'
-%' All analyses were produced using \Sexpr{session_info()$platform$version}, along with the following
-%' add-on packages and primary reason for their use.
-%'
-%' <<printpkgs, results='asis'>>=
-%' latex(use.packages, file = '',
-%'       where = '!h',
-%'       rowname = NULL,
-%'       caption = 'List of Add-On R Packages',
-%'       col.just = c('l', 'r', 'r', 'l', 'l'),
-%'       colheads = capitalize(names(use.packages)))
-%' @
+
+\clearpage
+\section{Technical Details}
+
+<<choosepkgs>>=
+relevant.pkgs <-
+  data.frame(pkg = c('dplyr', 'ggplot2', 'knitr', 'Hmisc', 'MASS', 'mice', 'rms', 'tidyr'),
+             rsn = c('Data management', 'Plotting', 'Reproducible reporting',
+                     'Descriptive statistics', 'Modeling (spec. negative binomial)',
+                     'Multiple imputation', 'Modeling (spec. linear regression)',
+                     'Data management'))
+use.packages <- session_info()$packages %>%
+  filter(package %in% relevant.pkgs$pkg) %>%
+  mutate(reason = relevant.pkgs$rsn[match(package, relevant.pkgs$pkg)]) %>%
+  select(-2)
+
+@
+
+All analyses were produced using \Sexpr{session_info()$platform$version}, along with the following
+add-on packages and primary reason for their use.
+
+<<printpkgs, results='asis'>>=
+latex(use.packages, file = '',
+      where = '!h',
+      rowname = NULL,
+      caption = 'List of Add-On R Packages',
+      col.just = c('l', 'r', 'r', 'l', 'l'),
+      colheads = capitalize(names(use.packages)))
+@
 
 \end{document}
