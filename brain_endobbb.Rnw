@@ -756,7 +756,7 @@ create.designmat <- function(modvars,                    ## character vector of 
   
   ## Get unique values of biomarker, and corresponding nonlinear terms if needed
   if(!is.null(cohort.var)){
-    usedata <- dataset[,dataset$cohort.var]
+    usedata <- dataset[dataset[,cohort.var],]
   } else{
     usedata <- dataset
   }
@@ -1102,6 +1102,9 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
                         rndformat(il6.ci['lcl']), ', ',
                         rndformat(il6.ci['ucl']), ')')
   }
+  
+  ## 7: Get N for model fit (nrow(data used for impobj))
+  model.n <- nrow(impobj$data)
 
   return(list('marker' = paste0(marker, '.log10'),
               'final.mod' = final.mod,
@@ -1115,7 +1118,8 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
               'p.int.age' = p.int.age,
               'p.int.il6' = p.int.il6,
               'p.marker' = p.marker,
-              'p.il6' = p.il6))
+              'p.il6' = p.il6,
+              'model.n' = model.n))
 }
 
 ## -- Create design matrices and data frames of results for each model -----------------------------
@@ -1455,6 +1459,14 @@ fit.ols.models <- function(formula.right,     ## original model covariates
                         rndformat(il6.ci['ucl']), ')')
   }
 
+  ## 6: Get N for model fit (nrow(data used for impobj), or aregImpute$n)
+  model.n <- NULL
+  if(inherits(impobj, 'mira')){
+    model.n <- nrow(impobj$data)
+  } else if(inherits(impobj, 'aregImpute')){
+    model.n <- impobj$n
+  }
+
   return(list('marker' = paste0(marker, '.log10'),
               'final.mod' = final.mod,
               'marker.ci' = marker.ci,
@@ -1466,7 +1478,8 @@ fit.ols.models <- function(formula.right,     ## original model covariates
               'p.int.age' = p.int.age,
               'p.int.il6' = p.int.il6,
               'p.marker' = p.marker,
-              'p.il6' = p.il6))
+              'p.il6' = p.il6,
+              'model.n' = model.n))
 }
 
 
@@ -1679,9 +1692,13 @@ create.pval.table <- function(fit.reg.obj, marker.string){
       fit.reg.obj[[usep]]
     }
   }))
+  
+  ## Add N
+  p.vec <- c(fit.reg.obj$model.n, p.vec)
 
   p.df <- data.frame(pval = p.vec)
-  rownames(p.df) <- c('Global nonlinearity',
+  rownames(p.df) <- c('Patients included',
+                      'Global nonlinearity',
                       'Global interactions',
                       paste0('Log10(', marker.string, ')'),
                       paste0('~~~', ci.type, ' (95\\% CI), ',
@@ -1704,7 +1721,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
         colheads = use.colheads,
         col.just = rep('r', ncol(p.df)),
         rgroup = c('Model fitting', 'Final model', 'Interactions'),
-        n.rgroup = c(2, 6, 2))
+        n.rgroup = c(3, 6, 2))
 }
 
 
