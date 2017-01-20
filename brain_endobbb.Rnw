@@ -714,22 +714,21 @@ mice.vars <- c('bdnf.log10', 'bdnf.prime', 'bdnf.age', 'bdnfp.age', 'bdnf.agep',
                'faq.rdscore.3', 'faq.rdscore.12')
 
 mice.del <- mice(data = endo.data[,mice.vars], m = nimp, seed = 56)
-mice.cog.3 <- mice(data = endo.data[endo.data$cog.cohort.3, mice.vars], m = nimp, seed = 56)
-mice.cog.12 <- mice(data = endo.data[endo.data$cog.cohort.12, mice.vars], m = nimp, seed = 56)
-mice.func.3 <- mice(data = endo.data[endo.data$func.cohort.3, mice.vars], m = nimp, seed = 56)
-mice.func.12 <- mice(data = endo.data[endo.data$func.cohort.12, mice.vars], m = nimp, seed = 56)
+mice.3 <- mice(data = endo.data[endo.data$fu.cohort.3, mice.vars], m = nimp, seed = 56)
+mice.12 <- mice(data = endo.data[endo.data$fu.cohort.12, mice.vars], m = nimp, seed = 56)
 
-## -- Create aregImpute objects to use for cognitive outcomes --------------------------------------
-areg.form <- as.formula("~ age.div10 + charlson.score + I(edu) + I(iqcode.score.e) + stroke.risk +
-                           mean.modsofa.icu + icudays.sevseptic.s + del.s.imp + coma.s.imp +
-                           il6.log10 + bdnf.log10 + esel.log10 + pai1.log10 + s100b.log10 +
-                           uchl.log10 + rbans.global.score.3 + rbans.global.score.12 +
+## -- Create aregImpute objects to use for cognitive outcomes (quicker than making -----------------
+## -- already-written functions play nicely with mice objects) -------------------------------------
+areg.form <- as.formula("~ age.div10 + charlson.score + I(edu.div10) + I(iqcode.score.e) +
+                           stroke.risk + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp +
+                           coma.s.imp + il6.log10 + bdnf.log10 + esel.log10 + pai1.log10 +
+                           s100b.log10 + uchl.log10 + rbans.global.score.3 + rbans.global.score.12 +
                            trail.b.tscore.3 + trail.b.tscore.12")
 
 set.seed(165)
-areg.cog.3 <- aregImpute(areg.form, n.impute = 10, nk = 3, data = subset(endo.data, cog.cohort.3))
+areg.3 <- aregImpute(areg.form, n.impute = 10, nk = 3, data = subset(endo.data, fu.cohort.3))
 set.seed(65)
-areg.cog.12 <- aregImpute(areg.form, n.impute = 10, nk = 3, data = subset(endo.data, cog.cohort.12))
+areg.12 <- aregImpute(areg.form, n.impute = 10, nk = 0, data = subset(endo.data, fu.cohort.12))
 
 ## -- Create design matrices for NB models ---------------------------------------------------------
 ## Default covariate values: 0 (reference level) for factors, median for numeric
@@ -3207,22 +3206,22 @@ func.il6.covars <- c('charlson.score', 'iqcode.score.e', 'edu.div10', 'disabled.
 ## -- Fit models for each biomarker ----------------------------------------------------------------
 func.iter <- 5000
 fit.nb.adl.3 <- function(marker){
-  fit.nb.models(covars = func.covars, outcome = 'adl.totscore.3', impobj = mice.func.3,
+  fit.nb.models(covars = func.covars, outcome = 'adl.totscore.3', impobj = mice.3,
                 maxiter = func.iter, marker = marker)
 }
 
 fit.nb.adl.il6.3 <- function(marker){
-  fit.nb.models(covars = func.il6.covars, outcome = 'adl.totscore.3', impobj = mice.func.3,
+  fit.nb.models(covars = func.il6.covars, outcome = 'adl.totscore.3', impobj = mice.3,
                 maxiter = func.iter, marker = marker)
 }
 
 fit.nb.adl.12 <- function(marker){
-  fit.nb.models(covars = func.covars, outcome = 'adl.totscore.12', impobj = mice.func.12,
+  fit.nb.models(covars = func.covars, outcome = 'adl.totscore.12', impobj = mice.12,
                 maxiter = func.iter, marker = marker)
 }
 
 fit.nb.adl.il6.12 <- function(marker){
-  fit.nb.models(covars = func.il6.covars, outcome = 'adl.totscore.12', impobj = mice.func.12,
+  fit.nb.models(covars = func.il6.covars, outcome = 'adl.totscore.12', impobj = mice.12,
                 maxiter = func.iter, marker = marker)
 }
 
@@ -3617,22 +3616,22 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 
 <<faqmodels>>=
 fit.nb.faq.3 <- function(marker){
-  fit.nb.models(covars = func.covars, outcome = 'faq.rdscore.3', impobj = mice.func.3,
+  fit.nb.models(covars = func.covars, outcome = 'faq.rdscore.3', impobj = mice.3,
                 maxiter = func.iter, marker = marker)
 }
 
 fit.nb.faq.il6.3 <- function(marker){
-  fit.nb.models(covars = func.il6.covars, outcome = 'faq.rdscore.3', impobj = mice.func.3,
+  fit.nb.models(covars = func.il6.covars, outcome = 'faq.rdscore.3', impobj = mice.3,
                 maxiter = func.iter, marker = marker)
 }
 
 fit.nb.faq.12 <- function(marker){
-  fit.nb.models(covars = func.covars, outcome = 'faq.rdscore.12', impobj = mice.func.12,
+  fit.nb.models(covars = func.covars, outcome = 'faq.rdscore.12', impobj = mice.12,
                 maxiter = func.iter, marker = marker)
 }
 
 fit.nb.faq.il6.12 <- function(marker){
-  fit.nb.models(covars = func.il6.covars, outcome = 'faq.rdscore.12', impobj = mice.func.12,
+  fit.nb.models(covars = func.il6.covars, outcome = 'faq.rdscore.12', impobj = mice.12,
                 maxiter = func.iter, marker = marker)
 }
 
@@ -4017,7 +4016,7 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 
 <<rbansmodels>>=
 ## Formula for full delirium model, subbing "marker" in place of actual biomarker prefix
-cog.righthand <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3)*rcs(marker.log10, 3) + rcs(il6.log10, 3)*rcs(marker.log10, 3)"
+cog.righthand <- "rcs(charlson.score, 3) + rcs(edu.div10, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3)*rcs(marker.log10, 3) + rcs(il6.log10, 3)*rcs(marker.log10, 3)"
 
 ## Set datadist for ols() to work
 dd <- datadist(endo.data); options(datadist = 'dd')
@@ -4026,9 +4025,9 @@ dd <- datadist(endo.data); options(datadist = 'dd')
 fit.rbans.models.3 <- function(marker){
   fit.ols.models(formula.right = cog.righthand,
                  outcome = 'rbans.global.score.3',
-                 impobj = areg.cog.3,
+                 impobj = areg.3,
                  dataset = endo.data,
-                 cohort.var = 'cog.cohort.3',
+                 cohort.var = 'fu.cohort.3',
                  marker = marker)
 }
 bdnf.rbans.3 <- fit.rbans.models.3('bdnf')
@@ -4082,9 +4081,9 @@ dev.off()
 fit.rbans.models.12 <- function(marker){
   fit.ols.models(formula.right = cog.righthand,
                  outcome = 'rbans.global.score.12',
-                 impobj = areg.cog.12,
+                 impobj = areg.12,
                  dataset = endo.data,
-                 cohort.var = 'cog.cohort.12',
+                 cohort.var = 'fu.cohort.12',
                  marker = marker)
 }
 bdnf.rbans.12 <- fit.rbans.models.12('bdnf')
@@ -4157,15 +4156,15 @@ dev.off()
 
 ## -- Models without IL-6 --------------------------------------------------------------------------
 ## Formula for full delirium model, subbing "markervar" in place of actual biomarker variable
-cog.righthand.noil6 <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3)*rcs(marker.log10, 3)"
+cog.righthand.noil6 <- "rcs(charlson.score, 3) + rcs(edu.div10, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3)*rcs(marker.log10, 3)"
 
 ## 3-month models
 fit.rbans.noil6.models.3 <- function(marker){
   fit.ols.models(formula.right = cog.righthand.noil6,
                  outcome = 'rbans.global.score.3',
-                 impobj = areg.cog.3,
+                 impobj = areg.3,
                  dataset = endo.data,
-                 cohort.var = 'cog.cohort.3',
+                 cohort.var = 'fu.cohort.3',
                  marker = marker)
 }
 bdnf.rbans.noil6.3 <- fit.rbans.noil6.models.3('bdnf')
@@ -4209,9 +4208,9 @@ dev.off()
 fit.rbans.noil6.models.12 <- function(marker){
   fit.ols.models(formula.right = cog.righthand.noil6,
                  outcome = 'rbans.global.score.12',
-                 impobj = areg.cog.12,
+                 impobj = areg.12,
                  dataset = endo.data,
-                 cohort.var = 'cog.cohort.12',
+                 cohort.var = 'fu.cohort.12',
                  marker = marker)
 }
 bdnf.rbans.noil6.12 <- fit.rbans.noil6.models.12('bdnf')
@@ -4470,9 +4469,9 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 fit.trailb.models.3 <- function(marker){
   fit.ols.models(formula.right = cog.righthand,
                  outcome = 'trail.b.tscore.3',
-                 impobj = areg.cog.3,
+                 impobj = areg.3,
                  dataset = endo.data,
-                 cohort.var = 'cog.cohort.3',
+                 cohort.var = 'fu.cohort.3',
                  marker = marker)
 }
 bdnf.trailb.3 <- fit.trailb.models.3('bdnf')
@@ -4526,9 +4525,9 @@ dev.off()
 fit.trailb.models.12 <- function(marker){
   fit.ols.models(formula.right = cog.righthand,
                  outcome = 'trail.b.tscore.12',
-                 impobj = areg.cog.12,
+                 impobj = areg.12,
                  dataset = endo.data,
-                 cohort.var = 'cog.cohort.12',
+                 cohort.var = 'fu.cohort.12',
                  marker = marker)
 }
 bdnf.trailb.12 <- fit.trailb.models.12('bdnf')
@@ -4584,9 +4583,9 @@ dev.off()
 fit.trailb.noil6.models.3 <- function(marker){
   fit.ols.models(formula.right = cog.righthand.noil6,
                  outcome = 'trail.b.tscore.3',
-                 impobj = areg.cog.3,
+                 impobj = areg.3,
                  dataset = endo.data,
-                 cohort.var = 'cog.cohort.3',
+                 cohort.var = 'fu.cohort.3',
                  marker = marker)
 }
 bdnf.trailb.noil6.3 <- fit.trailb.noil6.models.3('bdnf')
@@ -4630,9 +4629,9 @@ dev.off()
 fit.trailb.noil6.models.12 <- function(marker){
   fit.ols.models(formula.right = cog.righthand.noil6,
                  outcome = 'trail.b.tscore.12',
-                 impobj = areg.cog.12,
+                 impobj = areg.12,
                  dataset = endo.data,
-                 cohort.var = 'cog.cohort.12',
+                 cohort.var = 'fu.cohort.12',
                  marker = marker)
 }
 bdnf.trailb.noil6.12 <- fit.trailb.noil6.models.12('bdnf')
