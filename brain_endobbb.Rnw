@@ -148,7 +148,8 @@ oneobs.vars <- c('id', 'age.enroll', 'sex.pp', 'race.pp', 'edu', 'charlson.score
                  'ever.vent.s', 'vent.los.tot.eo',
                  'ever.del.s.imp', 'del.s.imp', 'del.s.imp.eo',
                  'ever.coma.s.imp', 'coma.s.imp', 'coma.s.imp.eo',
-                 'ever.sevseptic.s', 'icudays.sevseptic.s', 'icudays.sevseptic.eo')
+                 'ever.sevseptic.s', 'icudays.sevseptic.s', 'icudays.sevseptic.eo',
+                 'icu.los.tot', 'hosp.los', 'died.brain.365')
 
 ## Put followup test scores in wide format
 fu.data <- brain.fu %>%
@@ -185,26 +186,36 @@ endo.data <- brain.oneobs[brain.oneobs$id %in% marker.data$id, oneobs.vars] %>%
          pai1.log10 = log10(pai1.day1),
          s100b.log10 = log10(s100b.day1),
          uchl.log10 = log10(uchl.day1),
+         ## Create indicators for whether each biomarker is present
+         has.il6 = !is.na(il6.day1),
+         has.bdnf = !is.na(bdnf.day1),
+         has.esel = !is.na(esel.day1),
+         has.pai1 = !is.na(pai1.day1),
+         has.s100b = !is.na(s100b.day1),
+         has.uchl = !is.na(uchl.day1),
          ## Create indicators for whether patient is in each cohort at each time point
          cog.cohort.3 = !is.na(rbans.global.score.3) | !is.na(trail.b.tscore.3),
          cog.cohort.12 = !is.na(rbans.global.score.12) | !is.na(trail.b.tscore.12),
          func.cohort.3 = !is.na(adl.totscore.3) | !is.na(faq.totscore.3),
          func.cohort.12 = !is.na(adl.totscore.12) | !is.na(faq.totscore.12),
+         fu.cohort.3 = cog.cohort.3 | func.cohort.3,
+         fu.cohort.12 = cog.cohort.12 | func.cohort.12,
+         fu.cohort.either = fu.cohort.3 | fu.cohort.12,
          ## Create indicators for whether patient is included in cohort but missing a given test
-         cohort.norbans.3 = ifelse(!cog.cohort.3, NA, is.na(rbans.global.score.3)),
-         cohort.notrailb.3 = ifelse(!cog.cohort.3, NA, is.na(trail.b.tscore.3)),
-         cohort.noadl.3 = ifelse(!func.cohort.3, NA, is.na(adl.totscore.3)),
-         cohort.nofaq.3 = ifelse(!func.cohort.3, NA, is.na(faq.totscore.3)),
-         cohort.norbans.12 = ifelse(!cog.cohort.12, NA, is.na(rbans.global.score.12)),
-         cohort.notrailb.12 = ifelse(!cog.cohort.12, NA, is.na(trail.b.tscore.12)),
-         cohort.noadl.12 = ifelse(!func.cohort.12, NA, is.na(adl.totscore.12)),
-         cohort.nofaq.12 = ifelse(!func.cohort.12, NA, is.na(faq.totscore.12)),
+         cohort.norbans.3 = ifelse(!fu.cohort.3, NA, is.na(rbans.global.score.3)),
+         cohort.notrailb.3 = ifelse(!fu.cohort.3, NA, is.na(trail.b.tscore.3)),
+         cohort.noadl.3 = ifelse(!fu.cohort.3, NA, is.na(adl.totscore.3)),
+         cohort.nofaq.3 = ifelse(!fu.cohort.3, NA, is.na(faq.totscore.3)),
+         cohort.norbans.12 = ifelse(!fu.cohort.12, NA, is.na(rbans.global.score.12)),
+         cohort.notrailb.12 = ifelse(!fu.cohort.12, NA, is.na(trail.b.tscore.12)),
+         cohort.noadl.12 = ifelse(!fu.cohort.12, NA, is.na(adl.totscore.12)),
+         cohort.nofaq.12 = ifelse(!fu.cohort.12, NA, is.na(faq.totscore.12)),
          cog.cohort.either = cog.cohort.3 | cog.cohort.12,
-         func.cohort.either = func.cohort.3 | func.cohort.12) %>%
+         func.cohort.either = func.cohort.3 | func.cohort.12)
   ## Remove patients who had no RBANS, Trails B, ADL, or FAQ (must have had other partial outcomes)
-  ## and/or had incomplete endothelial markers and/or missing IL-6 (do not want to impute biomarker
-  ## values)
-  filter((cog.cohort.either | func.cohort.either) & comp.markers & !is.na(il6.day1))
+  ## ~~and/or had incomplete endothelial markers and/or missing IL-6 ~~
+  ## Change, January 2017: we will keep all patients with biomarker data; OK with imputing markers
+  ## This data set will be used for delirium duration models
 
 ## -- Manually create spline, interaction terms for all biomarkers ---------------------------------
 endo.data$bdnf.prime <- as.numeric(rcspline.eval(endo.data$bdnf.log10, nk = 3))
@@ -269,6 +280,12 @@ label(endo.data$esel.day1) <- 'E-selectin, study day 1'
 label(endo.data$pai1.day1) <- 'PAI-1, study day 1'
 label(endo.data$s100b.day1) <- 'S100B, study day 1'
 label(endo.data$uchl.day1) <- 'UCHL, study day 1'
+label(endo.data$has.il6) <- 'IL-6 measured, study day 1'
+label(endo.data$has.bdnf) <- 'BDNF measured, study day 1'
+label(endo.data$has.esel) <- 'E-selectin measured, study day 1'
+label(endo.data$has.pai1) <- 'PAI-1 measured, study day 1'
+label(endo.data$has.s100b) <- 'S100B measured, study day 1'
+label(endo.data$has.uchl) <- 'UCHL measured, study day 1'
 label(endo.data$il6.log10) <- 'Log10(IL-6), study day 1'
 label(endo.data$bdnf.log10) <- 'Log10(BDNF), study day 1'
 label(endo.data$esel.log10) <- 'Log10(E-selectin), study day 1'
@@ -293,18 +310,16 @@ label(endo.data$faq.totscore.12) <- 'FAQ score, 12m'
 
 ## Create data set for descriptive tables
 endo.data.desc <- bind_rows(endo.data,
-                            endo.data[endo.data$cog.cohort.either,],
-                            endo.data[endo.data$func.cohort.either,]) %>%
+                            endo.data[endo.data$fu.cohort.either,]) %>%
   mutate(cohort = factor(c(rep(1, nrow(endo.data)),
-                           rep(2, sum(endo.data$cog.cohort.either)),
-                           rep(3, sum(endo.data$func.cohort.either))),
-                         levels = 1:3,
-                         labels = c('Entire Cohort',
-                                    'Cognitive Outcomes',
-                                    'Functional Outcomes')),
+                           rep(2, sum(endo.data$cog.cohort.either | endo.data$func.cohort.either))),
+                         levels = 1:2,
+                         labels = c('Delirium Duration',
+                                    'All Followup Patients')),
          ## Revamp race and admission diagnosis variables to shorten categories
          race.pp = factor(as.character(race.pp)),
-         admit.dx = factor(ifelse(admit.dx == 'Metabolic acidosis, hypovolemia, or electrolyte disturbance',
+         admit.dx = factor(ifelse(admit.dx ==
+                                    'Metabolic acidosis, hypovolemia, or electrolyte disturbance',
                                   'Metabolic acidosis/hypovolemia/electrolytes',
                                   as.character(admit.dx))))
 
@@ -338,6 +353,15 @@ label(endo.data.desc$ever.coma.s.imp) <- 'Ever comatose during study period'
 label(endo.data.desc$coma.s.imp.eo) <- 'Days of coma among exposed'
 label(endo.data.desc$ever.sevseptic.s) <- 'Ever severely septic during study period'
 label(endo.data.desc$icudays.sevseptic.eo) <- 'Days of severe sepsis among exposed'
+label(endo.data.desc$icu.los.tot) <- 'Total ICU length of stay'
+label(endo.data.desc$hosp.los) <- 'Hospital length of stay'
+label(endo.data.desc$died.brain.365) <- '12-month mortality'
+label(endo.data.desc$has.il6) <- 'IL-6 measured, study day 1'
+label(endo.data.desc$has.bdnf) <- 'BDNF measured, study day 1'
+label(endo.data.desc$has.esel) <- 'E-selectin measured, study day 1'
+label(endo.data.desc$has.pai1) <- 'PAI-1 measured, study day 1'
+label(endo.data.desc$has.s100b) <- 'S100B measured, study day 1'
+label(endo.data.desc$has.uchl) <- 'UCHL measured, study day 1'
 label(endo.data.desc$il6.day1) <- 'IL-6, study day 1'
 label(endo.data.desc$bdnf.day1) <- 'BDNF, study day 1'
 label(endo.data.desc$esel.day1) <- 'E-selectin, study day 1'
@@ -351,36 +375,43 @@ label(endo.data.desc$pai1.log10) <- 'Log10(PAI-1), study day 1'
 label(endo.data.desc$s100b.log10) <- 'Log10(S100B), study day 1'
 label(endo.data.desc$uchl.log10) <- 'Log10(UCHL), study day 1'
 label(endo.data.desc$rbans.global.score.3) <- 'RBANS global score, 3m'
-label(endo.data.desc$cohort.norbans.3) <- 'In 3m cognitive cohort, but missing 3m RBANS'
+label(endo.data.desc$cohort.norbans.3) <- 'In 3m followup cohort, but missing 3m RBANS'
 label(endo.data.desc$rbans.global.score.12) <- 'RBANS global score, 12m'
-label(endo.data.desc$cohort.norbans.12) <- 'In 12m cognitive cohort, but missing 12m RBANS'
+label(endo.data.desc$cohort.norbans.12) <- 'In 12m followup cohort, but missing 12m RBANS'
 label(endo.data.desc$trail.b.tscore.3) <- 'Trails B T-score, 3m'
-label(endo.data.desc$cohort.notrailb.3) <- 'In 3m cognitive cohort, but missing 3m Trails B'
+label(endo.data.desc$cohort.notrailb.3) <- 'In 3m followup cohort, but missing 3m Trails B'
 label(endo.data.desc$trail.b.tscore.12) <- 'Trails B T-score, 12m'
-label(endo.data.desc$cohort.notrailb.12) <- 'In 12m cognitive cohort, but missing 12m Trails B'
+label(endo.data.desc$cohort.notrailb.12) <- 'In 12m followup cohort, but missing 12m Trails B'
 label(endo.data.desc$adl.totscore.3) <- 'ADL score, 3m'
-label(endo.data.desc$cohort.noadl.3) <- 'In 3m functional cohort, but missing 3m ADL'
+label(endo.data.desc$cohort.noadl.3) <- 'In 3m followup cohort, but missing 3m ADL'
 label(endo.data.desc$adl.totscore.12) <- 'ADL score, 12m'
-label(endo.data.desc$cohort.noadl.12) <- 'In 12m functional cohort, but missing 12m ADL'
+label(endo.data.desc$cohort.noadl.12) <- 'In 12m followup cohort, but missing 12m ADL'
 label(endo.data.desc$faq.totscore.3) <- 'FAQ score, 3m'
-label(endo.data.desc$cohort.nofaq.3) <- 'In 3m functional cohort, but missing 3m FAQ'
+label(endo.data.desc$cohort.nofaq.3) <- 'In 3m followup cohort, but missing 3m FAQ'
 label(endo.data.desc$faq.totscore.12) <- 'FAQ score, 12m'
-label(endo.data.desc$cohort.nofaq.12) <- 'In 12m functional cohort, but missing 12m FAQ'
+label(endo.data.desc$cohort.nofaq.12) <- 'In 12m followup cohort, but missing 12m FAQ'
 
 @
 
 \section{Descriptive Statistics}
-Tables \ref{table:enrollstat} - \ref{table:fustatfunc} present descriptive statistics for the
+Tables \ref{table:enrollstat} - \ref{table:fustat} present descriptive statistics for the
 \Sexpr{length(unique(endo.data$id))} patients with endothelial/BBB injury markers and long-term
 followup data. Cohort definitions are as follows:
 \begin{itemize}
 \item Entire cohort: all patients who had at least one of RBANS global, Trails B, ADL, or FAQ at at
-      least one time point \textbf{and} had complete biomarker data (all five endothelial/BBB
-      markers present on day 1, as well as IL-6)
-\item Cognitive outcomes: all patients who had at least one of RBANS global or Trails B at at least
-      one time point and had complete biomarker data
-\item Functional outcomes: all patients who had at least one of ADL or FAQ at at least one time
-      point and had complete biomarker data
+      least one time point \textbf{and} had at least partial biomarker data (at least one
+      endothelial/BBB marker present on day 1). \textbf{Total N: \Sexpr{nrow(endo.data)}.}
+\item Any followup outcomes: all patients who had at least one of RBANS global, Trails B, Katz ADL
+      or FAQ at at least one time point and had at least partial biomarker data. \textbf{Total N:
+      \Sexpr{sum(endo.data$fu.cohort.either)}.}
+      \begin{itemize}
+      \item 3-month followup: Any patient with at least partial endothelial/BBB marker data at
+      baseline and at least one of RBANS global, Trails B, Katz ADL or FAQ at 3-month followup.
+      \textbf{Total N: \Sexpr{sum(endo.data$fu.cohort.3)}.}
+      \item 12-month followup: Any patient with at least partial endothelial/BBB marker data at
+      baseline and at least one of RBANS global, Trails B, Katz ADL or FAQ at 12-month followup.
+      \textbf{Total N: \Sexpr{sum(endo.data$fu.cohort.12)}.}
+      \end{itemize}
 \end{itemize}
 
 <<printdescstats, results='asis'>>=
@@ -405,7 +436,7 @@ latex(summaryM(age.enroll + sex.pp + race.pp + edu + charlson.score + iqcode.sco
 latex(summaryM(mean.benz.icu + mean.op.new.icu + mean.prop.icu + mean.dex.icu + mean.hal.icu +
                  ever.vent.s + vent.los.tot.eo + ever.del.s.imp + del.s.imp.eo +
                  ever.coma.s.imp + coma.s.imp.eo + ever.sevseptic.s + icudays.sevseptic.eo +
-                 cvsofa.day1 + sevsepsis.day1 ~ cohort,
+                 cvsofa.day1 + sevsepsis.day1 + icu.los.tot + hosp.los + died.brain.365 ~ cohort,
                data = endo.data.desc),
       file = '',
       where = '!h',
@@ -421,7 +452,8 @@ latex(summaryM(mean.benz.icu + mean.op.new.icu + mean.prop.icu + mean.dex.icu + 
       what = '%',
       npct = 'both')
 
-latex(summaryM(il6.day1 + bdnf.day1 + esel.day1 + pai1.day1 + s100b.day1 + uchl.day1 ~ cohort,
+latex(summaryM(has.il6 + il6.day1 + has.bdnf + bdnf.day1 + has.esel + esel.day1 + has.pai1 +
+                 pai1.day1 + has.s100b + s100b.day1 + has.uchl + uchl.day1 ~ cohort,
                data = endo.data.desc),
       file = '',
       where = '!h',
@@ -430,8 +462,8 @@ latex(summaryM(il6.day1 + bdnf.day1 + esel.day1 + pai1.day1 + s100b.day1 + uchl.
       label = 'table:markerstat',
       digits = 2,
       size = 'footnotesize',
-      exclude1 = FALSE,
-      long = TRUE,
+      exclude1 = TRUE,
+      long = FALSE,
       prmsd = TRUE,
       prn = FALSE,
       what = '%',
@@ -442,27 +474,15 @@ latex(summaryM(il6.day1 + bdnf.day1 + esel.day1 + pai1.day1 + s100b.day1 + uchl.
 \clearpage
 <<printoutcomes, results = 'asis'>>=
 latex(summaryM(rbans.global.score.3 + cohort.norbans.3 + rbans.global.score.12 + cohort.norbans.12 +
-                 trail.b.tscore.3 + cohort.notrailb.3 + trail.b.tscore.12 + cohort.notrailb.12
-               ~ cohort,
-               data = subset(endo.data.desc, cohort == 'Cognitive Outcomes')),
-      file = '',
-      where = '!h',
-      caption = 'Cognitive Outcomes among Patients with Any Cognitive Data',
-      caption.lot = 'Cognitive Outcomes among Patients with Any Cognitive Data',
-      label = 'table:fustatcog',
-      digits = 2,
-      what = '%',
-      npct = 'both',
-      prmsd = TRUE)
-
-latex(summaryM(adl.totscore.3 + cohort.noadl.3 + adl.totscore.12 + cohort.noadl.12 +
+                 trail.b.tscore.3 + cohort.notrailb.3 + trail.b.tscore.12 + cohort.notrailb.12 +
+                 adl.totscore.3 + cohort.noadl.3 + adl.totscore.12 + cohort.noadl.12 +
                  faq.totscore.3 + cohort.nofaq.3 + faq.totscore.12 + cohort.nofaq.12 ~ cohort,
-               data = subset(endo.data.desc, cohort == 'Functional Outcomes')),
+               data = subset(endo.data.desc, cohort == 'All Followup Patients')),
       file = '',
       where = '!h',
-      caption = 'Functional Outcomes among Patients with Any Functional Data',
-      caption.lot = 'Functional Outcomes among Patients with Any Functional Data',
-      label = 'table:fustatfunc',
+      caption = 'Followup Outcomes among Patients with Any Followup Data',
+      caption.lot = 'Followup Outcomes among Patients with Any Followup Data',
+      label = 'table:fustat',
       digits = 2,
       what = '%',
       npct = 'both',
@@ -584,11 +604,11 @@ calc.ratioci.endobbb <- function(irr.marker = TRUE,
     if(is.null(markerp.adjust)){
       markerp.adjust <- as.numeric(biop.ratiovals[[paste0(marker, '.log10')]])
     }
-    
+
     if(length(!is.na(as.numeric(marker.adjust))) != 2){
       stop('marker.adjust must have exactly two non-missing numeric values')
     }
-    
+
     ## Default value for IL-6 = median and corresponding nonlinear value
     if(is.null(il6.adjust)){
       il6.adjust <- default.adj.vals$il6.log10
@@ -596,7 +616,7 @@ calc.ratioci.endobbb <- function(irr.marker = TRUE,
     if(is.null(il6p.adjust)){
       il6p.adjust <- default.adj.vals$il6.prime
     }
-    
+
     ## Create named vectors of values to adjust to
     ratiovars <- lapply(1:2, FUN = function(m){
       tmp <- c('marker.log10' = marker.adjust[m],
@@ -630,7 +650,7 @@ calc.ratioci.endobbb <- function(irr.marker = TRUE,
     if(is.null(il6p.adjust)){
       il6p.adjust <- as.numeric(biop.ratiovals[['il6.log10']])
     }
-    
+
     ## Create named vectors of values to adjust to
     ratiovars <- lapply(1:2, FUN = function(m){
       tmp <- c('il6.log10' = il6.adjust[m],
@@ -643,33 +663,33 @@ calc.ratioci.endobbb <- function(irr.marker = TRUE,
       tmp
     })
   }
-  
+
   use.coefs <- (1:length(modcoefs))[!is.na(pmatch(names(modcoefs), names(ratiovars[[1]])))]
   use.betas <- modcoefs[use.coefs]
-  
+
   ## Get vcov matrix for involved components
   use.vcov <- modvcov[use.coefs, use.coefs]
-  
+
   ## Calculate X values: vector 2 - vector 1
   xvals <- ratiovars[[2]] - ratiovars[[1]]
   xvals <- xvals[names(xvals) %in% names(modcoefs)]
-  
+
   ## Calculate each component of linear predictor: beta * xvals
   beta.x <- unlist(lapply(1:length(use.betas), FUN = function(b){
     prod(c(use.betas[b], xvals[b]))
   }))
-  
+
   ratiovar.logor <- sum(beta.x)
   ratiovar.or <- exp(ratiovar.logor)
-  
+
   ## Calculate SE
   ratiovar.se <- sqrt(xvals %*% use.vcov %*% xvals)
-  
+
   critval <- 1 - alpha / 2
-  
+
   ratiovar.lcl <- exp(ratiovar.logor - qnorm(critval)*ratiovar.se)
   ratiovar.ucl <- exp(ratiovar.logor + qnorm(critval)*ratiovar.se)
-  
+
   return(c('pointest' = ratiovar.or, 'lcl' = ratiovar.lcl, 'ucl' = ratiovar.ucl))
 }
 
@@ -751,9 +771,9 @@ create.designmat <- function(modvars,                    ## character vector of 
                              intvals = NULL){            ## named vector with value(s) to set
                                                          ##  interacting variable to (either age or
                                                          ##  il6, possibly il6p)
-  
+
   marker.var <- paste0(marker, '.log10')
-  
+
   ## Get unique values of biomarker, and corresponding nonlinear terms if needed
   if(!is.null(cohort.var)){
     usedata <- dataset[dataset[,cohort.var],]
@@ -763,16 +783,16 @@ create.designmat <- function(modvars,                    ## character vector of 
   marker.vals <- sort(unique(usedata[, marker.var]))
   marker.lims <- quantile(marker.vals, probs = xpctlimits, na.rm = TRUE)
   marker.vals.trim <- marker.vals[marker.vals >= marker.lims[1] & marker.vals <= marker.lims[2]]
-  
+
   if(paste0(marker, '.prime') %in% modvars){
     marker.knots <- rcspline.eval(marker.vals, nk = 3, knots.only = TRUE)
     markerp.vals <- rcspline.eval(marker.vals.trim, knots = marker.knots)
   }
 
-  ## How many rows will be in resulting matrix? (number of biomarker values plotted)  
+  ## How many rows will be in resulting matrix? (number of biomarker values plotted)
   matrows <- length(marker.vals.trim)
 
-  ## Which model terms only involve single variables vs. interactions?  
+  ## Which model terms only involve single variables vs. interactions?
   singlevar.cols <- modvars[modvars %in% names(default.adj.vals) |
                               modvars %in% paste0(marker, c('.log10', '.prime'))]
   int.cols <- modvars[!(modvars %in% singlevar.cols)]
@@ -839,14 +859,14 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
                                              ##  (eg, func.cohort.3)
                           maxiter = 25,      ## max number of iterations in glm.fit
                           marker = c('bdnf', 'esel', 'pai1', 's100b', 'uchl')){
-  
+
   if(is.null(impobj) & is.null(dataset)){
     stop('At least one of impobj, dataset must be supplied')
   }
   if(!is.null(impobj) & !is.mids(impobj)){
     stop('impobj must be of class mids')
   }
-  
+
   ## -- Setup --------------------------------------------------------------------------------------
   ## Create text for fitting model, depending on whether imputation is used
   if(is.null(impobj)){
@@ -854,7 +874,7 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
   } else{
     modfit.text = "with(impobj, glm.nb(formula = %s, maxit = maxiter))"
   }
-  
+
   ## Define data set: if no imputation, complete data from initial dataset object;
   ##   otherwise, either full data set or data set with cohort indicator = TRUE
   if(is.null(cohort.var)){
@@ -869,35 +889,35 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
 
   ## Is IL-6 included in model?
   has.il6 <- length(grep('il6', covars)) > 0
-  
+
   ## Create vectors of terms for all hypothesis tests needed ##
   if(has.il6){
     ## All nonlinear terms
     nl.vars <- c('il6.prime', 'marker.prime', 'markerp.age', 'markerp.il6', 'marker.il6p',
                  'markerp.il6p')
-    
+
     ## All interaction terms
     int.vars <- c('marker.age', 'markerp.age', 'marker.il6', 'markerp.il6', 'marker.il6p',
                   'markerp.il6p')
-    
+
     ## Interactions for age, IL-6
     ageint.vars <- c('marker.age', 'markerp.age')
     il6int.vars <- c('marker.il6', 'markerp.il6', 'marker.il6p', 'markerp.il6p')
-    
+
     ## Overall effect of IL-6, biomarker
     il6.vars <- c('il6.log10', 'il6.prime', il6int.vars)
     marker.vars <- grep('^marker', covars, value = TRUE)
   } else{
     ## All nonlinear terms
     nl.vars <- c('marker.prime', 'markerp.age')
-    
+
     ## All interaction terms
     int.vars <- c('marker.age', 'markerp.age')
-    
+
     ## Interactions for age, IL-6
     ageint.vars <- c('marker.age', 'markerp.age')
     il6int.vars <- il6.vars <- NULL
-    
+
     ## Overall effect of biomarker
     marker.vars <- grep('^marker', covars, value = TRUE)
   }
@@ -905,17 +925,17 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
   ## Initialize values
   need.nonlin <- p.nonlin <- need.int <- p.int <- p.int.age <- p.int.il6 <- p.il6 <- p.marker <-
     marker.ci <- marker.cistr <- il6.ci <- il6.cistr <- NULL
-  
+
   ## -- Hypothesis testing -------------------------------------------------------------------------
   ## 1: Nonlinear terms
   ## Create formulas
   nl.form.full <- paste(outcome,
                         paste(c(covars[!(covars %in% nl.vars)], nl.vars), collapse = ' + '),
                         sep = ' ~ ')
-  
+
   nl.form.test <- paste(outcome, paste(covars[!(covars %in% nl.vars)], collapse = ' + '),
                         sep = ' ~ ')
-  
+
   ## Test
   nl.mod.full <- eval(parse(text = sprintf(modfit.text, gsub('marker', marker, nl.form.full))))
   nl.mod.test <- eval(parse(text = sprintf(modfit.text, gsub('marker', marker, nl.form.test))))
@@ -925,9 +945,9 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
   } else{
     p.nonlin <- anova(nl.mod.full, nl.mod.test)[2, 'Pr(Chi)']
   }
-  
+
   need.nonlin <- p.nonlin < pcutoff
-  
+
   ## If nonlinear terms are not meaningful, remove them from all future model fits
   if(!need.nonlin){
     covars <- covars[!(covars %in% nl.vars)]
@@ -939,10 +959,10 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
   int.form.full <- paste(outcome,
                          paste(c(covars[!(covars %in% int.vars)], int.vars), collapse = ' + '),
                          sep = ' ~ ')
-  
+
   int.form.test <- paste(outcome, paste(covars[!(covars %in% int.vars)], collapse = ' + '),
                          sep = ' ~ ')
-  
+
   ## Test
   int.mod.full <-
     eval(parse(text = sprintf(modfit.text, gsub('marker', marker, int.form.full))))
@@ -954,7 +974,7 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
   } else{
     p.int <- anova(int.mod.full, int.mod.test)[2, 'Pr(Chi)']
   }
-  
+
   need.int <- p.int < pcutoff
 
   ## 3: If interactions needed, get p-values for age and IL-6 interactions separately
@@ -963,33 +983,33 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
       ageint.vars <- ageint.vars[!(ageint.vars %in% nl.vars)]
       il6int.vars <- il6int.vars[!(il6int.vars %in% nl.vars)]
     }
-    
+
     ageint.form.full <- paste(outcome,
                               paste(c(covars[!(covars %in% ageint.vars)], ageint.vars),
                                     collapse = ' + '),
                               sep = ' ~ ')
-    
+
     ageint.form.test <- paste(outcome, paste(covars[!(covars %in% ageint.vars)], collapse = ' + '),
                               sep = ' ~ ')
-    
+
     ageint.mod.full <- eval(parse(text = sprintf(modfit.text,
                                                  gsub('marker', marker, ageint.form.full))))
     ageint.mod.test <- eval(parse(text = sprintf(modfit.text,
                                                  gsub('marker', marker, ageint.form.test))))
-    
+
     if(!is.null(impobj)){
       p.int.age <-
         pool.compare(ageint.mod.full, ageint.mod.test, method = use.method, data = impobj)$pvalue
     } else{
       p.int.age <- anova(ageint.mod.full, ageint.mod.test)[2, 'Pr(Chi)']
     }
-    
+
     if(has.il6){
       il6int.form.full <- paste(outcome,
                                 paste(c(covars[!(covars %in% il6int.vars)], il6int.vars),
                                       collapse = ' + '),
                                 sep = ' ~ ')
-      
+
       il6int.form.test <- paste(outcome,
                                 paste(covars[!(covars %in% il6int.vars)], collapse = ' + '),
                                 sep = ' ~ ')
@@ -998,7 +1018,7 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
                                                    gsub('marker', marker, il6int.form.full))))
       il6int.mod.test <- eval(parse(text = sprintf(modfit.text,
                                                    gsub('marker', marker, il6int.form.test))))
-      
+
       if(!is.null(impobj)){
         p.int.il6 <-
           pool.compare(il6int.mod.full, il6int.mod.test, method = use.method, data = impobj)$pvalue
@@ -1019,20 +1039,20 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
       marker.vars <- marker.vars[!(marker.vars %in% nl.vars)]
     }
   }
-  
+
   marker.form.full <- paste(outcome,
                             paste(c(covars[!(covars %in% marker.vars)], marker.vars),
                                   collapse = ' + '),
                             sep = ' ~ ')
-  
+
   marker.form.test <- paste(outcome, paste(covars[!(covars %in% marker.vars)], collapse = ' + '),
                             sep = ' ~ ')
-  
+
   marker.mod.full <- eval(parse(text = sprintf(modfit.text,
                                                gsub('marker', marker, marker.form.full))))
   marker.mod.test <- eval(parse(text = sprintf(modfit.text,
                                                gsub('marker', marker, marker.form.test))))
-  
+
   if(!is.null(impobj)){
     p.marker <-
       pool.compare(marker.mod.full, marker.mod.test, method = use.method, data = impobj)$pvalue
@@ -1049,17 +1069,17 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
         il6.vars <- il6.vars[!(il6.vars %in% nl.vars)]
       }
     }
-    
+
     il6.form.full <- paste(outcome,
                            paste(c(covars[!(covars %in% il6.vars)], il6.vars), collapse = ' + '),
                            sep = ' ~ ')
-    
+
     il6.form.test <- paste(outcome, paste(covars[!(covars %in% il6.vars)], collapse = ' + '),
                            sep = ' ~ ')
-    
+
     il6.mod.full <- eval(parse(text = sprintf(modfit.text, gsub('marker', marker, il6.form.full))))
     il6.mod.test <- eval(parse(text = sprintf(modfit.text, gsub('marker', marker, il6.form.test))))
-    
+
     if(!is.null(impobj)){
       p.il6 <-
         pool.compare(il6.mod.full, il6.mod.test, method = use.method, data = impobj)$pvalue
@@ -1067,11 +1087,11 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
       p.il6 <- anova(il6.mod.full, il6.mod.test)[2, 'Pr(Chi)']
     }
   }
-    
+
   ## 5: Get final model object
   final.form <- paste(outcome, paste(covars, collapse = ' + '), sep = ' ~ ')
   final.mod <- eval(parse(text = sprintf(modfit.text, gsub('marker', marker, final.form))))
-  
+
   ## 6: Get IRR/CI for 75th vs 25th percentile for final model
   if(!is.null(impobj)){
     marker.ci <- calc.ratioci.endobbb(marker = marker,
@@ -1085,7 +1105,7 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
   marker.cistr <- paste0(rndformat(marker.ci['pointest']), ' (',
                          rndformat(marker.ci['lcl']), ', ',
                          rndformat(marker.ci['ucl']), ')')
-  
+
   if(has.il6){
     if(!is.null(impobj)){
       il6.ci <- calc.ratioci.endobbb(irr.marker = FALSE,
@@ -1102,7 +1122,7 @@ fit.nb.models <- function(covars,            ## vector of model covariates;
                         rndformat(il6.ci['lcl']), ', ',
                         rndformat(il6.ci['ucl']), ')')
   }
-  
+
   ## 7: Get N for model fit (nrow(data used for impobj))
   model.n <- nrow(impobj$data)
 
@@ -1136,7 +1156,7 @@ nb.designmat.list <- function(nbobj, ## result of fit.nb.models()
                       lapply(ageint.list, FUN = function(a){
                         create.designmat(nbobj$final.vars, marker = marker, intvals = a)
                       }))
-    
+
     if(!is.null(nbobj$p.int.il6)){
       il6.df <- do.call(rbind,
                         lapply(il6int.list, FUN = function(i){
@@ -1212,9 +1232,9 @@ plot.nb.results <- function(results.df,   ## data frame of results (eg from calc
                             intstring = NULL, ## string to describe interacting variable
                             xstring, ystring,
                             free.scales = c('neither', 'x', 'y', 'both')){
-  
+
   free.scales <- match.arg(free.scales)
-  
+
   ## Do results include an interacting term?
   has.int <- 'intvalue' %in% names(results.df)
 
@@ -1222,7 +1242,7 @@ plot.nb.results <- function(results.df,   ## data frame of results (eg from calc
     results.df$intvalue.f <-
       with(results.df, factor(paste(intstring, '=', rndformat(intvalue, 2))))
   }
-  
+
   nb.plot <- ggplot(aes(x = xvalue, y = count.pe), data = results.df) +
     geom_ribbon(aes(ymin = count.lcl, ymax = count.ucl), alpha = 0.3, fill = 'navy') +
     geom_line(colour = 'navy') +
@@ -1252,13 +1272,13 @@ plot.nb.results <- function(results.df,   ## data frame of results (eg from calc
 ## -- Create graphics for regular NB models --------------------------------------------------------
 nb.figures <- function(nbobj, marker, xstring, ystring){
   xvar <- paste0(marker, '.log10')
-  
+
   ## Create data frames of results to plot
   marker.design <- nb.designmat.list(nbobj, marker)
-  
+
   if(nbobj$p.int > pcutoff){
     marker.results <- calc.nbresults(nbobj$final.mod, designmat = marker.design$all, xvar = xvar)
-    
+
     return(list('fig' = list(plot.nb.results(results.df = marker.results,
                                              xvar = xvar,
                                              xstring = xstring,
@@ -1271,7 +1291,7 @@ nb.figures <- function(nbobj, marker, xstring, ystring){
                                            designmat = marker.design$age,
                                            xvar = xvar,
                                            intvar = 'age.div10')
-      
+
       fig1 <- plot.nb.results(results.df = marker.results.age,
                               xvar = xvar,
                               intstring = 'Age / 10',
@@ -1284,7 +1304,7 @@ nb.figures <- function(nbobj, marker, xstring, ystring){
                                            designmat = marker.design$il6,
                                            xvar = xvar,
                                            intvar = 'il6.log10')
-      
+
       fig2 <- plot.nb.results(results.df = marker.results.il6,
                               xvar = xvar,
                               intstring = 'Log10(IL-6)',
@@ -1326,14 +1346,14 @@ fit.ols.models <- function(formula.right,     ## original model covariates
                            cohort.var = NULL, ## Indicator variable in dataset for cohort
                                               ##  (eg, func.cohort.3)
                            marker = c('bdnf', 'esel', 'pai1', 's100b', 'uchl')){
-  
+
   if(is.null(impobj) & is.null(dataset)){
     stop('At least one of impobj, dataset must be supplied')
   }
   if(!is.null(impobj) & !(is.mids(impobj) | class(impobj) == 'aregImpute')){
     stop('impobj must be of class mids or aregImpute')
   }
-  
+
   ## -- Setup --------------------------------------------------------------------------------------
   ## Create text for fitting model, depending on whether imputation is used
   if(is.null(impobj)){
@@ -1343,10 +1363,10 @@ fit.ols.models <- function(formula.right,     ## original model covariates
   } else{
     modfit.text <- "fit.mult.impute(formula = %s, fitter = ols, xtrans = impobj, data = usedata)"
   }
-  
+
   ## Is impobj a) defined and b) of class mids?
   imp.mice <- !is.null(impobj) & is.mids(impobj)
-  
+
   ## Define data set: if no imputation, complete data from initial dataset object;
   ##   otherwise, either full data set or data set with cohort indicator = TRUE
   if(is.null(cohort.var)){
@@ -1361,22 +1381,22 @@ fit.ols.models <- function(formula.right,     ## original model covariates
 
   ## Is IL-6 included in model?
   has.il6 <- length(grep('il6', formula.right)) > 0
-  
+
   ## Initialize values
   need.nonlin <- p.nonlin <- need.int <- p.int <- p.int.age <- p.int.il6 <- p.il6 <- p.marker <-
     marker.ci <- marker.cistr <- il6.ci <- il6.cistr <- NULL
-  
+
   ## -- Hypothesis testing -------------------------------------------------------------------------
   ## 1: Nonlinear terms
   nl.form <- paste(outcome, formula.right, sep = ' ~ ')
   nl.mod <- eval(parse(text = sprintf(modfit.text, gsub('marker', marker, nl.form))))
-  
+
   if('TOTAL NONLINEAR' %in% rownames(anova(nl.mod))){
     p.nonlin <- anova(nl.mod)['TOTAL NONLINEAR', 'P']
   }
 
   need.nonlin <- p.nonlin < pcutoff
-  
+
   ## If nonlinear terms are not meaningful, remove them from all future model fits
   if(!need.nonlin){
     formula.right <- gsub('rcs\\(', '', gsub(', *[0-9]+\\)', '', formula.right))
@@ -1394,13 +1414,13 @@ fit.ols.models <- function(formula.right,     ## original model covariates
                      unlist(lapply(vars.involved.int,
                                    FUN = function(i){
                                      length(i) > 1 & length(grep('age\\.div10', i)) > 0 })))
-  
+
   if('TOTAL INTERACTION' %in% rownames(anova(int.mod))){
     p.int <- anova(int.mod)['TOTAL INTERACTION', 'P']
   } else{
     p.int <- anova(int.mod)[ageint.row, 'P']
   }
-  
+
   need.int <- p.int < pcutoff
 
   ## 3: If interactions needed, get p-values for age and IL-6 interactions separately
@@ -1421,7 +1441,7 @@ fit.ols.models <- function(formula.right,     ## original model covariates
   ## 4: Get p-value for overall effect of biomarker
   final.formula <- gsub('marker', marker, paste(outcome, formula.right, sep = ' ~ '))
   final.mod <- eval(parse(text = sprintf(modfit.text, final.formula)))
-  
+
   vars.involved.final <- strsplit(gsub('  (Factor+Higher Order Factors)', '',
                                        rownames(anova(final.mod)),
                                        fixed = TRUE),
@@ -1441,16 +1461,16 @@ fit.ols.models <- function(formula.right,     ## original model covariates
                                      length(i) == 1 & length(grep('^il6\\.log10', i)) > 0 })))
     p.il6 <- anova(final.mod)[il6.row, 'P']
   }
-  
+
   dd <<- datadist(endo.data); options(datadist = 'dd')
-    
+
   ## 5: Get IRR/CI for 75th vs 25th percentile for final model
   marker.ci <- summary(final.mod)[paste0(marker, '.log10'), c('Effect', 'Lower 0.95', 'Upper 0.95')]
   names(marker.ci) <- c('pointest', 'lcl', 'ucl')
   marker.cistr <- paste0(rndformat(marker.ci['pointest']), ' (',
                          rndformat(marker.ci['lcl']), ', ',
                          rndformat(marker.ci['ucl']), ')')
-  
+
   if(has.il6){
     il6.ci <- summary(final.mod)['il6.log10', c('Effect', 'Lower 0.95', 'Upper 0.95')]
     names(il6.ci) <- c('pointest', 'lcl', 'ucl')
@@ -1485,13 +1505,13 @@ fit.ols.models <- function(formula.right,     ## original model covariates
 
 # ## -- Check manually -------------------------------------------------------------------------------
 # ## Checked with BDNF, PAI-1
-# 
+#
 # pai1.form <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) * rcs(marker.log10, 3)"
-# 
+#
 # pai1.test <- fit.ols.models(formula.right = pai1.form, outcome = 'rbans.global.score.3',
 #                             impobj = areg.cog.3, dataset = endo.data, cohort.var = 'cog.cohort.3',
 #                             marker = 'pai1')
-# 
+#
 # pai1.nl <- fit.mult.impute(formula = rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
 #                              iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
 #                              rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) +
@@ -1499,7 +1519,7 @@ fit.ols.models <- function(formula.right,     ## original model covariates
 #                            fitter = ols, xtrans = areg.cog.3,
 #                            data = endo.data[endo.data$cog.cohort.3,])
 # anova(pai1.nl); pai1.test$p.nonlin; pai1.test$p.int
-# 
+#
 # pai1.noint <- fit.mult.impute(formula = rbans.global.score.3 ~ rcs(charlson.score, 3) +
 #                                 rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) +
 #                                 rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) +
@@ -1508,15 +1528,15 @@ fit.ols.models <- function(formula.right,     ## original model covariates
 #                               fitter = ols, xtrans = areg.cog.3,
 #                               data = endo.data[endo.data$cog.cohort.3,])
 # anova(pai1.noint); pai1.test$p.marker
-# 
+#
 # summary(pai1.noint); pai1.test$marker.cistr
-# 
+#
 # pai1.il6.form <- "rcs(charlson.score, 3) + rcs(edu, 3) + iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) + rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) + rcs(coma.s.imp, 3) + rcs(age.div10, 3) * rcs(marker.log10, 3) + rcs(il6.log10, 3) * rcs(marker.log10, 3)"
-# 
+#
 # pai1.il6.test <- fit.ols.models(formula.right = pai1.il6.form, outcome = 'rbans.global.score.3',
 #                                 impobj = areg.cog.3, dataset = endo.data,
 #                                 cohort.var = 'cog.cohort.3', marker = 'pai1')
-# 
+#
 # pai1.il6.nl <- fit.mult.impute(rbans.global.score.3 ~ rcs(charlson.score, 3) + rcs(edu, 3) +
 #                                  iqcode.score.e + rcs(stroke.risk, 3) + rcs(mean.modsofa.icu, 3) +
 #                                  rcs(icudays.sevseptic.s, 3) + rcs(del.s.imp, 3) +
@@ -1525,7 +1545,7 @@ fit.ols.models <- function(formula.right,     ## original model covariates
 #                                fitter = ols, xtrans = areg.cog.3,
 #                                data = endo.data[endo.data$cog.cohort.3,])
 # anova(pai1.il6.nl); pai1.il6.test$p.nonlin
-# 
+#
 # pai1.il6.lin <- fit.mult.impute(rbans.global.score.3 ~ charlson.score + edu + iqcode.score.e +
 #                                   stroke.risk + mean.modsofa.icu + icudays.sevseptic.s + del.s.imp +
 #                                   coma.s.imp + age.div10 * pai1.log10 + il6.log10 * pai1.log10,
@@ -1672,11 +1692,11 @@ create.pval.table <- function(fit.reg.obj, marker.string){
       ci.type <- 'Diff.'
     }
   }
-  
+
   ## Get numbers for biomarker and IL-6 comparisons
   marker.comp <- format(round(bio.ratiovals[[fit.reg.obj$marker]], 2), nsmall = 2)
   il6.comp <- format(round(bio.ratiovals[['il6.log10']], 2), nsmall = 2)
-  
+
   p.order <- c('p.nonlin', 'p.int',
                'marker.sep', 'marker.cistr', 'p.marker', 'il6.sep', 'il6.cistr', 'p.il6',
                'p.int.age', 'p.int.il6')
@@ -1692,7 +1712,7 @@ create.pval.table <- function(fit.reg.obj, marker.string){
       fit.reg.obj[[usep]]
     }
   }))
-  
+
   ## Add N
   p.vec <- c(fit.reg.obj$model.n, p.vec)
 
@@ -1731,17 +1751,17 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 # ## -- Need to calculate predicted values for NB models by hand -------------------------------------
 # ## Function to get median from endo.data$variable
 # get.med <- function(varname){ median(endo.data[,varname], na.rm = TRUE) }
-# 
+#
 # ## Function to calculate spline term for median of a variable in endo.data
 # get.med.spline <- function(varname){
 #   startval <- median(endo.data[,varname], na.rm = TRUE)
 #   useknots <- rcspline.eval(endo.data[,varname], nk = 3, knots.only = TRUE)
 #   calc.spline(startval, k1 = useknots[1], k2 = useknots[2], k3 = useknots[3])
 # }
-# 
+#
 # ## Function to get 2.5th, 97.5th percentiles
 # get.ci <- function(x){ quantile(x, probs = c(0.025, 0.975), na.rm = TRUE) }
-# 
+#
 # ## -- Function to update zero-inflated formulas given a count, zero portion and a regex ------------
 # create.zeroinfl.form <- function(count.form, zero.form, regex.sub){
 #   paste(paste(count.form[grep(regex.sub, count.form, invert = TRUE)], collapse = ' + '),
@@ -1867,7 +1887,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                            imp.obj = NULL,       ## aregImpute or mice object, if desired
 #                            cohort.var = NULL,    ## T/F indicator pts to include, if imputing
 #                            dataset = endo.data){ ## original data set to use
-# 
+#
 #   ## Create text for fitting model, depending on model type and whether imputation is used
 #   if(is.null(imp.obj)){
 #     if(modtype == 'nb'){
@@ -1886,16 +1906,16 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       modfit.text = 'fit.mult.impute(formula = %s, fitter = ols, xtrans = imp.obj, data = usedata)'
 #     }
 #   }
-# 
+#
 #   ## Initialize all p-values
 #   p.nonlin <- p.int <- p.marker <- p.il6 <- p.int.age <- p.int.il6 <- adj.int.vals <- NULL
-# 
+#
 #   ## Does full model have nonlinear terms?
 #   has.rcs <- length(grep('rcs(', formula.full, fixed = TRUE)) > 0
-# 
+#
 #   ## Does full model include IL-6 terms?
 #   has.il6 <- length(grep('il6', formula.full, fixed = TRUE)) > 0
-# 
+#
 #   ## Step 1: Define data set: if no imputation, complete data from initial dataset object;
 #   ##         otherwise, either full data set or data set with cohort indicator = TRUE
 #   if(is.null(cohort.var)){
@@ -1904,7 +1924,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       modvars <- gsub('rcs\\(', '', strsplit(formula.full, ' *[~+] *')[[1]])
 #       modvars <- unique(gsub(', [0-9]\\)', '', modvars[grep(':', modvars, invert = TRUE)]))
 #       modvars <- gsub('markervar', use.marker, modvars)
-# 
+#
 #       usedata <- dataset[rowSums(is.na(dataset[,modvars])) == 0,]
 #     } else{
 #       usedata <- dataset
@@ -1912,17 +1932,17 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #   } else{
 #     usedata <- dataset[dataset[,cohort.var],]
 #   }
-#   
+#
 #   ## Step 2: Fit full model; save formula as "final" formula for now
 #   final.formula <- marker.full.formula <- gsub('markervar', use.marker, formula.full)
 #   mod.full <- eval(parse(text = sprintf(modfit.text, marker.full.formula)))
-# 
+#
 #   ## Step 3: Test for whether nonlinear terms are needed
 #   if(has.rcs){
 #     ## 3a. Fit model with all linear terms
 #     marker.lin.formula <- gsub(', *[0-9]+\\)', '', gsub('rcs\\(', '', marker.full.formula))
 #     mod.lin <- eval(parse(text = sprintf(modfit.text, marker.lin.formula)))
-# 
+#
 #     ## 3b. Calculate p-value for all nonlinear terms
 #     p.nonlin <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
 #                        lrpval(mod.full, mod.lin),
@@ -1931,7 +1951,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #     marker.lin.formula <- marker.full.formula
 #     mod.lin <- mod.full
 #   }
-# 
+#
 #   ## Step 4: Test for interactions, using model with or w/o nonlinear terms, depending on p.nonlin
 #   ## 4a. Determine non-interaction model formula based on p-value for nonlinear terms
 #   if(is.null(p.nonlin) || p.nonlin > pcutoff){
@@ -1940,7 +1960,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       form.split <- strsplit(marker.lin.formula, '|', fixed = TRUE)
 #       form.split.count <- strsplit(form.split[[1]][1], ' *\\+ *')[[1]]
 #       form.split.zero <- strsplit(form.split[[1]][2], ' *\\+ *')[[1]]
-# 
+#
 #       marker.noint.formula <- create.zeroinfl.form(count.form = form.split.count,
 #                                                    zero.form = form.split.zero,
 #                                                    regex.sub = ':')
@@ -1949,15 +1969,15 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       marker.noint.formula <-
 #         paste(form.split[grep(':', form.split, invert = TRUE)], collapse = ' + ')
 #     }
-# 
+#
 #     ## 4b. Fit model without interaction terms
 #     mod.noint <- eval(parse(text = sprintf(modfit.text, marker.noint.formula)))
-# 
+#
 #     ## 4c. Calculate p-value for all interaction terms
 #     p.int <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
 #                     lrpval(mod.lin, mod.noint),
 #                     lrpval(mod.lin, mod.noint, mice.obj = imp.obj))
-# 
+#
 #     ## 4d. Save final model object
 #     if(p.int > pcutoff){
 #       mod.final <- mod.noint
@@ -1965,7 +1985,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #     } else{
 #       mod.final <- mod.lin
 #       final.formula <- marker.lin.formula
-# 
+#
 #       ## 4e. If p-value for interaction is below cutoff, test age, IL-6 interactions separately
 #       if(modtype == 'zeroinfl'){
 #         marker.noageint.formula <- create.zeroinfl.form(count.form = form.split.count,
@@ -1986,18 +2006,18 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #         }
 #       }
 #       mod.noageint <- eval(parse(text = sprintf(modfit.text, marker.noageint.formula)))
-# 
+#
 #       p.int.age <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
 #                           lrpval(mod.lin, mod.noageint),
 #                           lrpval(mod.lin, mod.noageint, mice.obj = imp.obj))
-# 
+#
 #       if(has.il6){
 #         mod.noil6int <- eval(parse(text = sprintf(modfit.text, marker.noil6int.formula)))
-# 
+#
 #         p.int.il6 <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
 #                             lrpval(mod.lin, mod.noil6int),
 #                             lrpval(mod.lin, mod.noil6int, mice.obj = imp.obj))
-# 
+#
 #       }
 #     }
 #   } else{
@@ -2006,7 +2026,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       form.split <- strsplit(marker.full.formula, '|', fixed = TRUE)
 #       form.split.count <- strsplit(form.split[[1]][1], ' *\\+ *')[[1]]
 #       form.split.zero <- strsplit(form.split[[1]][2], ' *\\+ *')[[1]]
-# 
+#
 #       ## 4b. Fit model without interaction terms
 #       marker.noint.formula <- create.zeroinfl.form(count.form = form.split.count,
 #                                                    zero.form = form.split.zero,
@@ -2017,19 +2037,19 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #         paste(form.split[grep(':', form.split, invert = TRUE)], collapse = ' + ')
 #     }
 #     mod.noint <- eval(parse(text = sprintf(modfit.text, marker.noint.formula)))
-# 
+#
 #     ## 4c. Calculate p-value for all interaction terms
 #     p.int <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
 #                     lrpval(mod.full, mod.noint),
 #                     lrpval(mod.full, mod.noint, mice.obj = imp.obj))
-# 
+#
 #     ## 4d. Save final model object
 #     if(p.int > pcutoff){
 #       mod.final <- mod.noint
 #       final.formula <- marker.noint.formula
 #     } else{
 #       mod.final <- mod.full
-# 
+#
 #       if(modtype == 'zeroinfl'){
 #         marker.noageint.formula <- create.zeroinfl.form(count.form = form.split.count,
 #                                                         zero.form = form.split.zero,
@@ -2048,22 +2068,22 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #             paste(form.split[grep('il6.log10.*:', form.split, invert = TRUE)], collapse = ' + ')
 #         }
 #       }
-# 
+#
 #       mod.noageint <- eval(parse(text = sprintf(modfit.text, marker.noageint.formula)))
 #       p.int.age <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
 #                           lrpval(mod.full, mod.noageint),
 #                           lrpval(mod.full, mod.noageint, mice.obj = imp.obj))
-# 
+#
 #       if(has.il6){
 #         mod.noil6int <- eval(parse(text = sprintf(modfit.text, marker.noil6int.formula)))
 #         p.int.il6 <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
 #                             lrpval(mod.full, mod.noil6int),
 #                             lrpval(mod.full, mod.noil6int, mice.obj = imp.obj))
-# 
+#
 #       }
 #     }
 #   }
-# 
+#
 #   ## 5. Calculate overall p-value for biomarker
 #   ## 5a. Fit model without any biomarker terms, using same data set
 #   # final.call <- as.character(mod.final$call)[2]
@@ -2081,16 +2101,16 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                          collapse = ' + ')
 #   }
 #   nomark.mod <- eval(parse(text = sprintf(modfit.text, nomark.form)))
-# 
+#
 #   p.marker <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
 #                      lrpval(mod.final, nomark.mod),
 #                      lrpval(mod.final, nomark.mod, mice.obj = imp.obj))
-# 
+#
 #   ## 6. Calculate overall p-value for IL-6, if included in model
 #   if(has.il6){
 #     ## Initialize object that might be needed if we use mice imputation
 #     refit.il6.mod <- NULL
-# 
+#
 #     if(modtype == 'zeroinfl'){
 #       ## Split twice: once for count vs. zero portion, once to get each variable
 #       final.call.split <- strsplit(final.formula, '|', fixed = TRUE)
@@ -2103,7 +2123,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       final.call.split <- strsplit(final.formula, ' + ', fixed = TRUE)[[1]]
 #       noil6.form <- paste(final.call.split[grep('il6\\.log10', final.call.split, invert = TRUE)],
 #                           collapse = ' + ')
-# 
+#
 #       ## If using mice object, pool.compare() requires IL-6 to be at the very end; refit final model
 #       if(!is.null(imp.obj) & class(imp.obj) == 'mids'){
 #         noil6.vars <- grep('il6\\.log10', final.call.split, invert = TRUE)
@@ -2114,16 +2134,16 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       }
 #     }
 #     noil6.mod <- eval(parse(text = sprintf(modfit.text, noil6.form)))
-# 
+#
 #     p.il6 <- ifelse(is.null(imp.obj) | class(imp.obj) == 'aregImpute',
 #                     lrpval(mod.final, noil6.mod),
 #                     lrpval(refit.il6.mod, noil6.mod, mice.obj = imp.obj))
-# 
+#
 #   }
-#   
+#
 #   ## In final models, get IRR or difference + 95% CI for biomarker, IL-6 (75th vs 25th percentiles)
 #   marker.ci <- marker.cistr <- il6.ci <- il6.cistr <- NULL
-#   
+#
 #   ## If interactions are kept, set values to adjust age and IL-6 to when calculating IRR/CIs
 #   if(p.int <= pcutoff){
 #     if(has.il6){
@@ -2136,12 +2156,12 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #     }
 #     names(adj.int.vals) <- gsub('marker', use.marker, names(adj.int.vals))
 #   }
-#   
+#
 #   if(modtype %in% c('nb', 'zeroinfl')){
 #     ## Create list of knots for biomarker
 #     bio.knots <- list(rcspline.eval(dataset[,use.marker], nk = 3, knots.only = TRUE))
 #     names(bio.knots) <- use.marker
-#     
+#
 #     ## Get coefficients, vcov matrix to use
 #     if(!is.null(imp.obj)){
 #       use.coefs <- pool(mod.final)$qbar
@@ -2150,12 +2170,12 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       use.coefs <- coef(mod.final)
 #       use.vcov <- vcov(mod.final)
 #     }
-# 
+#
 #     ## If model is regular NB, ratiovar = use.marker; if ZINB, needs "count_" as well
 #     if(modtype == 'zeroinfl'){
 #       use.ratiovar <- paste0('count_', use.marker)
 #     } else{ use.ratiovar <- use.marker }
-#     
+#
 #     marker.ci <- calc.ratioci(modcoefs = use.coefs,
 #                               modvcov = use.vcov,
 #                               ratiovar = use.ratiovar,
@@ -2164,7 +2184,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                               dataset = endo.data,
 #                               use.knots = bio.knots)
 #     marker.cistr <- print.peci(marker.ci)
-#     
+#
 #     if(has.il6){
 #       il6.ci <- calc.ratioci(modcoefs = use.coefs,
 #                              modvcov = use.vcov,
@@ -2176,7 +2196,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       il6.cistr <- print.peci(il6.ci)
 #     }
 #   }
-# 
+#
 #   return(list('marker' = use.marker,
 #               'final.mod' = mod.final,
 #               'p.nonlin' = p.nonlin,
@@ -2198,14 +2218,14 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                                 intvar = NULL,        ## string; variable to interact
 #                                 intvals = NULL,       ## vector; values to set int. variable to
 #                                 dataset = endo.data){ ## data frame to get unique X values from
-# 
+#
 #   is.mice <- 'mira' %in% class(nbobj)
-# 
+#
 #   ## Model object must be fit using glm.nb()
 #   if(!('negbin' %in% class(nbobj) | (is.mice & 'negbin' %in% class(nbobj$analyses[[1]])))){
 #     stop('nbobj must be of class negbin from glm.nb(), or a mice object using glm.nb to fit')
 #   }
-# 
+#
 #   ## Get coefficients, depending on whether object is imputed via mice or not
 #   if(is.mice){
 #     use.coefs <- pool(nbobj)$qbar
@@ -2213,15 +2233,15 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #     use.coefs <- coef(nbobj)
 #   }
 #   coefnames <- names(use.coefs)
-# 
+#
 #   if(!is.null(intvar) & length(grep(':', names(use.coefs))) == 0){
 #     stop('Interacting variable is specified, but model does not include interaction terms')
 #   }
-# 
+#
 #   if(!is.null(intvar) & is.null(intvals)){
 #     stop('Interacting variable is specified, but no interacting values are specified')
 #   }
-# 
+#
 #   ## Strip out "rcs(...)"
 #   coefnames2 <- unlist(lapply(coefnames, FUN = function(x){
 #     tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
@@ -2231,17 +2251,17 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #     } else{ tmp2 <- tmp1 }
 #     tmp2
 #   }))
-# 
+#
 #   ## -- Set values for all non-interaction columns -------------------------------------------------
 #   ## Get vector of all unique pieces of use.coefs
 #   ##  (eg, age.enroll, age.enroll', charlson.score, charlson.score')
 #   all.term.names <- unique(unlist(lapply(coefnames2, FUN = function(x){
 #     strsplit(x, ' *[:*] *')[[1]]
 #   })))
-# 
+#
 #   ## Get vector of all unique variable names (stripping 's from all.term.names)
 #   all.var.names <- unique(gsub("'+$", "", all.term.names))
-# 
+#
 #   ## Get vector of information for each covariate:
 #   ## - nonlinear?
 #   ## - if so, how many and where are knots?
@@ -2249,7 +2269,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #   ##   median + spline values for median if nonlinear
 #   covariate.info <- lapply(all.var.names, FUN = function(v){
 #     is.nonlin <- length(grep(paste0('^', v, "'"), all.term.names)) > 0
-# 
+#
 #     adj.main <- NULL
 #     if(v == '(Intercept)'){
 #       adj.main <- 1
@@ -2258,7 +2278,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #     } else{
 #       adj.main <- median(dataset[,v], na.rm = TRUE)
 #     }
-# 
+#
 #     ## If variable is nonlinear (using rcs), get knot locations and spline values for adj.main
 #     if(is.nonlin){
 #       v.nknots <- length(gregexpr("'",
@@ -2276,10 +2296,10 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                 'adj.to' = adj.values))
 #   })
 #   names(covariate.info) <- all.var.names
-# 
+#
 #   adjust.values <- unlist(lapply(covariate.info, FUN = function(c){ c$adj.to }))
 #   names(adjust.values) <- all.term.names
-# 
+#
 #   ## Get matrix of X values, including spline terms if needed
 #   xvals <- sort(unique(dataset[,xvar]))
 #   xlims <- quantile(xvals, probs = c(0.1, 0.9), na.rm = TRUE)
@@ -2292,14 +2312,14 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #     xvals.mat <- as.matrix(xvals, ncol = 1)
 #     colnames(xvals.mat) <- xvar
 #   }
-# 
+#
 #   ## Create matrix with adjusting values to use
 #   ## - For non-xvar/intvar-related columns, this is adjust.values * length(xvals)
 #   ## - For xvar-related columns, this is xvals.mat columns
 #   pred.matrix <- do.call(cbind,
 #                          lapply(coefnames2, FUN = function(v){
 #                            v.vars <- strsplit(v, ' *[:*] *')[[1]]
-# 
+#
 #                            tmp <- do.call(cbind,
 #                                           lapply(v.vars, FUN = function(i){
 #                                             if(i %in% colnames(xvals.mat)){
@@ -2308,7 +2328,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                                               rep(adjust.values[i], nrow(xvals.mat))
 #                                             }
 #                                           }))
-# 
+#
 #                            ## If interaction term, need product of all components;
 #                            ## otherwise, need original column
 #                            if(length(v.vars) > 1){
@@ -2318,7 +2338,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                            }
 #                          }))
 #   colnames(pred.matrix) <- coefnames2
-# 
+#
 #   ## If intvars are specified, repeat pred.matrix for each value in intvals and change interaction
 #   ## columns accordingly
 #   if(!is.null(intvar)){
@@ -2331,7 +2351,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       intvals.mat <- matrix(intvals, ncol = 1)
 #       colnames(intvals.mat) <- intvar
 #     }
-# 
+#
 #     pred.matrix <- do.call(rbind,
 #                            lapply(1:nrow(intvals.mat), FUN = function(i){
 #                              tmp <- matrix(rep(intvals.mat[i,], nrow(pred.matrix)),
@@ -2343,9 +2363,9 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                              tmp2
 #                            }))
 #   }
-# 
+#
 #   return('predmat' = pred.matrix)
-# 
+#
 # }
 
 ## -- Function to plot results of negative binomial models -----------------------------------------
@@ -2358,42 +2378,42 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                             ystring,          ## string, label of outcome
 #                             free.scales = c('neither', 'x', 'y', 'both')){ ## whether/which facet
 #                                                                            ##  scales should be free
-# 
+#
 #   free.scales <- match.arg(free.scales)
-#   
+#
 #   if(length(grep('final\\.mod', names(nbobj))) == 0){
 #     stop("Argument nbobj should be a result of fit.nb.models()")
 #   }
-# 
+#
 #   is.mice <- 'mira' %in% class(nbobj$final.mod)
 #   if(is.mice){
 #     coef.names <- names(pool(nbobj$final.mod)$qbar)
 #   } else{
 #     coef.names <- names(coef(nbobj$final.mod))
 #   }
-# 
+#
 #   if(!is.null(intvar) & length(grep(':', coef.names)) == 0){
 #     stop('Interacting variable is specified, but model does not include interaction terms')
 #   }
-# 
+#
 #   if(!is.null(intvar) & is.null(intvals)){
 #     stop('Interacting variable is specified, but no interacting values are specified')
 #   }
-# 
+#
 #   if(is.null(intvar)){
 #     nb.designmat <- create.designmat.nb(nbobj = nbobj$final.mod, xvar = xvar)
 #     nb.results <- calc.nbresults(nbobj = nbobj$final.mod, designmat = nb.designmat, xvar = xvar)
 #   } else{
 #     nb.designmat <- create.designmat.nb(nbobj = nbobj$final.mod, xvar = xvar,
 #                                         intvar = intvar, intvals = intvals)
-# 
+#
 #     nb.results <- calc.nbresults(nbobj = nbobj$final.mod, designmat = nb.designmat,
 #                                  xvar = xvar, intvar = intvar)
-# 
+#
 #     nb.results$intvalue.f <-
 #       with(nb.results, factor(paste(intstring, '=', rndformat(intvalue, 2))))
 #   }
-# 
+#
 #   nb.plot <- ggplot(aes(x = xvalue, y = count.pe), data = nb.results) +
 #     geom_ribbon(aes(ymin = count.lcl, ymax = count.ucl), alpha = 0.3, fill = 'navy') +
 #     geom_line(colour = 'navy') +
@@ -2404,7 +2424,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #           axis.title.y = element_text(size = 9),
 #           axis.text = element_text(size = 7),
 #           strip.text = element_text(face = 'bold'))
-# 
+#
 #   if(is.null(intvar)){
 #     return(nb.plot)
 #   } else{
@@ -2427,7 +2447,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                                   intvar = NULL,        ## string; variable to interact
 #                                   intvals = NULL,       ## vector; values to set int. variable to
 #                                   dataset = endo.data){ ## data frame to get unique X values from
-# 
+#
 #   ## miceobj must be of class zeroinfl
 #   if(length(grep('zeroinfl', class(modobj))) == 0){
 #     stop('modobj must be of class zeroinfl from pscl library')
@@ -2436,12 +2456,12 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #   } else if(!is.null(intvar) & is.null(intvals)){
 #     stop('Interacting variable is specified, but no interacting values are specified')
 #   } else{
-# 
+#
 #     ## Get coefficient names for count and zero portions
 #     coefnames <- names(coef(modobj))
 #     coefs.c <- coefnames[grep('^count', coefnames)]
 #     coefs.z <- coefnames[grep('^zero', coefnames)]
-# 
+#
 #     ## Strip out "rcs(...)" and "count_/zero_"
 #     coefs.c <- unlist(lapply(coefs.c, FUN = function(x){
 #       tmp1 <- gsub("rcs\\([a-z.,0-9 ]+\\)", "", x)
@@ -2453,7 +2473,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       tmp2 <- gsub('.$', '', x)
 #       if(tmp2 %in% catvars){ gsub('^zero_', '', tmp2) } else{ gsub('^zero_', '', tmp1) }
 #     }))
-# 
+#
 #     ## Get unique values of variable on X axis
 #     xvals <- sort(unique(dataset[,xvar]))
 #     xknots <- rcspline.eval(xvals, nk = 3, knots.only = TRUE)
@@ -2463,13 +2483,13 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                                     FUN = calc.spline,
 #                                     k1 = xknots[1], k2 = xknots[2], k3 = xknots[3]))
 #     }
-# 
+#
 #     ## Set values for all non-interaction columns
 #     coefs.noint.c <- coefs.c[grep(':', coefs.c, invert = TRUE)]
 #     coefs.int.c <- coefs.c[grep(':', coefs.c)]
 #     coefs.noint.z <- coefs.z[grep(':', coefs.z, invert = TRUE)]
 #     coefs.int.z <- coefs.z[grep(':', coefs.z)]
-# 
+#
 #     ## Function to fill in non-interaction columns
 #     fill.predvals.noint <- function(name){
 #       if(name == '(Intercept)'){
@@ -2488,13 +2508,13 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #         get.med.spline(gsub('.$', '', name))
 #       }
 #     }
-# 
+#
 #     predmat.noint.c <- do.call(cbind, lapply(coefs.noint.c, FUN = fill.predvals.noint))
 #     colnames(predmat.noint.c) <- coefs.noint.c
-# 
+#
 #     predmat.noint.z <- do.call(cbind, lapply(coefs.noint.z, FUN = fill.predvals.noint))
 #     colnames(predmat.noint.z) <- coefs.noint.z
-# 
+#
 #     ## If there is an interacting variable, repeat predmat.noint x number of unique values, then
 #     ##  fill in NA columns with unique values
 #     if(!is.null(intvar)){
@@ -2504,14 +2524,14 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #         predmat.noint.c[,intvar] <-
 #           unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
 #       }
-# 
+#
 #       predmat.noint.z <-
 #         do.call(rbind, replicate(length(intvals), predmat.noint.z, simplify = FALSE))
 #       if(intvar %in% colnames(predmat.noint.z)){
 #         predmat.noint.z[,intvar] <-
 #           unlist(lapply(intvals, FUN = function(x){ rep(x, length(xvals)) }))
 #       }
-# 
+#
 #       ## If interacting variable is nonlinear, determine knots for spline term
 #       if(length(grep(paste0(intvar, "'"), coefnames)) > 0){
 #         intknots <- rcspline.eval(dataset[,intvar], nk = 3, knots.only = TRUE)
@@ -2522,14 +2542,14 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #           predmat.noint.c[,paste0(intvar, "'")] <-
 #             unlist(lapply(intspline, FUN = function(x){ rep(x, length(xvals)) }))
 #         }
-# 
+#
 #         if(length(grep(paste0(intvar, "'"), coefs.z)) > 0){
 #           predmat.noint.z[,paste0(intvar, "'")] <-
 #             unlist(lapply(intspline, FUN = function(x){ rep(x, length(xvals)) }))
 #         }
 #       }
 #     }
-# 
+#
 #     if(length(coefs.int.c) > 0){
 #       predmat.int.c <- do.call(cbind,
 #                                lapply(coefs.int.c, FUN = function(name){
@@ -2541,7 +2561,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #     } else{
 #       predmat.c <- predmat.noint.c[,coefs.c]
 #     }
-# 
+#
 #     if(length(coefs.int.z) > 0){
 #       predmat.int.z <- do.call(cbind,
 #                                lapply(coefs.int.z, FUN = function(name){
@@ -2553,13 +2573,13 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #     } else{
 #       predmat.z <- predmat.noint.z[,coefs.z]
 #     }
-# 
+#
 #   }
-# 
+#
 #   return(list('predmat.c' = predmat.c, 'predmat.z' = predmat.z))
-# 
+#
 # }
-# 
+#
 # ## -- Function to get predicted response values from a zero-inflated NB model ----------------------
 # zinf.response <- function(modobj,       ## Original model object
 #                           design.zinf){ ## List of design matrices
@@ -2567,7 +2587,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #   mod.coefs <- coef(modobj)
 #   coefs.c <- mod.coefs[grep('^count_', names(mod.coefs))]
 #   coefs.z <- mod.coefs[grep('^zero_', names(mod.coefs))]
-# 
+#
 #   ## Get linear predictors for count, zero portions
 #   lp.c <- apply(design.zinf$predmat.c,
 #                 MARGIN = 1,
@@ -2575,22 +2595,22 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #   lp.z <- apply(design.zinf$predmat.z,
 #                 MARGIN = 1,
 #                 FUN = function(x){ sum(x * coefs.z) })
-# 
+#
 #   ## Get point estimates for each unique value of marker
 #   ## exp(LPc) * (1 - (exp(LPz) / (1 + exp(LPz))))
 #   pred.response <- exp(lp.c) * (1 - (exp(lp.z) / (1 + exp(lp.z))))
-# 
+#
 #   pred.response
 # }
-# 
-# 
+#
+#
 # try.zeroinfl <- function(...){
 #   op <- options(warn = 2)
 #   on.exit(options(op))
 #   try(zeroinfl(...), silent = TRUE)
 # }
-# 
-# 
+#
+#
 # ## -- Function to get data sets of predicted values for plotting zero-inflated NB models -----------
 # zinf.plotdata <- function(modobj,               ## Original model object to base bootstraps on
 #                           xvar,                 ## Main exposure variable
@@ -2598,7 +2618,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                           n.boot = n.bootsets){ ## Number of successful model fits required
 #   ## Does model include age/IL-6 interactions?
 #   intmod <- (length(grep(':', modobj$call)) > 0)
-# 
+#
 #   ## Step 1: Create design matrices
 #   if(intmod){
 #     intvars <- c('age.div10', 'il6.log10')
@@ -2610,34 +2630,34 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #   } else{
 #     design.all <- list(create.designmat.zinf(modobj, xvar))
 #   }
-# 
+#
 #   ## Step 2: Get point estimates from main model for each design matrix
 #   pointests <- lapply(design.all, FUN = function(dmat){
 #     zinf.response(modobj, dmat)
 #   })
-# 
+#
 #   ## Step 3: Get predicted values for each bootstrapped data set, using model call in modobj
 #   formula.final <- as.character(modobj$call)[2]
-# 
+#
 #   mod.list <- vector('list', n.boot)
 #   n.succ <- n.fail <- 0
-# 
+#
 #   iter <- 1
 #   while(n.succ < n.boot){
 #     cur.model <- do.call(try.zeroinfl,
 #                          list(formula = as.formula(formula.final),
 #                               dist = 'negbin',
 #                               data = bootdata[[iter]]))
-# 
+#
 #     ## Did model have an error/warning? Or does it have more/fewer coefs than original?
 #     curmod.failed <- inherits(cur.model, 'try-error')
-# 
+#
 #     if(curmod.failed){
 #       n.fail <- n.fail + 1
 #       ## With first failure, begin a text file to store error messages; with following failues,
 #       ##  add subsequent errors to it
 #       if(n.fail == 1){ append.txt <- TRUE } else{ append.txt <- FALSE }
-# 
+#
 #       sink(file = paste('zeroinfl_errors_', xvar, '.txt', sep = ''), append = append.txt)
 #       cat('Errors and warnings for ', xvar, '\n\nFailure ', n.fail, ': ', cur.model[1], '\n',
 #           sep = '')
@@ -2647,11 +2667,11 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       n.succ <- n.succ + 1
 #       mod.list[[n.succ]] <- cur.model
 #     }
-# 
+#
 #     print(paste("Finished bootstrap iteration", iter, "for", xvar))
 #     iter <- iter + 1
 #   }
-# 
+#
 #   pred.all <- lapply(design.all, FUN = function(dmat){
 #     do.call(cbind,
 #             lapply(1:length(mod.list), FUN = function(mod){
@@ -2659,12 +2679,12 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #               zinf.response(mod.list[[mod]], dmat)
 #             }))
 #   })
-# 
+#
 #   ## Step 4: Get CIs for each row of the design matrix
 #   pred.cis <- lapply(pred.all, FUN = function(pmat){
 #     t(apply(pmat, MARGIN = 1, FUN = get.ci))
 #   })
-# 
+#
 #   ## Step 5: combine with original xvar, interacting value and point estimate
 #   if(intmod){
 #     pred.final <- lapply(1:length(design.all), FUN = function(dmat){
@@ -2683,11 +2703,11 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #       tmp
 #     })
 #   }
-# 
+#
 #   return(list('pred.data' = pred.final, 'n.fail' = n.fail))
-# 
+#
 # }
-# 
+#
 # ## -- Function to plot zero-inflated results -------------------------------------------------------
 # plot.zinf.results <- function(zinfobj,
 #                               preddata,
@@ -2697,22 +2717,22 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                               intvar = NULL,
 #                               intvar.str = NULL,
 #                               intvar.p){
-# 
+#
 #   ## Create factor version of interacting variable
 #   if(!is.null(intvar)){
 #     preddata$intvar.f <-
 #       factor(paste(intvar.str, rndformat(preddata[,intvar], digits = 2), sep = ' = '))
 #   }
-# 
+#
 #   ## Substitute "xvar" for actual name of xvar for ggplot purposes
 #   names(preddata) <- gsub(xvar, 'xvar', names(preddata))
-# 
+#
 #   zinf.plot <- ggplot(aes(x = xvar, y = pe), data = preddata) +
 #     geom_ribbon(aes(ymin = lcl, ymax = ucl), alpha = 0.3, fill = 'navy') +
 #     geom_line(colour = 'navy') +
 #     ylab(ystring) +
 #     theme_bw()
-# 
+#
 #   if(!is.null(intvar)){
 #     zinf.plot <- zinf.plot +
 #       facet_wrap(~ intvar.f, nrow = 1) +
@@ -2730,10 +2750,10 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                   '\nP for all interactions: ',
 #                   formatp(val = zinfobj$p.int)))
 #   }
-# 
+#
 #   zinf.plot
 # }
-# 
+#
 # ## -- Function to create either one or two plots depending on interaction p-value ------------------
 # zinf.figures <- function(zinfobj, zinf.preddata, xvar, xstring, ystring){
 #   if(zinfobj$p.int > 0.20){
@@ -2757,7 +2777,7 @@ latex.pval.table <- function(p.df, caption = '', use.colheads = c('P-Value')){
 #                               intvar = 'il6.log10',
 #                               intvar.str = 'Log10(IL-6)',
 #                               intvar.p = 'p.int.il6')
-# 
+#
 #     return(list('fig' = list(fig1, fig2),
 #                 'height' = 8,
 #                 'layoutmat' = matrix(1:2, ncol = 1)))
@@ -2817,28 +2837,28 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 % #'   int.rows <- grep('y>=', cof.names, fixed = TRUE)
 % #'   take.rows <- all.rows[all.rows %nin% int.rows]
 % #'   cof <- data.frame(var = cof.names[take.rows])
-% #' 
+% #'
 % #'   ## Extract formula from model call
 % #'   comp.call <- as.character(formula(model.obj))
 % #'   model.outcome <- comp.call[2]
 % #'   model.formula <- comp.call[3]
-% #' 
+% #'
 % #'   for(k in 1:length(cuts)){
 % #'     cut.mod <- lrm(as.formula(paste('as.numeric(', model.outcome, ' >= ', cuts[k], ') ~ ', model.formula, sep = '')),
 % #'                    data = model.data)
-% #' 
+% #'
 % #'     cof.temp <- data.frame(var = names(coef(cut.mod)),
 % #'                            hold.place = coef(cut.mod))
-% #' 
+% #'
 % #'     cof <- merge(cof, cof.temp, all.x = TRUE, all.y = FALSE)
 % #'     names(cof) <- gsub('hold.place', paste('coef.cut', cuts[k], sep = '.'), names(cof))
 % #'   }
-% #' 
+% #'
 % #'   ## Subset in case some splines didn't make requested number of knots
 % #'   cof <- cof[rowSums(is.na(cof[,2:ncol(cof)])) == 0,]
 % #'   ## Get number of rows/columns for plot (plot as close to square as possible)
 % #'   plot.rows <- ceil(sqrt(nrow(cof)))
-% #' 
+% #'
 % #'   par(mfrow = c(plot.rows, plot.rows), mar = c(2, 4, 1, 1))
 % #'   for(k in 1:nrow(cof)){
 % #'     plot(cuts, cof[k, 2:ncol(cof)], type = 'l', ylab = '')
@@ -2846,30 +2866,30 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 % #'     abline(h = 0, lty = 2)
 % #'   }
 % #' }
-% #' 
+% #'
 % #' ## -- Test linear, POLR regression first to make sure negative binomial is best choice -------------
 % #' del.lin.bdnf <- ols(del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) +
 % #'                       rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) +
 % #'                       sevsepsis.day1 + rcs(age.enroll, 3) * rcs(bdnf.log10, 3) +
 % #'                       rcs(il6.log10, 3) * rcs(bdnf.log10, 3),
 % #'                     data = endo.data)
-% #' 
+% #'
 % #' del.polr.bdnf <- lrm(del.s.imp ~ rcs(charlson.score, 3) + rcs(iqcode.score.e, 3) +
 % #'                       rcs(stroke.risk, 3) + rcs(apache.aps, 3) + rcs(cvsofa.day1, 3) +
 % #'                       sevsepsis.day1 + rcs(age.enroll, 3) * rcs(bdnf.log10, 3) +
 % #'                       rcs(il6.log10, 3) * rcs(bdnf.log10, 3),
 % #'                     data = endo.data)
-% #' 
+% #'
 % #' ols.diagnostics(del.lin.bdnf, 'BDNF vs Delirium Duration')
 % #' po.assume(del.polr.bdnf, cuts = seq(1, 10, 1), endo.data)
-% #' 
+% #'
 % #' ## Is zero-inflation needed? (ignore missing data for this test)
 % #' pai1.del.glmnb <- glm.nb(del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk + apache.aps +
 % #'                            cvsofa.day1 + sevsepsis.day1 + age.div10 + rcs(il6.log10, 3) +
 % #'                            rcs(pai1.log10, 3) + age.div10:rcs(pai1.log10, 3) +
 % #'                            rcs(il6.log10, 3):rcs(pai1.log10, 3),
 % #'                          data = endo.data)
-% #' 
+% #'
 % #' pai1.del.zeroinfl <- zeroinfl(del.s.imp ~ charlson.score + iqcode.score.e + stroke.risk +
 % #'                                 apache.aps + cvsofa.day1 + sevsepsis.day1 + age.div10 +
 % #'                                 rcs(il6.log10, 3) + rcs(pai1.log10, 3) +
@@ -2877,9 +2897,9 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 % #'                                 rcs(il6.log10, 3):rcs(pai1.log10, 3) | age.div10 + apache.aps,
 % #'                               dist = 'negbin',
 % #'                               data = endo.data)
-% #' 
+% #'
 % #' vuong(pai1.del.glmnb, pai1.del.zeroinfl)
-% #' 
+% #'
 % #' @
 
 <<delmodels>>=
@@ -3153,19 +3173,19 @@ shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable
 
 %' <<needzero>>=
 %' ## Is zero-inflation needed? (ignore missing data for this test)
-%' 
+%'
 %' pai1.adl.glmnb <- with(mice.func.3, glm.nb(adl.totscore.3 ~ charlson.score + stroke.risk + iqcode.score.e +
 %'                            mean.modsofa.icu + icudays.sevseptic.s + del.s.imp + coma.s.imp +
 %'                            age.div10 + il6.log10 + rcs(pai1.log10, 3) +
 %'                            age.div10:rcs(pai1.log10, 3) + il6.log10:rcs(pai1.log10, 3)))
-%' 
+%'
 %' pai1.adl.zeroinfl <- zeroinfl(adl.totscore.3 ~ charlson.score + edu + iqcode.score.e + stroke.risk +
 %'                                 mean.modsofa.icu + icudays.sevseptic.s + del.s.imp + coma.s.imp +
 %'                                 age.div10 + rcs(il6.log10, 3) + rcs(pai1.log10, 3) +
 %'                                 age.div10:rcs(pai1.log10, 3) + rcs(il6.log10, 3):rcs(pai1.log10, 3)                                 | age.div10 + charlson.score + adl.e + mean.modsofa.icu,
 %'                               dist = 'negbin',
 %'                               data = endo.data[endo.data$func.cohort.3,])
-%' 
+%'
 %' vuong(pai1.adl.glmnb, pai1.adl.zeroinfl)
 %' @
 
@@ -4092,10 +4112,10 @@ uchl.rbans.12 <- fit.rbans.models.12('uchl')
 #                                       xtrans = areg.cog.3,
 #                                       data = endo.data[endo.data$cog.cohort.3,])
 # anova(s100b.full.rbans.3); s100b.rbans.3$p.nonlin
-# 
+#
 # ## Nonlinear terms needed; test interactions
 # s100b.rbans.3$p.int
-# 
+#
 # ## Interactions needed; test marker, IL-6
 # s100b.rbans.3$p.marker
 # s100b.rbans.3$p.il6
