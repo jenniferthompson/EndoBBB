@@ -4852,6 +4852,171 @@ latex.pval.table(cbind(create.pval.table(uchl.trailb.12, 'UCHL'),
 %' <<all-code, ref.label=all_labels(), echo = TRUE, eval = FALSE>>=
 %' @
 
+<<publication_figures>>=
+## -- S100B vs RBANS: two panels each for age & inflammation in main paper; ------------------------
+## -- four panels for supplement -------------------------------------------------------------------
+library(purrr)
+
+which.quants.ms <- c(0.25, 0.90)
+
+fu.age.quants <- quantile(subset(endo.data, fu.cohort.either)$age.div10,
+                          probs = c(which.quants.ms, 0.5), na.rm = TRUE)
+age.1 <- as.numeric(min(fu.age.quants[1]))
+age.2 <- as.numeric(max(fu.age.quants))
+age.med <- as.numeric(fu.age.quants['50%'])
+
+fu.il6.quants <- quantile(subset(endo.data, fu.cohort.either)$il6.log10,
+                          probs = c(which.quants, 0.5), na.rm = TRUE)
+il6.1 <- as.numeric(min(fu.il6.quants[1]))
+il6.2 <- as.numeric(max(fu.il6.quants))
+il6.med <- as.numeric(fu.il6.quants['50%'])
+
+## Which values of E-selectin, S100B to plot? Use 2.5th-97.5th %iles among followup cohorts
+plot.quantiles <- c(0.025, 0.975)
+
+esel.fu.limits <- quantile(subset(endo.data, fu.cohort.either)$esel.log10,
+                           probs = plot.quantiles, na.rm = TRUE)
+esel.fu.vals <- sort(unique(endo.data$s100b.log10[endo.data$esel.log10 >= esel.fu.limits[1] &
+                                                    endo.data$esel.log10 <= esel.fu.limits[2]]))
+
+s100b.fu.limits <- quantile(subset(endo.data, fu.cohort.either)$s100b.log10,
+                            probs = plot.quantiles, na.rm = TRUE)
+s100b.fu.vals <- sort(unique(endo.data$s100b.log10[endo.data$s100b.log10 >= s100b.fu.limits[1] &
+                                                     endo.data$s100b.log10 <= s100b.fu.limits[2]]))
+
+## Function to do exactly what I want for each panel
+wranglePredict <- function(df, intvar, timept){
+    mutate(df,
+           intvar = intvar,
+           timept = timept,
+           intval = ifelse(intvar == 'age.div10', age.div10, il6.log10))
+}
+
+## -- E-selectin vs RBANS, manuscript version ------------------------------------------------------
+## At 3 months, we want 25th and 90th %iles of IL-6; at 12 months, just median (no plots for age)
+args.Predict.esel.rbans <- list('x' = list(esel.rbans.3$final.mod, esel.rbans.3$final.mod,
+                                           esel.rbans.12$final.mod),
+                                'il6.log10' = c(il6.1, il6.2, il6.med))
+
+## Create big data frame of all E-selectin vs RBANS model predicted values
+Predict.esel.rbans <- pmap(args.Predict.esel.rbans, .f = Predict, esel.log10 = esel.fu.vals) %>%
+  map(.f = as.data.frame)
+
+args.wrangle.esel.rbans <- list('df' = Predict.esel.rbans,
+                                'intvar' = c(rep('il6.log10', 2), 'overall'),
+                                'timept' = c(rep(3, 2), 12))
+
+predvals.esel.rbans <- pmap(args.wrangle.esel.rbans, .f = wranglePredict) %>%
+  bind_rows() %>%
+  mutate(time.f = factor(ifelse(timept == 3, 1, 2),
+                         levels = 1:2, labels = paste(c(3, 12), 'Months')),
+         int.f = ifelse(intvar == 'age.div10', paste('Age* =', round(intval*10)),
+                 ifelse(intvar == 'il6.log10',
+                        paste('IL-6* =', format(round(intval, 2), nsmall = 2)),
+                        'Overall Association')))
+
+plot.esel.rbans.3 <- ggplot(data = subset(predvals.esel.rbans, time.f == '3 Months'),
+                            aes(x = esel.log10, y = yhat)) +
+  facet_wrap(~ int.f, nrow = 1) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = '#003D79') +
+  geom_line(colour = '#003D79') +
+  scale_x_continuous(name = 'E-Selectin* Plasma Concentration') +
+  scale_y_continuous(name = 'Adjusted RBANS Global Score',
+                     limits = c(65, 130), breaks = seq(70, 130, 10)) +
+  ggtitle('3-Month Follow-Up') +
+  theme_minimal() +
+  theme(panel.border = element_rect(fill = NA, colour = 'grey80'),
+        panel.background = element_rect(fill = 'white', colour = 'grey80'),
+        strip.text = element_text(face = 'bold'),
+        plot.title = element_text(face = 'bold', , hjust = 0.5),
+        plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
+  
+plot.esel.rbans.12 <- ggplot(data = subset(predvals.esel.rbans, time.f == '12 Months'),
+                             aes(x = esel.log10, y = yhat)) +
+  facet_wrap(~ int.f, nrow = 1) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = '#003D79') +
+  geom_line(colour = '#003D79') +
+  scale_x_continuous(name = 'E-Selectin* Plasma Concentration') +
+  # scale_y_continuous(name = '\nAdjusted RBANS global score') +
+  scale_y_continuous(name = NULL,
+                     limits = c(65, 130), breaks = seq(70, 130, 10)) +
+  ggtitle('12-Month Follow-Up') +
+  theme_minimal() +
+  theme(panel.border = element_rect(fill = NA, colour = 'grey80'),
+        panel.background = element_rect(fill = 'white', colour = 'grey80'),
+        strip.text = element_text(face = 'bold'),
+        plot.title = element_text(face = 'bold', hjust = 0.5),
+        plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
+  
+pdf(file = 'brain_endobbb_eselrbans_ms.pdf', width = 10, height = 4)
+multiplot(plot.esel.rbans.3, plot.esel.rbans.12, layout = matrix(c(1, 1, 2), nrow = 1))
+dev.off()
+
+## -- S100B vs RBANS, manuscript version -----------------------------------------------------------
+## For each model, we want to get predicted values for two %iles each of age and IL-6
+args.Predict.s100b.rbans <- list('x' = list(s100b.rbans.3$final.mod, s100b.rbans.3$final.mod,
+                                            s100b.rbans.3$final.mod, s100b.rbans.3$final.mod,
+                                            s100b.rbans.12$final.mod, s100b.rbans.12$final.mod,
+                                            s100b.rbans.12$final.mod, s100b.rbans.12$final.mod),
+                                 'age.div10' = c(age.1, age.2, age.med, age.med,
+                                                 age.1, age.2, age.med, age.med),
+                                 'il6.log10' = c(il6.med, il6.med, il6.1, il6.2,
+                                                 il6.med, il6.med, il6.1, il6.2))
+
+## Create big data frame of all S100B vs RBANS model predicted values
+Predict.s100b.rbans <- pmap(args.Predict.s100b.rbans, .f = Predict, s100b.log10 = s100b.fu.vals) %>%
+  map(.f = as.data.frame)
+
+args.wrangle.s100b.rbans <- list('df' = Predict.s100b.rbans,
+                                 'intvar' = rep(c(rep('age.div10', 2), rep('il6.log10', 2)), 2),
+                                 'timept' = c(rep(3, 4), rep(12, 4)))
+
+predvals.s100b.rbans <- pmap(args.wrangle.s100b.rbans, .f = wranglePredict) %>%
+  bind_rows() %>%
+  mutate(time.f = factor(ifelse(timept == 3, 1, 2),
+                         levels = 1:2, labels = paste(c(3, 12), 'Months')),
+         int.f = ifelse(intvar == 'age.div10', paste('Age* =', round(intval*10)),
+                        paste('IL-6* =', format(round(intval, 2), nsmall = 2))))
+
+plot.s100b.rbans.3 <- ggplot(data = subset(predvals.s100b.rbans, time.f == '3 Months'),
+                             aes(x = s100b.log10, y = yhat)) +
+  facet_wrap(~ int.f, nrow = 2) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = '#003D79') +
+  geom_line(colour = '#003D79') +
+  scale_x_continuous(name = 'S100B* Plasma Concentration') +
+  scale_y_continuous(name = 'Adjusted RBANS Global Score',
+                     limits = c(60, 100), breaks = seq(60, 100, 10)) +
+  ggtitle('3-Month Follow-Up') +
+  theme_minimal() +
+  theme(panel.border = element_rect(fill = NA, colour = 'grey80'),
+        panel.background = element_rect(fill = 'white', colour = 'grey80'),
+        strip.text = element_text(face = 'bold'),
+        plot.title = element_text(face = 'bold', , hjust = 0.5),
+        plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
+  
+plot.s100b.rbans.12 <- ggplot(data = subset(predvals.s100b.rbans, time.f == '12 Months'),
+                             aes(x = s100b.log10, y = yhat)) +
+  facet_wrap(~ int.f, nrow = 2) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = '#003D79') +
+  geom_line(colour = '#003D79') +
+  scale_x_continuous(name = 'S100B* Plasma Concentration') +
+  # scale_y_continuous(name = '\nAdjusted RBANS global score') +
+  scale_y_continuous(name = NULL,
+                     limits = c(60, 100), breaks = seq(60, 100, 10)) +
+  ggtitle('12-Month Follow-Up') +
+  theme_minimal() +
+  theme(panel.border = element_rect(fill = NA, colour = 'grey80'),
+        panel.background = element_rect(fill = 'white', colour = 'grey80'),
+        strip.text = element_text(face = 'bold'),
+        plot.title = element_text(face = 'bold', hjust = 0.5),
+        plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
+  
+pdf(file = 'brain_endobbb_s100brbans_ms.pdf', width = 10, height = 6)
+multiplot(plot.s100b.rbans.3, plot.s100b.rbans.12, layout = matrix(1:2, nrow = 1))
+dev.off()
+
+@
+
 \clearpage
 \section{Technical Details}
 
