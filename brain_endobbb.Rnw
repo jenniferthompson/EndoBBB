@@ -4866,7 +4866,7 @@ age.2 <- as.numeric(max(fu.age.quants))
 age.med <- as.numeric(fu.age.quants['50%'])
 
 fu.il6.quants <- quantile(subset(endo.data, fu.cohort.either)$il6.log10,
-                          probs = c(which.quants, 0.5), na.rm = TRUE)
+                          probs = c(which.quants.ms, 0.5), na.rm = TRUE)
 il6.1 <- as.numeric(min(fu.il6.quants[1]))
 il6.2 <- as.numeric(max(fu.il6.quants))
 il6.med <- as.numeric(fu.il6.quants['50%'])
@@ -4876,8 +4876,8 @@ plot.quantiles <- c(0.025, 0.975)
 
 esel.fu.limits <- quantile(subset(endo.data, fu.cohort.either)$esel.log10,
                            probs = plot.quantiles, na.rm = TRUE)
-esel.fu.vals <- sort(unique(endo.data$s100b.log10[endo.data$esel.log10 >= esel.fu.limits[1] &
-                                                    endo.data$esel.log10 <= esel.fu.limits[2]]))
+esel.fu.vals <- sort(unique(endo.data$esel.log10[endo.data$esel.log10 >= esel.fu.limits[1] &
+                                                   endo.data$esel.log10 <= esel.fu.limits[2]]))
 
 s100b.fu.limits <- quantile(subset(endo.data, fu.cohort.either)$s100b.log10,
                             probs = plot.quantiles, na.rm = TRUE)
@@ -4922,7 +4922,7 @@ plot.esel.rbans.3 <- ggplot(data = subset(predvals.esel.rbans, time.f == '3 Mont
   geom_line(colour = '#003D79') +
   scale_x_continuous(name = 'E-Selectin* Plasma Concentration') +
   scale_y_continuous(name = 'Adjusted RBANS Global Score',
-                     limits = c(65, 130), breaks = seq(70, 130, 10)) +
+                     limits = c(60, 90), breaks = seq(60, 90, 10)) +
   ggtitle('3-Month Follow-Up') +
   theme_minimal() +
   theme(panel.border = element_rect(fill = NA, colour = 'grey80'),
@@ -4939,7 +4939,7 @@ plot.esel.rbans.12 <- ggplot(data = subset(predvals.esel.rbans, time.f == '12 Mo
   scale_x_continuous(name = 'E-Selectin* Plasma Concentration') +
   # scale_y_continuous(name = '\nAdjusted RBANS global score') +
   scale_y_continuous(name = NULL,
-                     limits = c(65, 130), breaks = seq(70, 130, 10)) +
+                     limits = c(60, 90), breaks = seq(60, 90, 10)) +
   ggtitle('12-Month Follow-Up') +
   theme_minimal() +
   theme(panel.border = element_rect(fill = NA, colour = 'grey80'),
@@ -5053,7 +5053,7 @@ suppplot.esel.rbans.3 <- ggplot(data = predvals.esel.rbans, aes(x = esel.log10, 
   geom_line(colour = '#003D79') +
   scale_x_continuous(name = 'E-Selectin* Plasma Concentration') +
   scale_y_continuous(name = 'Adjusted RBANS Global Score',
-                     limits = c(65, 130), breaks = seq(70, 130, 10)) +
+                     limits = c(60, 90), breaks = seq(60, 90, 10)) +
   theme_minimal() +
   theme(panel.border = element_rect(fill = NA, colour = 'grey80'),
         panel.background = element_rect(fill = 'white', colour = 'grey80'),
@@ -5155,6 +5155,36 @@ suppplot.esel.adl.3 <- ggplot(data = predvals.esel.adl, aes(x = xvalue, y = coun
 
 pdf(file = 'brain_endobbb_eseladl3_supp.pdf', width = 7, height = 5)
 suppplot.esel.adl.3
+dev.off()
+
+## -- UCHL vs RBANS, supplement version -------------------------------------------------------------
+## 3 months only, no interactions (one panel)
+args.Predict.uchl.rbans <- list('x' = list(uchl.rbans.3$final.mod))
+
+uchl.fu.limits <- quantile(subset(endo.data, fu.cohort.either)$uchl.log10,
+                           probs = plot.quantiles, na.rm = TRUE)
+uchl.fu.vals <- sort(unique(endo.data$uchl.log10[endo.data$uchl.log10 >= uchl.fu.limits[1] &
+                                                   endo.data$uchl.log10 <= uchl.fu.limits[2]]))
+
+## Create data frame of all UCHL vs RBANS model predicted values
+Predict.uchl.rbans <- Predict(uchl.rbans.3$final.mod, uchl.log10 = uchl.fu.vals) %>%
+  as.data.frame()
+
+suppplot.uchl.rbans.3 <- ggplot(data = Predict.uchl.rbans, aes(x = uchl.log10, y = yhat)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = '#003D79') +
+  geom_line(colour = '#003D79') +
+  scale_x_continuous(name = 'UCHL* Plasma Concentration') +
+  scale_y_continuous(name = 'Adjusted RBANS Global Score',
+                     limits = c(70, 90), breaks = seq(70, 90, 5)) +
+  theme_minimal() +
+  theme(panel.border = element_rect(fill = NA, colour = 'grey80'),
+        panel.background = element_rect(fill = 'white', colour = 'grey80'),
+        strip.text = element_text(face = 'bold'),
+        plot.title = element_text(face = 'bold', hjust = 0.5),
+        plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
+  
+pdf(file = 'brain_endobbb_uchlrbans3_supp.pdf', width = 6, height = 4)
+suppplot.uchl.rbans.3
 dev.off()
 
 @
