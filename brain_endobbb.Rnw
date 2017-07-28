@@ -23,7 +23,6 @@
 opts_chunk$set(echo=FALSE, warning = FALSE, message = FALSE, cache = FALSE, error = FALSE, results='hide')
 options(replace.assign = TRUE, width = 90)
 
-library(ClusterBootMultinom)
 library(mice)
 library(MASS)
 library(pscl)
@@ -138,6 +137,62 @@ marker.data$uchl.day1 <- unlist(lapply(marker.data$uchl.day1,
 
 ## Indicator for complete biomarker data
 marker.data$comp.markers <- rowSums(is.na(marker.data[,paste0(endo.names, '.day1')])) == 0
+
+## -- For CONSORT info, get in-hospital, f/u status for each BRAIN-ICU patient ---------------------
+brain.oneobs$hosp.status <- with(brain.oneobs, {
+  factor(ifelse(!is.na(studywd.amt) &
+                  studywd.amt %in% c("2. W/D from Participation and All Data Collected",
+                                     "4. N/A Study Staff Withdrew Patient"), 1,
+         ifelse(!is.na(died.inhosp) & died.inhosp == "Died in hospital", 2,
+         ifelse(!is.na(studywd.date), 3, 4))),
+         levels = 1:4,
+         labels = c("Withdrew all data",
+                    "Died in hospital",
+                    "Withdrew in hospital",
+                    "Discharged alive, remained in study"))
+})
+
+brain.fu$hadfu <- rowSums(!is.na(brain.fu[,c("rbans.global.score",
+                                             "trail.b.tscore",
+                                             "adl.totscore",
+                                             "faq.totscore")])) > 0
+
+hadfu.3m <- subset(brain.fu, fu.period == "3 Month" & hadfu)$id
+hadfu.12m <- subset(brain.fu, fu.period == "12 Month" & hadfu)$id
+
+brain.oneobs$three.status <- with(brain.oneobs, {
+  factor(
+    ifelse(hosp.status != "Discharged alive, remained in study", NA,
+    ifelse(id %in% subset(brain.fu, fu.period == "3 Month" & status == "Deceased")$id, 1,
+    ifelse(id %in% subset(brain.fu,
+                          fu.period == "3 Month" & status == "Living-Withdrew from the study")$id,
+           2,
+    ifelse(id %in% hadfu.3m, 5,
+    ifelse(id %in% hadfu.12m, 4, 3))))),
+    levels = 1:5,
+    labels = c("Died before 3m followup",
+               "Withdrew before 3m followup",
+               "Permanently lost to followup",
+               "Temporarily lost to followup",
+               "Assessed at 3m followup"))
+})
+
+brain.oneobs$twelve.status <- with(brain.oneobs, {
+  factor(
+    ifelse(hosp.status != "Discharged alive, remained in study" |
+             (!is.na(three.status) &
+                three.status %in% c("Died before 3m followup", "Withdrew before 3m followup")), NA,
+    ifelse(id %in% subset(brain.fu, fu.period == "12 Month" & status == "Deceased")$id, 1,
+    ifelse(id %in% subset(brain.fu,
+                          fu.period == "12 Month" & status == "Living-Withdrew from the study")$id,
+           2,
+    ifelse(id %in% hadfu.12m, 4, 3)))),
+    levels = 1:4,
+    labels = c("Died before 12m followup",
+               "Withdrew before 12m followup",
+               "Lost to followup",
+               "Assessed at 12m followup"))
+})
 
 ## -- Merge biomarker data onto BRAIN data ---------------------------------------------------------
 oneobs.vars <- c('id', 'age.enroll', 'sex.pp', 'race.pp', 'edu', 'charlson.score', 'iqcode.score.e',
@@ -414,6 +469,103 @@ followup data. Cohort definitions are as follows:
       \end{itemize}
 \end{itemize}
 
+\clearpage
+\subsection{Patient Flow}
+
+A CONSORT-like diagram for this study is tricky, because patients were not eligible to
+be included in delirium models unless they also had followup data available.
+
+For these purposes, "followup" indicates at least one of the following tests had scores available at 3- and/or 12-month followup: RBANS global; Trails B; ADL; FAQ.
+
+<<consort_table>>=
+## -- In-hospital section ------------------------------------------------------
+n_wdall <- sum(brain.oneobs$hosp.status == "Withdrew all data")
+n_eval <- sum(brain.oneobs$hosp.status != "Withdrew all data")
+n_diedinhosp <- sum(brain.oneobs$hosp.status == "Died in hospital")
+n_wdinhosp <- sum(brain.oneobs$hosp.status == "Withdrew in hospital")
+n_dcalive <- sum(brain.oneobs$hosp.status == "Discharged alive, remained in study")
+n_nomarkers <- length(setdiff(
+  subset(brain.oneobs, hosp.status == "Discharged alive, remained in study")$id,
+  unique(marker.data$id)
+))
+n_markers <- length(unique(marker.data$id))
+
+consort_inhosp <- tribble(
+  ~ current,                                                   ~ npts,
+  "Enrolled in BRAIN-ICU",                                     nrow(brain.oneobs),
+  "~~~Withdrew all data",                                      n_wdall,
+  "~~~Evaluated in hospital",                                  n_eval,
+  "~~~~~~Died in hospital",                                    n_diedinhosp,
+  "~~~~~~Withdrew in hospital",                                n_wdinhosp,
+  "~~~~~~Discharged, remained in study",                       n_dcalive,
+  "~~~~~~~~~No biomarker data available*",                     n_nomarkers,
+  "~~~~~~~~~>=1 biomarker available; inc. in delirium models", n_markers
+)
+
+## -- 3m followup section ------------------------------------------------------
+n_died3m <- sum(brain.oneobs$three.status == "Died before 3m followup", na.rm = TRUE)
+n_wd3m <- sum(brain.oneobs$three.status == "Withdrew before 3m followup", na.rm = TRUE)
+n_noassess3m <- sum(brain.oneobs$three.status %in%
+                      c("Permanently lost to followup", "Temporarily lost to followup"),
+                    na.rm = TRUE)
+n_lostperm3m <- sum(brain.oneobs$three.status == "Permanently lost to followup", na.rm = TRUE)
+n_losttemp3m <- sum(brain.oneobs$three.status == "Temporarily lost to followup", na.rm = TRUE)
+n_fu3m <- sum(brain.oneobs$three.status == "Assessed at 3m followup", na.rm = TRUE)
+n_fu3m_nomarker <- length(setdiff(hadfu.3m, unique(marker.data$id)))
+n_fu3m_hadmarker <- length(intersect(hadfu.3m, unique(marker.data$id)))
+
+consort_3m <- tribble(
+  ~ current,                                          ~ npts,
+    "Discharged, remained in study",                      n_dcalive,
+    "~~~Died before 3m followup",                         n_died3m,
+    "~~~Withdrew before 3m followup",                     n_wd3m,
+    "~~~No 3m assessment",                                n_noassess3m,
+    "~~~~~~Permanently lost to followup",                 n_lostperm3m,
+    "~~~~~~Temporarily lost to followup",                 n_losttemp3m,
+    "~~~3m followup available",                           n_fu3m,
+    "~~~~~~No biomarker data available",                  n_fu3m_nomarker,
+    "~~~~~~Biomarker data available (inc. in 3m models)", n_fu3m_hadmarker
+)
+
+## -- 12m followup section -----------------------------------------------------
+n_died12m <- sum(brain.oneobs$twelve.status == "Died before 12m followup", na.rm = TRUE)
+n_wd12m <- sum(brain.oneobs$twelve.status == "Withdrew before 12m followup", na.rm = TRUE)
+n_noassess12m <- sum(brain.oneobs$twelve.status == "Lost to followup", na.rm = TRUE)
+n_fu12m <- sum(brain.oneobs$twelve.status == "Assessed at 12m followup", na.rm = TRUE)
+n_fu12m_nomarker <- length(setdiff(hadfu.12m, unique(marker.data$id)))
+n_fu12m_hadmarker <- length(intersect(hadfu.12m, unique(marker.data$id)))
+
+consort_12m <- tribble(
+  ~ current,                                             ~ npts,
+    "Eligible for 12m followup",                           n_dcalive - (n_died3m + n_wd3m),
+    "~~~Died before 12m followup",                         n_died12m,
+    "~~~Withdrew before 12m followup",                     n_wd12m,
+    "~~~No 12m assessment",                                n_noassess12m,
+    "~~~12m followup available",                           n_fu12m,
+    "~~~~~~No biomarker data available",                   n_fu12m_nomarker,
+    "~~~~~~Biomarker data available (inc. in 12m models)", n_fu12m_hadmarker
+)
+
+consort_info <- bind_rows(consort_inhosp, consort_3m, consort_12m)
+
+@
+
+<<printconsort, results = "asis">>=
+latex(consort_info, file = "",
+      rowname = "",
+      title = "",
+      where = "!h",
+      caption = "Patient Status Throughout Study",
+      colheads = c("", "N"),
+      col.just = c("l", "r"),
+      rgroup = c("In-Hospital", "3 Months", "12 Months"),
+      n.rgroup = c(8, 9, 7),
+      insert.bottom = "\\emph{* Biomarkers were only measured on patients with at least one of RBANS, Trails B, ADL, or FAQ at at least one followup point.}")
+
+@
+
+\clearpage
+\subsection{Cohort Description}
 <<printdescstats, results='asis'>>=
 latex(summaryM(age.enroll + sex.pp + race.pp + edu + charlson.score + iqcode.score.e + stroke.risk +
                  adl.e + faq.e + disabled.e + frailty + icu.type + admit.dx + num.apache +
@@ -426,7 +578,7 @@ latex(summaryM(age.enroll + sex.pp + race.pp + edu + charlson.score + iqcode.sco
       label = 'table:enrollstat',
       digits = 2,
       size = 'small',
-      exclude1 = FALSE,
+      exclude1 = TRUE,
       long = TRUE,
       prmsd = TRUE,
       prn = FALSE,
@@ -2996,6 +3148,39 @@ pdf(file = 'uchl_delnoil6_results.pdf', width = 8, height = uchl.del.fig$height)
 multiplot(plotlist = uchl.del.fig$fig, layout = uchl.del.fig$layoutmat)
 dev.off()
 
+## -- Publication versions for BDNF, UCHL: tweak X axis, add p-value -------------------------------
+pdf(file = 'bdnf_del_il6_results_pub.pdf', width = 6, height = 4)
+bdnf.del.il6.fig$fig[[1]] +
+  scale_x_continuous(name = 'Log10(BDNF) Plasma Concentration') +
+  annotate(geom = 'text', x = 5.5, y = 4.05, hjust = 1, vjust = 0, size = 3,
+           label = paste('P, overall association:',
+                         format(round(bdnf.del.il6$p.marker, 2), nsmall = 2)))
+dev.off()
+
+pdf(file = 'bdnf_del_noil6_results_pub.pdf', width = 6, height = 4)
+bdnf.del.fig$fig[[1]] +
+  scale_x_continuous(name = 'Log10(BDNF) Plasma Concentration') +
+  annotate(geom = 'text', x = 5.495, y = 3.76, hjust = 1, vjust = 0, size = 3,
+           label = paste('P, overall association:',
+                         format(round(bdnf.del$p.marker, 2), nsmall = 2)))
+dev.off()
+
+pdf(file = 'uchl_del_il6_results_pub.pdf', width = 6, height = 4)
+uchl.del.il6.fig$fig[[1]] +
+  scale_x_continuous(name = 'Log10(UCHL) Plasma Concentration') +
+  annotate(geom = 'text', x = 4.2, y = 4.25, hjust = 1, vjust = 0, size = 3,
+           label = paste('P, overall association:',
+                         format(round(uchl.del.il6$p.marker, 2), nsmall = 2)))
+dev.off()
+
+pdf(file = 'uchl_del_noil6_results_pub.pdf', width = 6, height = 4)
+uchl.del.fig$fig[[1]] +
+  scale_x_continuous(name = 'Log10(UCHL) Plasma Concentration') +
+  annotate(geom = 'text', x = 4.2, y = 4.05, hjust = 1, vjust = 0, size = 3,
+           label = paste('P, overall association:',
+                         format(round(uchl.del$p.marker, 2), nsmall = 2)))
+dev.off()
+
 @
 
 \clearpage
@@ -4930,7 +5115,7 @@ plot.esel.rbans.3 <- ggplot(data = subset(predvals.esel.rbans, time.f == '3 Mont
         strip.text = element_text(face = 'bold'),
         plot.title = element_text(face = 'bold', , hjust = 0.5),
         plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
-  
+
 plot.esel.rbans.12 <- ggplot(data = subset(predvals.esel.rbans, time.f == '12 Months'),
                              aes(x = esel.log10, y = yhat)) +
   facet_wrap(~ int.f, nrow = 1) +
@@ -4947,7 +5132,7 @@ plot.esel.rbans.12 <- ggplot(data = subset(predvals.esel.rbans, time.f == '12 Mo
         strip.text = element_text(face = 'bold'),
         plot.title = element_text(face = 'bold', hjust = 0.5),
         plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
-  
+
 pdf(file = 'brain_endobbb_eselrbans_ms.pdf', width = 10, height = 4)
 multiplot(plot.esel.rbans.3, plot.esel.rbans.12, layout = matrix(c(1, 1, 2), nrow = 1))
 dev.off()
@@ -4993,7 +5178,7 @@ plot.s100b.rbans.3 <- ggplot(data = subset(predvals.s100b.rbans, time.f == '3 Mo
         strip.text = element_text(face = 'bold'),
         plot.title = element_text(face = 'bold', , hjust = 0.5),
         plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
-  
+
 plot.s100b.rbans.12 <- ggplot(data = subset(predvals.s100b.rbans, time.f == '12 Months'),
                              aes(x = s100b.log10, y = yhat)) +
   facet_wrap(~ int.f, nrow = 2) +
@@ -5010,7 +5195,7 @@ plot.s100b.rbans.12 <- ggplot(data = subset(predvals.s100b.rbans, time.f == '12 
         strip.text = element_text(face = 'bold'),
         plot.title = element_text(face = 'bold', hjust = 0.5),
         plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
-  
+
 pdf(file = 'brain_endobbb_s100brbans_ms.pdf', width = 10, height = 6)
 multiplot(plot.s100b.rbans.3, plot.s100b.rbans.12, layout = matrix(1:2, nrow = 1))
 dev.off()
@@ -5060,7 +5245,7 @@ suppplot.esel.rbans.3 <- ggplot(data = predvals.esel.rbans, aes(x = esel.log10, 
         strip.text = element_text(face = 'bold'),
         plot.title = element_text(face = 'bold', hjust = 0.5),
         plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
-  
+
 pdf(file = 'brain_endobbb_eselrbans3_supp.pdf', width = 10, height = 4)
 suppplot.esel.rbans.3
 dev.off()
@@ -5112,7 +5297,7 @@ suppplot.s100b.rbans.3 <- ggplot(data = subset(predvals.s100b.rbans, time.f == '
         plot.title = element_text(face = 'bold', , hjust = 0.5),
         plot.background = element_rect(fill = 'grey95', colour = 'grey95'),
         plot.margin = unit(margin.lines, units = 'lines'))
-  
+
 suppplot.s100b.rbans.12 <- ggplot(data = subset(predvals.s100b.rbans, time.f == '12 Months'),
                                   aes(x = s100b.log10, y = yhat)) +
   facet_wrap(~ int.f, nrow = 2, ncol = 4) +
@@ -5129,7 +5314,7 @@ suppplot.s100b.rbans.12 <- ggplot(data = subset(predvals.s100b.rbans, time.f == 
         plot.title = element_text(face = 'bold', , hjust = 0.5),
         plot.background = element_rect(fill = 'grey95', colour = 'grey95'),
         plot.margin = unit(margin.lines, units = 'lines'))
-  
+
 pdf(file = 'brain_endobbb_s100brbans_supp.pdf', width = 8, height = 8)
 multiplot(suppplot.s100b.rbans.3, suppplot.s100b.rbans.12, layout = matrix(1:2, nrow = 2))
 dev.off()
@@ -5182,7 +5367,7 @@ suppplot.uchl.rbans.3 <- ggplot(data = Predict.uchl.rbans, aes(x = uchl.log10, y
         strip.text = element_text(face = 'bold'),
         plot.title = element_text(face = 'bold', hjust = 0.5),
         plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
-  
+
 pdf(file = 'brain_endobbb_uchlrbans3_supp.pdf', width = 6, height = 4)
 suppplot.uchl.rbans.3
 dev.off()
