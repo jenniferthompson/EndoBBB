@@ -30,6 +30,7 @@ library(rms)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(purrr)
 library(devtools)
 
 @
@@ -453,7 +454,7 @@ Tables \ref{table:enrollstat} - \ref{table:fustat} present descriptive statistic
 \Sexpr{length(unique(endo.data$id))} patients with endothelial/BBB injury markers and long-term
 followup data. Cohort definitions are as follows:
 \begin{itemize}
-\item Entire cohort: all patients who had at least one of RBANS global, Trails B, ADL, or FAQ at at
+\item Entire cohort: all patients who had at least some followup testing at at
       least one time point \textbf{and} had at least partial biomarker data (at least one
       endothelial/BBB marker present on day 1). \textbf{Total N: \Sexpr{nrow(endo.data)}.}
 \item Any followup outcomes: all patients who had at least one of RBANS global, Trails B, Katz ADL
@@ -677,6 +678,78 @@ marker.hist(marker.hist.data.org, xlabel = 'Endothelial Marker Value, Original S
 
 <<printmarkerhistlog10, results='asis', fig.cap='Histogram of IL-6 and Endothelial Markers, Log10 Scale', fig.height=4.5, fig.width=8, fig.pos='!h'>>=
 marker.hist(marker.hist.data.log10, xlabel = 'Endothelial Marker Value, Log10 Scale')
+
+@
+
+\subsection{Description of Missingness}
+\subsubsection{Delirium Duration Models}
+All patients with 1) any long-term followup data and 2) at least partial enrollment biomarker data available were eligible to be included in models with delirium duration as the outcome. Detailed descriptions of missingness for this cohort are included in Table \ref{table:missingdel}, and comparisons of patients with and without any missing data in this cohort are included in Table \ref{table:compmissdel}.
+
+<<delmissingprep>>=
+## Vector of variables not included in models, but helpful to describe differences in patients
+addl_missvars <- c("sofa", "icu.type", "frailty", "sex.pp", "edu", "ever.vent.s", "vent.los.tot.eo",
+                   "ever.del.s.imp", "del.s.imp.eo", "ever.coma.s.imp", "coma.s.imp.eo",
+                   "ever.sevseptic.s", "icudays.sevseptic.eo", "icu.los.tot", "hosp.los")
+
+## -- Function to determine N, % of missingness of a particular variable given a df ---------------
+npct_missing <- function(vname, df){
+  data.frame(vname = vname,
+             nmiss = sum(is.na(df[, vname])),
+             pctmiss = mean(is.na(df[, vname])) * 100)
+}
+
+## -- Stats for missing any data for delirium models -------------------------------------------
+del_missvars <- c("del.s.imp", "bdnf.day1", "esel.day1", "pai1.day1", "s100b.day1", "uchl.day1",
+                  "il6.day1", "age.enroll", "charlson.score", "iqcode.score.e", "stroke.risk",
+                  "apache.aps", "cvsofa.day1", "sevsepsis.day1")
+
+endo.data$missany.del <- factor(as.numeric(rowSums(is.na(endo.data[,del_missvars])) > 0),
+                                levels = 0:1,
+                                labels = c("Complete data", "Missing >=1 variable"))
+label(endo.data$missany.del) <- "Missing any data for delirium models"
+
+n_missany_del <- sum(endo.data$missany.del == "Missing >=1 variable")
+pct_missany_del <- mean(endo.data$missany.del == "Missing >=1 variable")*100
+del_missany <- data.frame(vname = "missany.del",
+                          nmiss = n_missany_del,
+                          pctmiss = pct_missany_del)
+
+## -- Missingness among model outcome/covariates -----------------------------------------------
+del_missdf <- map_df(del_missvars, .f = npct_missing, df = endo.data) %>%
+  bind_rows(del_missany, .) %>%
+  mutate(npctmiss = paste0(nmiss, " (", round(pctmiss, 0), "\\%)"),
+         vlabel = label(endo.data[,vname]))
+
+## -- Describe cohorts of patients with complete vs incomplete data ----------------------------
+del_misscomp <- summaryM(as.formula(paste(paste(c(del_missvars, addl_missvars),
+                                                collapse = " + "),
+                                          "~ missany.del")),
+                         data = endo.data)
+
+@
+
+<<printdelmiss, results = "asis">>=
+latex(subset(del_missdf, select = c(vlabel, npctmiss)), file = "",
+      where = "!h",
+      label = "table:missingdel",
+      rowname = NULL,
+      caption = "Covariate and Outcome Missingness, Delirium Duration Models",
+      caption.lot = "Covariate and Outcome Missingness, Delirium Duration Models",
+      colheads = c("Variable", "N (\\%) Missing"),
+      col.just = c("l", "r"),
+      cgroup = c("", paste("Total N:", nrow(endo.data))),
+      n.cgroup = rep(1, 2))
+
+latex(del_misscomp, file = "",
+      where = "!h",
+      landscape = TRUE,
+      size = "small",
+      caption = "Patients With vs Without Missing Data, Delirium Duration Models",
+      caption.lot = "Patients With vs Without Missing Data, Delirium Duration Models",
+      digits = 2,
+      prmsd = TRUE,
+      what = "%",
+      npct = "none")
 
 @
 
