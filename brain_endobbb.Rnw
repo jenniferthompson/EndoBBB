@@ -753,6 +753,179 @@ latex(del_misscomp, file = "",
 
 @
 
+\subsubsection{Long-Term Outcome Models}
+All patients with 1) any long-term data for the RBANS, Trails B, ADL and/or FAQ and 2) at least partial enrollment biomarker data available were eligible to be included in models with one of these tests as the outcome. Detailed descriptions of missingness for this cohort, at both 3 and 12 months and overall, are included in Table \ref{table:missinglt}; Table \ref{table:compmisslt} compares patients with any missing data at 3 and/or 12 months to those with complete data at the time point(s) they were included.
+
+<<ltmissingprep>>=
+## -- Stats for missing any data for long-term models -------------------------------------------
+lt_testvars <- c("rbans.global.score", "trail.b.tscore", "adl.totscore", "faq.totscore")
+lt_missvars <- c("bdnf.day1", "esel.day1", "pai1.day1", "s100b.day1", "uchl.day1", "il6.day1",
+                 "age.enroll", "charlson.score", "iqcode.score.e", "stroke.risk", "edu",
+                 "disabled.e", "mean.modsofa.icu", "del.s.imp", "coma.s.imp", "icudays.sevseptic.s")
+
+## -- Time-specific missingness -----------------------------------------------------------------
+vars_3m <- c(paste0(lt_testvars, ".3"), lt_missvars)
+vars_12m <- c(paste0(lt_testvars, ".12"), lt_missvars)
+
+endo.data$missany.3m <-
+  factor(as.numeric(ifelse(!(endo.data$cog.cohort.3 | endo.data$func.cohort.3), NA,
+                           rowSums(is.na(endo.data[,vars_3m])) > 0)),
+         levels = 0:1,
+         labels = c("Complete data", "Missing >=1 variable"))
+endo.data$missany.12m <-
+  factor(as.numeric(ifelse(!(endo.data$cog.cohort.12 | endo.data$func.cohort.12), NA,
+                           rowSums(is.na(endo.data[,vars_12m])) > 0)),
+         levels = 0:1,
+         labels = c("Complete data", "Missing >=1 variable"))
+endo.data$missany.lt <- factor(as.numeric(
+  ifelse(!endo.data$fu.cohort.either, NA,
+         (endo.data$fu.cohort.3 & rowSums(is.na(endo.data[,paste0(lt_testvars, ".3")])) > 0) |
+           (endo.data$fu.cohort.12 & rowSums(is.na(endo.data[,paste0(lt_testvars, ".12")])) > 0) |
+           rowSums(is.na(endo.data[,lt_missvars])) > 0)),
+  levels = 0:1,
+  labels = c("Complete data", "Missing >=1 variable"))
+
+label(endo.data$missany.3m) <- "Missing any data for 3m models"
+label(endo.data$missany.12m) <- "Missing any data for 12m models"
+label(endo.data$missany.lt) <- "Missing any data for long-term models"
+
+## Create data frames for "missing anything" at each time point
+n_missany_3m <- sum(endo.data$missany.3m == "Missing >=1 variable", na.rm = TRUE)
+pct_missany_3m <- mean(endo.data$missany.3m == "Missing >=1 variable", na.rm = TRUE)*100
+missdf_3m_any <- data.frame(vname = "missany.3m",
+                            nmiss = n_missany_3m,
+                            pctmiss = pct_missany_3m)
+
+n_missany_12m <- sum(endo.data$missany.12m == "Missing >=1 variable", na.rm = TRUE)
+pct_missany_12m <- mean(endo.data$missany.12m == "Missing >=1 variable", na.rm = TRUE)*100
+missdf_12m_any <- data.frame(vname = "missany.12m",
+                             nmiss = n_missany_12m,
+                             pctmiss = pct_missany_12m)
+
+n_missany_lt <- sum(endo.data$missany.lt == "Missing >=1 variable", na.rm = TRUE)
+pct_missany_lt <- mean(endo.data$missany.lt == "Missing >=1 variable", na.rm = TRUE)*100
+missdf_lt_any <- data.frame(vname = "missany.lt",
+                            nmiss = n_missany_lt,
+                            pctmiss = pct_missany_lt)
+
+## -- Function to get missingness for a given *test* (time-specific) ---------------------------
+npct_missing_test <- function(vname, timept = c(3, 12), df){
+  data.frame(vname = vname,
+             nmiss = sum(is.na(df[, paste(vname, timept, sep = ".")])),
+             pctmiss = mean(is.na(df[, paste(vname, timept, sep = ".")])) * 100)
+}
+
+## -- Function to get missingness for test at either time, given that patient was in cohort ----
+npct_missing_test_312 <- function(vname){
+  vname2 <- ifelse(vname == "trail.b.tscore", "trailb",
+                   gsub("\\..*$", "", vname))
+  
+  rows_miss <- rowSums(
+    subset(endo.data, fu.cohort.either)[,paste0("cohort.no", vname2, ".", c(3, 12))],
+    na.rm = TRUE
+  )
+  
+  data.frame(vname = vname,
+             nmiss = sum(rows_miss > 0),
+             pctmiss = mean(rows_miss > 0) * 100)
+}
+
+## -- Missingness among model outcome/covariates -----------------------------------------------
+## 3m-specific
+## Tests
+missdf_3m_tests <- map_df(
+  lt_testvars,
+  .f = npct_missing_test,
+  timept = 3,
+  df = subset(endo.data, fu.cohort.3)
+)
+
+## Covariates
+missdf_3m_covars <- map_df(lt_missvars, .f = npct_missing, df = subset(endo.data, fu.cohort.3))
+
+## 12m-specific
+## Tests
+missdf_12m_tests <- map_df(
+  lt_testvars,
+  .f = npct_missing_test,
+  timept = 12,
+  df = subset(endo.data, fu.cohort.12)
+)
+
+missdf_12m_covars <- map_df(lt_missvars, .f = npct_missing, df = subset(endo.data, fu.cohort.12))
+
+## Either time point
+missdf_lt_tests <- map_df(lt_testvars,.f = npct_missing_test_312)
+
+missdf_lt_covars <- map_df(
+  lt_missvars,
+  .f = npct_missing,
+  df = subset(endo.data, cog.cohort.either | func.cohort.either)
+)
+
+## Combine results for each time point
+missdf_3m <- bind_rows(list(missdf_3m_any, missdf_3m_tests, missdf_3m_covars)) %>%
+  mutate(npctmiss = paste0(nmiss, " (", round(pctmiss, 0), "\\%)"),
+         vname2 = ifelse(vname %in% lt_testvars, paste0(vname, ".3"), vname),
+         vlabel = label(endo.data[,vname2]),
+         vlabel = gsub(" for 3m models", "", gsub(", 3m", "", vlabel)))
+
+missdf_12m <- bind_rows(list(missdf_12m_any, missdf_12m_tests, missdf_12m_covars)) %>%
+  mutate(npctmiss = paste0(nmiss, " (", round(pctmiss, 0), "\\%)"),
+         vname2 = ifelse(vname %in% lt_testvars, paste0(vname, ".12"), vname),
+         vlabel = label(endo.data[,vname2]),
+         vlabel = gsub(" for 12m models", "", gsub(", 12m", "", vlabel)))
+
+missdf_lt <- bind_rows(list(missdf_lt_any, missdf_lt_tests, missdf_lt_covars)) %>%
+  mutate(npctmiss = paste0(nmiss, " (", round(pctmiss, 0), "\\%)"),
+         vname2 = ifelse(vname %in% lt_testvars, paste0(vname, ".12"), vname),
+         vlabel = label(endo.data[,vname2]),
+         vlabel = gsub(" for long-term models", "", gsub(", 12m", "", vlabel)))
+
+missdf_lt_combined <- reduce(list(missdf_lt, missdf_3m, missdf_12m), left_join, by = "vlabel") %>%
+  ## Order: overall; 3m; 12m
+  dplyr::select(vlabel, npctmiss.x, npctmiss.y, npctmiss)
+
+## -- Describe cohorts of patients with complete vs incomplete data ----------------------------
+lt_misscomp <- summaryM(as.formula(paste(paste(c(lt_missvars, addl_missvars),
+                                                collapse = " + "),
+                                          "~ missany.lt")),
+                         data = subset(endo.data, fu.cohort.either))
+
+@
+
+<<printltmiss, results = "asis">>=
+latex(subset(missdf_lt_combined, select = c(vlabel, npctmiss.x, npctmiss.y, npctmiss)),
+      file = "",
+      where = "!h",
+      size = "small",
+      label = "table:missinglt",
+      rowname = NULL,
+      caption = "Covariate and Outcome Missingness, Long-Term Outcome Models",
+      caption.lot = "Covariate and Outcome Missingness, Long-Term Outcome Models",
+      colheads = c("Variable", rep("N (\\%) Missing", 3)),
+      col.just = c("l", "r", "r", "r"),
+      cgroup = c("", "Either Time Point", "3 Months", "12 Months"),
+      extracolheads = c("",
+                        paste("N =", sum(endo.data$fu.cohort.either)),
+                        paste("N =", sum(endo.data$fu.cohort.3)),
+                        paste("N =", sum(endo.data$fu.cohort.12))),
+      n.cgroup = c(1, 1, 1, 1),
+      insert.bottom = "\\emph{Note: Long-term test scores are only examined for missingness at the time point(s) the patient was eligible for followup. For example, if a patient was alive at 3m and had no RBANS global score available, but died prior to 12m, only the 3m RBANS is considered missing.}")
+
+latex(lt_misscomp, file = "",
+      where = "!h",
+      landscape = TRUE,
+      size = "small",
+      caption = "Patients With vs Without Missing Data, Long-Term Outcome Models",
+      caption.lot = "Patients With vs Without Missing Data, Long-Term Outcome Models",
+      digits = 2,
+      prmsd = TRUE,
+      what = "%",
+      npct = "none")
+
+@
+
 <<analysisprep>>=
 ## Get values to interact for age, IL-6
 intvals.age <- quantile(endo.data[,'age.enroll'], probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)
