@@ -100,7 +100,7 @@ marker.data <- bind_rows(lapply(endo.names, FUN = function(x){
   ## Delete if coefficient of variance > 30; indicates nonreproducibility of marker results
   filter(cv < 30 | mean.pgml == -9999) %>%
   ## Get one variable per marker mean
-  select(id, marker, mean.pgml) %>%
+  dplyr::select(id, marker, mean.pgml) %>%
   spread(key = marker, value = mean.pgml) %>%
   ## Delete PAI-1 values for 5 patients with unreliable values;
   ##  see email discussion with Brennan, 11/17/2015
@@ -210,19 +210,19 @@ oneobs.vars <- c('id', 'age.enroll', 'sex.pp', 'race.pp', 'edu', 'charlson.score
 ## Put followup test scores in wide format
 fu.data <- brain.fu %>%
   filter(fu.period %in% c('3 Month', '12 Month')) %>%
-  select(id, fu.period, rbans.global.score, trail.b.tscore, adl.totscore, faq.totscore) %>%
+  dplyr::select(id, fu.period, rbans.global.score, trail.b.tscore, adl.totscore, faq.totscore) %>%
   mutate(fu.period = gsub(' Month', '', fu.period),
          faq.rdscore = round(faq.totscore)) %>%
   gather(key = test, value = testscore, rbans.global.score:faq.rdscore) %>%
   mutate(test.time = paste(test, fu.period, sep = '.')) %>%
   filter(!is.na(testscore)) %>%
-  select(-test, -fu.period) %>%
+  dplyr::select(-test, -fu.period) %>%
   spread(key = test.time, value = testscore)
 
 ## Get day 1 values from daily data
 day1.data <- brain.daily %>%
   filter(study.day == 1) %>%
-  select(id, il6.imp, sofa.cv, sevsepsis.l24)
+  dplyr::select(id, il6.imp, sofa.cv, sevsepsis.l24)
 names(day1.data) <- c('id', 'il6.day1', 'cvsofa.day1', 'sevsepsis.day1')
 
 endo.data <- brain.oneobs[brain.oneobs$id %in% marker.data$id, oneobs.vars] %>%
@@ -646,12 +646,12 @@ latex(summaryM(rbans.global.score.3 + cohort.norbans.3 + rbans.global.score.12 +
 \clearpage
 <<markerhist>>=
 marker.hist.data.org <- endo.data %>%
-  select(il6.day1, bdnf.day1, esel.day1, pai1.day1, s100b.day1, uchl.day1) %>%
+  dplyr::select(il6.day1, bdnf.day1, esel.day1, pai1.day1, s100b.day1, uchl.day1) %>%
   gather(key = marker, value = markerval) %>%
   mutate(marker = toupper(gsub('\\.day1$', '', marker)))
 
 marker.hist.data.log10 <- endo.data %>%
-  select(il6.log10, bdnf.log10, esel.log10, pai1.log10, s100b.log10, uchl.log10) %>%
+  dplyr::select(il6.log10, bdnf.log10, esel.log10, pai1.log10, s100b.log10, uchl.log10) %>%
   gather(key = marker, value = markerval) %>%
   mutate(marker = toupper(gsub('\\.log10$', '', marker)))
 
@@ -5633,7 +5633,7 @@ relevant.pkgs <-
 use.packages <- session_info()$packages %>%
   filter(package %in% relevant.pkgs$pkg) %>%
   mutate(reason = relevant.pkgs$rsn[match(package, relevant.pkgs$pkg)]) %>%
-  select(-2)
+  dplyr::select(-2)
 
 @
 
