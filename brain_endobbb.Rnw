@@ -5449,11 +5449,28 @@ dev.off()
 
 <<publication_forest>>=
 ## -- Labels for each biomarker ------------------------------------------------
-endo.labels <- c("BDNF", "E-selectin", "PAI-1", "S100B", "UCHL")
+endo.labels <- c("BDNF", "E-selectin", "PAI-1", "S100B", "UCHL1")
 names(endo.labels) <- endo.names
+
+endo_flabels <- map_chr(
+  endo.names,
+  ~ sprintf(
+    "%s*,\n%s vs %s",
+    endo.labels[match(., names(endo.labels))],
+    rndformat(dd$limits["High:effect",paste0(., ".log10")]),
+    rndformat(dd$limits["Low:effect",paste0(., ".log10")])
+  )
+)
 
 ## -- Calculate PEs for differences in RBANS, Trails B for each marker, --------
 ## -- adjusting to age/IL-6 if needed ------------------------------------------
+
+## Which quantiles do we want to plot for age, IL-6?
+plot_quantiles <- c(0.25, 0.50, 0.75, 0.90)
+age_plotvals <-
+  quantile(endo.data[,'age.div10'], probs = plot_quantiles, na.rm = TRUE)
+il6_plotvals <-
+  quantile(endo.data[,'il6.log10'], probs = plot_quantiles, na.rm = TRUE)
 
 ## rms_estimate_with_int doesn't like the $
 bdnf.rbans.3.mod <- bdnf.rbans.3$final.mod
@@ -5483,18 +5500,18 @@ uchl.trailb.12.mod <- uchl.trailb.12$final.mod
 ## differences
 endo_diffs <- function(endoname, testname = c("rbans", "trailb")){
   ## Things that will be the same for every biomarker:
-  intAdjust_vals <- c(age.intvals, il6.intvals, age.intvals, il6.intvals)
-  intVar_vals <- rep(c(rep("age.div10", length(age.intvals)),
-                       rep("il6.log10", length(il6.intvals))),
+  intAdjust_vals <- c(age_plotvals, il6_plotvals, age_plotvals, il6_plotvals)
+  intVar_vals <- rep(c(rep("age.div10", length(age_plotvals)),
+                       rep("il6.log10", length(il6_plotvals))),
                      2)
   
   ## Things that vary based on biomarker:
   rmsObjName_vals <- c(rep(sprintf("%s.%s.3.mod", endoname, testname),
-                           length(age.intvals) + length(il6.intvals)),
+                           length(age_plotvals) + length(il6_plotvals)),
                        rep(sprintf("%s.%s.12.mod", endoname, testname),
-                           length(age.intvals) + length(il6.intvals)))
+                           length(age_plotvals) + length(il6_plotvals)))
   estVals_val <- rep(list(dd$limits[c(1, 3), paste0(endoname, ".log10")]),
-                     (length(age.intvals) + length(il6.intvals)) * 2)
+                     (length(age_plotvals) + length(il6_plotvals)) * 2)
   
   marker_args <- list(intAdjust = intAdjust_vals,
                       rmsObjName = rmsObjName_vals,
@@ -5502,73 +5519,56 @@ endo_diffs <- function(endoname, testname = c("rbans", "trailb")){
                       estVals = estVals_val,
                       intVar = intVar_vals)
   
-  ## Create data frame of all estimates/CIs, add time point, then keep only
-  ## those that are unique (ie, no meaningful interaction)
+  ## Create data frame of all estimates/CIs, add time point
   diffscores <- pmap_df(.l = marker_args, .f = rms_estimate_with_int) %>%
-    mutate(timept = c(rep(3, length(age.intvals) + length(il6.intvals)),
-                      rep(12, length(age.intvals) + length(il6.intvals)))) %>%
-    group_by(var.main, timept) %>%
-    mutate(effect_same = effect == lag(effect),
-           keep_this = is.na(effect_same) | !effect_same) %>%
-    ungroup() %>%
-    filter(keep_this) %>%
-    dplyr::select(-keep_this, -effect_same)
-  
+    mutate(timept = c(rep(3, length(age_plotvals) + length(il6_plotvals)),
+                      rep(12, length(age_plotvals) + length(il6_plotvals))))
+
   return(diffscores)
 }
 
 ## Function to take results of endo_diffs() and get them into plotting shape
 endo_plotdata <- function(df){
+  ## What order do we want the biomarkers plotted in?
+  endo_plotorder <-
+    c("bdnf" = 3, "esel" = 4, "pai1" = 5, "s100b" = 1, "uchl" = 2)
+  
   df <- df %>%
-    group_by(var.main, timept) %>%
-    ## Get number of unique estimates/CIs;
-    ##  if >1, assign 1:number of unique as x values;
-    ##  if only 1, x value = 90th %ile of 1:max
     mutate(
-      nunique = n(),
-      endo_label = paste0(
-        endo.labels[match(gsub("\\.log10$", "", var.main), names(endo.labels))],
-        ",*\n",
-        rndformat(comp.level), " vs. ", rndformat(ref.level)
-      ),
-      int_label = factor(ifelse(nunique == 1, 1,
-                         ifelse(var.int == "age.div10", 2, 3)),
-                         levels = 1:3,
-                         labels = c("All Patients", "Age", "IL-6*")),
-      int_label_faux = factor(ifelse(nunique == 1, 1,
-                              ifelse(var.int == "age.div10", 2, 3)),
-                              levels = 1:3, labels = c(" ", "  ", "   ")),
-      y_label = ifelse(nunique == 1, "",
-                ifelse(var.int == "age.div10",
-                       rndformat(adjust.int * 10, 0),
-                       rndformat(adjust.int))),
+      ## Assign Y value to each biomarker
+      yval = endo_plotorder[match(gsub("\\.log10$", "", var.main),
+                                  names(endo_plotorder))],
+      yval_f = factor(sprintf(
+        "%s*\n%s vs %s",
+        endo.labels[match(gsub("\\.log10", "", var.main), names(endo.labels))],
+        rndformat(comp.level),
+        rndformat(ref.level)
+      )),
+      # ## PI-specified order
+      # yval_f = forcats::fct_reorder(yval_f, yval, .desc = TRUE),
+      ## PI-specified order
+      yval_f = forcats::fct_reorder(yval_f, yval, .desc = TRUE),
+      ## Factor version of facet titles
+      ## Multiply age * 10
+      adjust.int.rnd = ifelse(var.int == "age.div10",
+                              rndformat(adjust.int * 10, 0),
+                              rndformat(adjust.int)),
+      ## Get %ile for each interaction value
+      adjust.var = ifelse(var.int == "age.div10", "Age", "IL-6*"),
+      adjust.pctile =
+        ifelse(var.int == "age.div10",
+               names(age_plotvals)[match(adjust.int, age_plotvals)],
+               names(il6_plotvals)[match(adjust.int, il6_plotvals)]),
+      adjust.pctile = gsub("%", "", adjust.pctile, fixed = TRUE),
+      int_facet = sprintf("%s = %s\n(%sth %%ile)",
+                          adjust.var, adjust.int.rnd, adjust.pctile),
+      
       time_label = factor(ifelse(timept == 3, 1, 2),
                           levels = 1:2,
-                          labels = c("3 Months", "12 Months")),
-      xval = 1:n()) %>%
-    ungroup()
-  
-  ## Add fake rows - I need more white space for interacting variables
-  fakerows <- df %>%
-    dplyr::select(endo_label, int_label, int_label_faux, time_label) %>%
-    distinct() %>%
-    filter(int_label != "All Patients")
-
-  df <- bind_rows(
-    df,
-    fakerows %>% filter(int_label == "Age") %>% mutate(xval = 0.75, effect = -11),
-    fakerows %>% filter(int_label == "IL-6*") %>% mutate(xval = 8.75, effect = -11),
-    fakerows %>% mutate(xval = 4.75, effect = -11)
-  )
-  
-  df_intlabels <- df %>%
-    dplyr::select(endo_label, int_label, int_label_faux, time_label) %>%
-    distinct() %>%
-    mutate(xval = ifelse(int_label == "All Patients", 1,
-                  ifelse(int_label == "Age", 4.5, 8.5)),
-           effect = -11)
-  
-  return(list("diff_df" = df, "intlevels_df" = df_intlabels))
+                          labels = c("3 Months", "12 Months"))
+    ) %>%
+    dplyr::select(-adjust.int.rnd, -adjust.pctile)
+  return(df)
 }
 
 rbans_diffs <- map_df(endo.names, endo_diffs, testname = "rbans") %>%
@@ -5577,19 +5577,12 @@ trailb_diffs <- map_df(endo.names, endo_diffs, testname = "trailb") %>%
   endo_plotdata()
 
 ## -- Function to *plot* RBANS, Trails B data given df from endo_plotdata() ----
-plot_ltci_diffs <- function(diffdata_list, testname, difflims, diffbreaks, intx){
-  diffdf <- diffdata_list$diff_df
-  intdf <- diffdata_list$intlevels_df
-  
-  ggplot(data = diffdf, aes(x = xval, y = effect, group = effect)) +
+plot_ltci_diffs <- function(diffdata, testname, difflims, diffbreaks){
+  ggplot(data = diffdata, aes(x = yval_f, y = effect)) +
   geom_hline(yintercept = 0, linetype = "solid", colour = "grey75", size = 1, alpha = 0.6) +
-  facet_grid(endo_label + int_label_faux ~ time_label,
-             scales = "free_y", space = "free_y", switch = "y") +
+  facet_grid(time_label ~ int_facet) +
   geom_pointrange(aes(ymin = lowercl, ymax = uppercl), colour = "#003D79", size = 0.5) +
-  geom_text(aes(label = int_label, x = xval), data = intdf,
-            y = intx, size = 3, fontface = "bold", hjust = 0, colour = "#003D79") +
-  geom_text(aes(label = y_label),
-            y = intx, size = 2.5, hjust = 0, colour = "#003D79") +
+  # scale_x_discrete(name = "") +
   scale_y_continuous(name = paste("\nAdjusted Difference in", testname, "Scores"),
                      limits = difflims, breaks = diffbreaks) +
   coord_flip() +
@@ -5597,11 +5590,9 @@ plot_ltci_diffs <- function(diffdata_list, testname, difflims, diffbreaks, intx)
   theme_minimal() +
   theme(axis.title.x = element_text(face = "bold"),
         axis.title.y = element_blank(),
-        axis.text.y = element_blank(),
+        axis.text.y = element_text(vjust = 0.95),
         axis.ticks.y = element_blank(),
-        strip.text.x = element_text(face = "bold", size = 14),
-        strip.text.y = element_text(face = "bold", angle = 180, size = 10,
-                                    hjust = 0, vjust = 0.5),
+        strip.text = element_text(face = "bold", size = 14),
         plot.caption = element_text(face = "italic"),
         panel.border = element_rect(fill = NA, colour = "grey80"),
         panel.grid.major.y = element_blank(),
@@ -5610,28 +5601,48 @@ plot_ltci_diffs <- function(diffdata_list, testname, difflims, diffbreaks, intx)
         plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
 } 
 
-rbans_diffplot <- plot_ltci_diffs(
-  rbans_diffs,
+rbans_diffplot_il6 <- plot_ltci_diffs(
+  rbans_diffs %>% filter(var.int == "il6.log10"),
   testname = "RBANS Global",
-  difflims = c(-10, 3),
-  diffbreaks = seq(-9, 3, 3),
-  intx = -10.25
+  difflims = c(-9, 4),
+  diffbreaks = seq(-9, 3, 3)
 )
 
-trailb_diffplot <- plot_ltci_diffs(
-  trailb_diffs,
+trailb_diffplot_il6 <- plot_ltci_diffs(
+  trailb_diffs %>% filter(var.int == "il6.log10"),
   testname = "Trails B",
   difflims = c(-6, 4),
-  diffbreaks = seq(-4, 4, 2),
-  intx = -6.25
+  diffbreaks = seq(-4, 4, 2)
 )
 
-pdf(file = "brain_endobbb_rbansdiffs.pdf", width = 8, height = 10)
-rbans_diffplot
+rbans_diffplot_age <- plot_ltci_diffs(
+  rbans_diffs %>% filter(var.int == "age.div10"),
+  testname = "RBANS Global",
+  difflims = c(-6, 4),
+  diffbreaks = seq(-6, 3, 3)
+)
+
+trailb_diffplot_age <- plot_ltci_diffs(
+  trailb_diffs %>% filter(var.int == "age.div10"),
+  testname = "Trails B",
+  difflims = c(-4, 4),
+  diffbreaks = seq(-4, 4, 2)
+)
+
+pdf(file = "brain_endobbb_rbansdiffs_il6.pdf", width = 10, height = 7)
+rbans_diffplot_il6
 dev.off()
 
-pdf(file = "brain_endobbb_trailbdiffs.pdf", width = 8, height = 10)
-trailb_diffplot
+pdf(file = "brain_endobbb_trailbdiffs_il6.pdf", width = 10, height = 7)
+trailb_diffplot_il6
+dev.off()
+
+pdf(file = "brain_endobbb_rbansdiffs_age.pdf", width = 10, height = 7)
+rbans_diffplot_age
+dev.off()
+
+pdf(file = "brain_endobbb_trailbdiffs_age.pdf", width = 10, height = 7)
+trailb_diffplot_age
 dev.off()
 
 @
