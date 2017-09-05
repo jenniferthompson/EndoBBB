@@ -5647,6 +5647,161 @@ dev.off()
 
 @
 
+<<publication_predprobs>>=
+## -- Function to get predicted LTCI scores for a given combo of predictors ----
+## Arguments: biomarker; test; time point; interacting var; interacting value
+pred_bio_ltci <- function(marker = endo.names,
+                          test = c("rbans", "trailb"),
+                          timept = c(3, 12),
+                          intvar = c("il6.log10", "age.div10"),
+                          intval){
+  
+  modname <- paste(c(marker, test, timept, "mod"), collapse = ".")
+  
+  tmp <- eval(
+    parse(
+      text = sprintf("as.data.frame(Predict(%s, %s.log10 = NA, %s = %s))",
+                     modname,
+                     marker,
+                     intvar,
+                     intval)
+    )
+  )
+  tmp <- tmp %>%
+    mutate(
+      test = test,
+      timept = timept,
+      marker = marker,
+      intvar = intvar,
+      ## Factor versions for faceting, titles
+      timept_f = factor(timept,
+                        levels = c(3, 12),
+                        labels = paste(c(3, 12), "Months")),
+      intvar_f = ifelse(intvar == "il6.log10", "IL-6*", "Age"),
+      marker_f = endo.labels[match(marker, names(endo.labels))]
+    )
+  
+  ## Change names so that things can be easily put together
+  names(tmp) <- gsub(paste0(marker, ".log10"), "markerval", names(tmp))
+  names(tmp) <- gsub(intvar, "intvalue", names(tmp))
+  
+  tmp %>%
+    dplyr::select(test, timept, timept_f, marker, marker_f, markerval,
+                  intvar, intvar_f, intvalue, yhat, lower, upper)
+}
+
+## Do this on
+##  every biomarker ->
+##  every test -> (x2)
+##  each time point -> (x2)
+##  each interacting variable -> (x2)
+##  each interacting value (x4)
+ntests <- 2
+ntimes <- 2
+nmarkers <- length(endo.names)
+nil6vals <- length(il6_plotvals)
+nagevals <- length(age_plotvals)
+nintvals <- nil6vals + nagevals
+
+pp_args <- list(
+  "marker" = rep(endo.names, each = ntests * ntimes * nintvals),
+  "test" = rep(c(rep("rbans", ntimes * nintvals),
+                 rep("trailb", ntimes * nintvals)),
+               nmarkers),
+  "timept" = rep(c(rep(3, nintvals), rep(12, nintvals)), ntests * nmarkers),
+  "intvar" = rep(c(rep("il6.log10", nil6vals),
+                   rep("age.div10", nagevals)),
+                 ntimes * ntests * nmarkers),
+  "intval" = rep(c(il6_plotvals, age_plotvals), ntimes * ntests * nmarkers)
+)
+
+# ## Make sure everything is as I want it
+# pp_args %>% bind_cols() %>% print(n = nrow(.))
+
+pp_data <- pmap_df(.l = pp_args, .f = pred_bio_ltci)
+
+## -- Function to *plot* RBANS, Trails B data given df from endo_plotdata() ----
+plot_ltci_pp <- function(ppdata){
+  ppdata <- ppdata %>%
+    mutate(intvar_val =
+             ifelse(intvar_f == "IL-6*",
+                    paste(intvar_f, round(intvalue, 2), sep = " = "),
+                    paste(intvar_f, round(intvalue * 10, 0), sep = " = ")))
+
+  if(unique(ppdata$test) == "rbans"){
+    test_title <- "RBANS Global Score"
+  } else{
+    test_title <- "Trails B T-Score"
+  }
+
+  marker <- unique(ppdata$marker)  
+  marker_label <- endo.labels[match(marker, names(endo.labels))]
+
+  ggplot(data = ppdata, aes(x = markerval, y = yhat)) +
+    facet_grid(timept_f ~ intvar_val) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "#003D79", alpha = 0.2) +
+    geom_line(color = "#003D79") +
+    scale_x_continuous(name = paste0("\n", marker_label, "* Plasma Concentration")) +
+    scale_y_continuous(name = paste("\nAdjusted", test_title)) +
+    labs(caption = "\n* All biomarkers are transformed using a logarithm, base 10.") +
+    theme_minimal() +
+    theme(axis.title = element_text(face = "bold"),
+          strip.text = element_text(face = "bold", size = 14),
+          plot.caption = element_text(face = "italic"),
+          panel.border = element_rect(fill = NA, colour = "grey80"),
+          panel.background = element_rect(fill = "white"),
+          plot.background = element_rect(fill = 'grey95', colour = 'grey95'))
+}
+
+## Plots for biomarkers with interactions:
+## - S100B, RBANS
+## - E-selectin, RBANS
+## - S100B, Trails B
+
+s100b_rbans_il6_ppplot <- plot_ltci_pp(
+  pp_data %>% filter(marker == "s100b" & test == "rbans" & intvar == "il6.log10")
+)
+pdf(file = "brain_endobbb_s100brbans_il6.pdf", width = 10, height = 7)
+s100b_rbans_il6_ppplot
+dev.off()
+
+s100b_rbans_age_ppplot <- plot_ltci_pp(
+  pp_data %>% filter(marker == "s100b" & test == "rbans" & intvar == "age.div10")
+)
+pdf(file = "brain_endobbb_s100brbans_age.pdf", width = 10, height = 7)
+s100b_rbans_age_ppplot
+dev.off()
+
+s100b_trailb_il6_ppplot <- plot_ltci_pp(
+  pp_data %>% filter(marker == "s100b" & test == "trailb" & intvar == "il6.log10")
+)
+pdf(file = "brain_endobbb_s100btrailb_il6.pdf", width = 10, height = 7)
+s100b_trailb_il6_ppplot
+dev.off()
+
+s100b_trailb_age_ppplot <- plot_ltci_pp(
+  pp_data %>% filter(marker == "s100b" & test == "trailb" & intvar == "age.div10")
+)
+pdf(file = "brain_endobbb_s100btrailb_age.pdf", width = 10, height = 7)
+s100b_trailb_age_ppplot
+dev.off()
+
+esel_rbans_il6_ppplot <- plot_ltci_pp(
+  pp_data %>% filter(marker == "esel" & test == "rbans" & intvar == "il6.log10")
+)
+pdf(file = "brain_endobbb_eselbrbans_il6.pdf", width = 10, height = 7)
+esel_rbans_il6_ppplot
+dev.off()
+
+esel_rbans_age_ppplot <- plot_ltci_pp(
+  pp_data %>% filter(marker == "esel" & test == "rbans" & intvar == "age.div10")
+)
+pdf(file = "brain_endobbb_eselbrbans_age.pdf", width = 10, height = 7)
+esel_rbans_age_ppplot
+dev.off()
+
+@
+
 <<supplement_figures>>=
 ## -- Preliminaries --------------------------------------------------------------------------------
 which.quants.supp <- c(0.25, 0.5, 0.75, 0.90)
