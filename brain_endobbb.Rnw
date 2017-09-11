@@ -5654,7 +5654,8 @@ pred_bio_ltci <- function(marker = endo.names,
                           test = c("rbans", "trailb"),
                           timept = c(3, 12),
                           intvar = c("il6.log10", "age.div10"),
-                          intval){
+                          intval,
+                          intpct){
   
   modname <- paste(c(marker, test, timept, "mod"), collapse = ".")
   
@@ -5673,6 +5674,7 @@ pred_bio_ltci <- function(marker = endo.names,
       timept = timept,
       marker = marker,
       intvar = intvar,
+      intpct = intpct,
       ## Factor versions for faceting, titles
       timept_f = factor(timept,
                         levels = c(3, 12),
@@ -5680,14 +5682,15 @@ pred_bio_ltci <- function(marker = endo.names,
       intvar_f = ifelse(intvar == "il6.log10", "IL-6*", "Age"),
       marker_f = endo.labels[match(marker, names(endo.labels))]
     )
-  
+
   ## Change names so that things can be easily put together
   names(tmp) <- gsub(paste0(marker, ".log10"), "markerval", names(tmp))
   names(tmp) <- gsub(intvar, "intvalue", names(tmp))
   
   tmp %>%
     dplyr::select(test, timept, timept_f, marker, marker_f, markerval,
-                  intvar, intvar_f, intvalue, yhat, lower, upper)
+                  intvar, intvar_f, intvalue, intpct, #intpct_f,
+                  yhat, lower, upper)
 }
 
 ## Do this on
@@ -5712,7 +5715,11 @@ pp_args <- list(
   "intvar" = rep(c(rep("il6.log10", nil6vals),
                    rep("age.div10", nagevals)),
                  ntimes * ntests * nmarkers),
-  "intval" = rep(c(il6_plotvals, age_plotvals), ntimes * ntests * nmarkers)
+  "intval" = rep(c(il6_plotvals, age_plotvals), ntimes * ntests * nmarkers),
+  "intpct" = gsub("%", "",
+                  rep(c(names(il6_plotvals), names(age_plotvals)),
+                      ntimes * ntests * nmarkers),
+                  fixed = TRUE)
 )
 
 # ## Make sure everything is as I want it
@@ -5723,11 +5730,14 @@ pp_data <- pmap_df(.l = pp_args, .f = pred_bio_ltci)
 ## -- Function to *plot* RBANS, Trails B data given df from endo_plotdata() ----
 plot_ltci_pp <- function(ppdata){
   ppdata <- ppdata %>%
-    mutate(intvar_val =
-             ifelse(intvar_f == "IL-6*",
-                    paste(intvar_f, round(intvalue, 2), sep = " = "),
-                    paste(intvar_f, round(intvalue * 10, 0), sep = " = ")))
-
+    mutate(
+      intvar_val =
+        ifelse(intvar_f == "IL-6*",
+               paste(intvar_f, round(intvalue, 2), sep = " = "),
+               paste(intvar_f, round(intvalue * 10, 0), sep = " = ")),
+      intvar_val = paste0(intvar_val, "\n(", intpct, "th %ile)")
+    )
+  
   if(unique(ppdata$test) == "rbans"){
     test_title <- "RBANS Global Score"
   } else{
@@ -5741,7 +5751,7 @@ plot_ltci_pp <- function(ppdata){
     facet_grid(timept_f ~ intvar_val) +
     geom_ribbon(aes(ymin = lower, ymax = upper), fill = "#003D79", alpha = 0.2) +
     geom_line(color = "#003D79") +
-    scale_x_continuous(name = paste0("\n", marker_label, "* Plasma Concentration")) +
+    scale_x_continuous(name = paste0("\n", marker_label, " Plasma Concentration*")) +
     scale_y_continuous(name = paste("\nAdjusted", test_title)) +
     labs(caption = "\n* All biomarkers are transformed using a logarithm, base 10.") +
     theme_minimal() +
