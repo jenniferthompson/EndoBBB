@@ -5790,7 +5790,7 @@ faq_irrplot_age <- plot_ltci_forest(
 )
 
 pdf(file = "brain_endobbb_adlirrs_il6.pdf", width = 10, height = 7)
-adl_irrplot_age
+adl_irrplot_il6
 dev.off()
 
 pdf(file = "brain_endobbb_faqirrs_il6.pdf", width = 10, height = 7)
