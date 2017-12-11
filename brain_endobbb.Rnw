@@ -5610,15 +5610,15 @@ plot_ltci_forest <- function(forestdf,
 rbans_diffplot_il6 <- plot_ltci_forest(
   rbans_diffs %>% filter(var.int == "il6.log10"),
   testname = "RBANS Global",
-  forestlims = c(-9, 4),
+  forestlims = c(-10, 4),
   forestbreaks = seq(-9, 3, 3)
 )
 
 trailb_diffplot_il6 <- plot_ltci_forest(
   trailb_diffs %>% filter(var.int == "il6.log10"),
   testname = "Trails B",
-  forestlims = c(-6, 4),
-  forestbreaks = seq(-4, 4, 2)
+  forestlims = c(-7, 4),
+  forestbreaks = seq(-6, 4, 2)
 )
 
 rbans_diffplot_age <- plot_ltci_forest(
@@ -5631,8 +5631,8 @@ rbans_diffplot_age <- plot_ltci_forest(
 trailb_diffplot_age <- plot_ltci_forest(
   trailb_diffs %>% filter(var.int == "age.div10"),
   testname = "Trails B",
-  forestlims = c(-4, 4),
-  forestbreaks = seq(-4, 4, 2)
+  forestlims = c(-6, 8),
+  forestbreaks = seq(-6, 8, 2)
 )
 
 pdf(file = "brain_endobbb_rbansdiffs_il6.pdf", width = 10, height = 7)
@@ -5651,143 +5651,143 @@ pdf(file = "brain_endobbb_trailbdiffs_age.pdf", width = 10, height = 7)
 trailb_diffplot_age
 dev.off()
 
-# ## -- Functional outcomes ------------------------------------------------------
-# ## Wrapper for calc.ratioci.endobbb() that creates a data.frame with IRR point
-# ## estimate, CI, and all related values
-# create_ratioci_plotdata <- function(marker,
-#                                     test,
-#                                     timept,
-#                                     intvar,
-#                                     ageadj,
-#                                     il6adj,
-#                                     il6padj){
-#   
-#   ## Get model object to use; extract coefficients, vcov matrix
-#   modobj <- get(paste(marker, test, "il6", timept, sep = "."))$final.mod
-#   usecoefs <- pool(modobj)$qbar
-#   usevcov <- pool(modobj)$t
-# 
-#   ## Set marker adjustment values  
-#   markeradjvals <- as.numeric(bio.ratiovals[[paste0(marker, ".log10")]])
-#   markerpadjvals <- as.numeric(biop.ratiovals[[paste0(marker, ".log10")]])
-#   
-#   tmp <- calc.ratioci.endobbb(
-#     marker = marker,
-#     marker.adjust = markeradjvals,
-#     markerp.adjust = markerpadjvals,
-#     age.adjust = ageadj,
-#     il6.adjust = il6adj,
-#     il6p.adjust = il6padj,
-#     modcoefs = usecoefs,
-#     modvcov = usevcov
-#   ) %>%
-#     t %>%
-#     as.data.frame() %>%
-#     mutate(
-#       marker = marker,
-#       var.main = paste0(marker, ".log10"),
-#         ## this seems unnecessary but makes it work with endo_plotdata(), which
-#         ## is built to work w/ rms_estimate_with_int(). Path of least resistance
-#       test = test,
-#       timept = timept,
-#       ref.level = markeradjvals[1],
-#       comp.level = markeradjvals[2],
-#       var.int = intvar,
-#       ageval = ageadj,
-#       il6val = il6adj,
-#       adjust.int = ifelse(intvar == "age.div10", ageadj, il6adj)
-#     ) %>%
-#     rename(effect = pointest,
-#            lowercl = lcl,
-#            uppercl = ucl)
-# 
-#   tmp  
-# }
-# 
-# ## Do this on
-# ##  every biomarker ->
-# ##  every test -> (x2)
-# ##  each time point -> (x2)
-# ##  each interacting variable -> (x2)
-# ##  each interacting value (x4)
-# ntests <- 2
-# ntimes <- 2
-# nmarkers <- length(endo.names)
-# nil6vals <- length(il6_plotvals)
-# nagevals <- length(age_plotvals)
-# nintvals <- nil6vals + nagevals
-# 
-# dis_forest_args <- list(
-#   "marker" = rep(endo.names, each = ntests * ntimes * nintvals),
-#   "test" = rep(c(rep("adl", ntimes * nintvals), rep("faq", ntimes * nintvals)),
-#                nmarkers),
-#   "timept" = rep(c(rep(3, nintvals), rep(12, nintvals)), ntests * nmarkers),
-#   "intvar" = rep(c(rep("il6.log10", nil6vals),
-#                    rep("age.div10", nagevals)),
-#                  ntimes * ntests * nmarkers),
-#   ## Age: Use median for calculations where IL-6 is varying
-#   "ageadj" = rep(c(rep(default.adj.vals$age.div10, nil6vals), age_plotvals),
-#                  ntimes * ntests * nmarkers),
-#   ## IL-6: Use median for calculations where age is varying
-#   "il6adj" = rep(c(il6_plotvals, rep(default.adj.vals$il6.log10, nagevals)),
-#                  ntimes * ntests * nmarkers),
-#   "il6padj" = rep(c(il6p_plotvals, rep(default.adj.vals$il6.prime, nagevals)),
-#                   ntimes * ntests * nmarkers)
-# )
-# 
-# ## Make sure everything is as I desire
-# # dis_forest_args %>% bind_cols() %>% print(n = nrow(.))
-# 
-# dis_forest_data <- pmap_df(dis_forest_args, create_ratioci_plotdata) %>%
-#   endo_plotdata()
-# 
-# adl_irrplot_il6 <- plot_ltci_forest(
-#   dis_forest_data %>% filter(var.int == "il6.log10" & test == "adl"),
-#   testname = "Katz ADL",
-#   forestlims = c(0, 4),
-#   forestbreaks = seq(0, 4, 1),
-#   foresttype = "func"
-# )
-# 
-# faq_irrplot_il6 <- plot_ltci_forest(
-#   dis_forest_data %>% filter(var.int == "il6.log10" & test == "faq"),
-#   testname = "FAQ",
-#   forestlims = c(0.5, 2),
-#   forestbreaks = seq(0.5, 2, 0.5),
-#   foresttype = "func"
-# )
-# 
-# adl_irrplot_age <- plot_ltci_forest(
-#   dis_forest_data %>% filter(var.int == "age.div10" & test == "adl"),
-#   testname = "Katz ADL",
-#   forestlims = c(0, 4),
-#   forestbreaks = seq(0, 4, 1),
-#   foresttype = "func"
-# )
-# 
-# faq_irrplot_age <- plot_ltci_forest(
-#   dis_forest_data %>% filter(var.int == "age.div10" & test == "faq"),
-#   testname = "FAQ",
-#   forestlims = c(0.5, 2),
-#   forestbreaks = seq(0.5, 2, 0.5),
-#   foresttype = "func"
-# )
-# 
-# pdf(file = "brain_endobbb_adlirrs_il6.pdf", width = 10, height = 7)
-# adl_irrplot_il6
-# dev.off()
-# 
-# pdf(file = "brain_endobbb_faqirrs_il6.pdf", width = 10, height = 7)
-# faq_irrplot_il6
-# dev.off()
-# 
-# pdf(file = "brain_endobbb_adlirrs_age.pdf", width = 10, height = 7)
-# adl_irrplot_age
-# dev.off()
-# 
-# pdf(file = "brain_endobbb_faqirrs_age.pdf", width = 10, height = 7)
-# faq_irrplot_age
-# dev.off()
+## -- Functional outcomes ------------------------------------------------------
+## Wrapper for calc.ratioci.endobbb() that creates a data.frame with IRR point
+## estimate, CI, and all related values
+create_ratioci_plotdata <- function(marker,
+                                    test,
+                                    timept,
+                                    intvar,
+                                    ageadj,
+                                    il6adj,
+                                    il6padj){
+
+  ## Get model object to use; extract coefficients, vcov matrix
+  modobj <- get(paste(marker, test, "il6", timept, sep = "."))$final.mod
+  usecoefs <- pool(modobj)$qbar
+  usevcov <- pool(modobj)$t
+
+  ## Set marker adjustment values
+  markeradjvals <- as.numeric(bio.ratiovals[[paste0(marker, ".log10")]])
+  markerpadjvals <- as.numeric(biop.ratiovals[[paste0(marker, ".log10")]])
+
+  tmp <- calc.ratioci.endobbb(
+    marker = marker,
+    marker.adjust = markeradjvals,
+    markerp.adjust = markerpadjvals,
+    age.adjust = ageadj,
+    il6.adjust = il6adj,
+    il6p.adjust = il6padj,
+    modcoefs = usecoefs,
+    modvcov = usevcov
+  ) %>%
+    t %>%
+    as.data.frame() %>%
+    mutate(
+      marker = marker,
+      var.main = paste0(marker, ".log10"),
+        ## this seems unnecessary but makes it work with endo_plotdata(), which
+        ## is built to work w/ rms_estimate_with_int(). Path of least resistance
+      test = test,
+      timept = timept,
+      ref.level = markeradjvals[1],
+      comp.level = markeradjvals[2],
+      var.int = intvar,
+      ageval = ageadj,
+      il6val = il6adj,
+      adjust.int = ifelse(intvar == "age.div10", ageadj, il6adj)
+    ) %>%
+    rename(effect = pointest,
+           lowercl = lcl,
+           uppercl = ucl)
+
+  tmp
+}
+
+## Do this on
+##  every biomarker ->
+##  every test -> (x2)
+##  each time point -> (x2)
+##  each interacting variable -> (x2)
+##  each interacting value (x4)
+ntests <- 2
+ntimes <- 2
+nmarkers <- length(endo.names)
+nil6vals <- length(il6_plotvals)
+nagevals <- length(age_plotvals)
+nintvals <- nil6vals + nagevals
+
+dis_forest_args <- list(
+  "marker" = rep(endo.names, each = ntests * ntimes * nintvals),
+  "test" = rep(c(rep("adl", ntimes * nintvals), rep("faq", ntimes * nintvals)),
+               nmarkers),
+  "timept" = rep(c(rep(3, nintvals), rep(12, nintvals)), ntests * nmarkers),
+  "intvar" = rep(c(rep("il6.log10", nil6vals),
+                   rep("age.div10", nagevals)),
+                 ntimes * ntests * nmarkers),
+  ## Age: Use median for calculations where IL-6 is varying
+  "ageadj" = rep(c(rep(default.adj.vals$age.div10, nil6vals), age_plotvals),
+                 ntimes * ntests * nmarkers),
+  ## IL-6: Use median for calculations where age is varying
+  "il6adj" = rep(c(il6_plotvals, rep(default.adj.vals$il6.log10, nagevals)),
+                 ntimes * ntests * nmarkers),
+  "il6padj" = rep(c(il6p_plotvals, rep(default.adj.vals$il6.prime, nagevals)),
+                  ntimes * ntests * nmarkers)
+)
+
+## Make sure everything is as I desire
+# dis_forest_args %>% bind_cols() %>% print(n = nrow(.))
+
+dis_forest_data <- pmap_df(dis_forest_args, create_ratioci_plotdata) %>%
+  endo_plotdata()
+
+adl_irrplot_il6 <- plot_ltci_forest(
+  dis_forest_data %>% filter(var.int == "il6.log10" & test == "adl"),
+  testname = "Katz ADL",
+  forestlims = c(0, 3.5),
+  forestbreaks = seq(0, 3, 1),
+  foresttype = "func"
+)
+
+faq_irrplot_il6 <- plot_ltci_forest(
+  dis_forest_data %>% filter(var.int == "il6.log10" & test == "faq"),
+  testname = "FAQ",
+  forestlims = c(0.5, 2),
+  forestbreaks = seq(0.5, 2, 0.5),
+  foresttype = "func"
+)
+
+adl_irrplot_age <- plot_ltci_forest(
+  dis_forest_data %>% filter(var.int == "age.div10" & test == "adl"),
+  testname = "Katz ADL",
+  forestlims = c(0, 3),
+  forestbreaks = seq(0, 3, 1),
+  foresttype = "func"
+)
+
+faq_irrplot_age <- plot_ltci_forest(
+  dis_forest_data %>% filter(var.int == "age.div10" & test == "faq"),
+  testname = "FAQ",
+  forestlims = c(0.5, 2),
+  forestbreaks = seq(0.5, 2, 0.5),
+  foresttype = "func"
+)
+
+pdf(file = "brain_endobbb_adlirrs_il6.pdf", width = 10, height = 7)
+adl_irrplot_il6
+dev.off()
+
+pdf(file = "brain_endobbb_faqirrs_il6.pdf", width = 10, height = 7)
+faq_irrplot_il6
+dev.off()
+
+pdf(file = "brain_endobbb_adlirrs_age.pdf", width = 10, height = 7)
+adl_irrplot_age
+dev.off()
+
+pdf(file = "brain_endobbb_faqirrs_age.pdf", width = 10, height = 7)
+faq_irrplot_age
+dev.off()
 
 @
 
