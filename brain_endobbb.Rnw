@@ -1118,28 +1118,45 @@ calc.ratioci.endobbb <- function(irr.marker = TRUE,
 }
 
 ## -- Create mice objects to use for multiple imputation for all models ----------------------------
-mice.vars <- c('bdnf.log10', 'bdnf.prime', 'bdnf.age', 'bdnfp.age', 'bdnf.agep', 'bdnfp.agep',
-               'bdnf.il6', 'bdnfp.il6', 'bdnf.il6p', 'bdnfp.il6p',
-               'esel.log10', 'esel.prime', 'esel.age', 'eselp.age', 'esel.agep', 'eselp.agep',
-               'esel.il6', 'eselp.il6', 'esel.il6p', 'eselp.il6p',
-               'pai1.log10', 'pai1.prime', 'pai1.age', 'pai1p.age', 'pai1.agep', 'pai1p.agep',
-               'pai1.il6', 'pai1p.il6', 'pai1.il6p', 'pai1p.il6p',
-               's100b.log10', 's100b.prime', 's100b.age', 's100bp.age', 's100b.agep', 's100bp.agep',
-               's100b.il6', 's100bp.il6', 's100b.il6p', 's100bp.il6p',
-               'uchl.log10', 'uchl.prime', 'uchl.age', 'uchlp.age', 'uchl.agep', 'uchlp.agep',
-               'uchl.il6', 'uchlp.il6', 'uchl.il6p', 'uchlp.il6p',
-               'age.div10', 'age.prime', 'il6.log10', 'il6.prime', 'charlson.score',
-               'iqcode.score.e', 'stroke.risk', 'edu.div10', 'disabled.e', 'adl.e', #'faq.e',
-               'apache.aps', 'mean.modsofa.icu', 'cvsofa.day1', 'sevsepsis.day1',
-               'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
-               'rbans.global.score.3', 'rbans.global.score.12',
-               'trail.b.tscore.3', 'trail.b.tscore.12',
-               'adl.totscore.3', 'adl.totscore.12',
-               'faq.rdscore.3', 'faq.rdscore.12')
+mice.vars <- c(
+  'bdnf.log10', 'bdnf.prime', 'bdnf.age', 'bdnfp.age', 'bdnf.agep', 'bdnfp.agep',
+  'bdnf.il6', 'bdnfp.il6', 'bdnf.il6p', 'bdnfp.il6p',
+  'esel.log10', 'esel.prime', 'esel.age', 'eselp.age', 'esel.agep', 'eselp.agep',
+  'esel.il6', 'eselp.il6', 'esel.il6p', 'eselp.il6p',
+  'pai1.log10', 'pai1.prime', 'pai1.age', 'pai1p.age', 'pai1.agep', 'pai1p.agep',
+  'pai1.il6', 'pai1p.il6', 'pai1.il6p', 'pai1p.il6p',
+  's100b.log10', 's100b.prime', 's100b.age', 's100bp.age', 's100b.agep', 's100bp.agep',
+  's100b.il6', 's100bp.il6', 's100b.il6p', 's100bp.il6p',
+  'uchl.log10', 'uchl.prime', 'uchl.age', 'uchlp.age', 'uchl.agep', 'uchlp.agep',
+  'uchl.il6', 'uchlp.il6', 'uchl.il6p', 'uchlp.il6p',
+  'age.div10', 'age.prime', 'il6.log10', 'il6.prime', 'charlson.score',
+  'iqcode.score.e', 'stroke.risk', 'edu.div10', 'disabled.e', 'adl.e', #'faq.e',
+  'apache.aps', 'mean.modsofa.icu', 'cvsofa.day1', 'sevsepsis.day1',
+  'icudays.sevseptic.s', 'del.s.imp', 'coma.s.imp',
+  'rbans.global.score.3', 'rbans.global.score.12',
+  'trail.b.tscore.3', 'trail.b.tscore.12',
+  'adl.totscore.3', 'adl.totscore.12',
+  'faq.rdscore.3', 'faq.rdscore.12'
+)
 
+mice.prev <- mice(
+  data = endo.data[, gsub("del.s.imp", "ever.del.s.imp", mice.vars)],
+  m = nimp,
+  seed = 56
+)
 mice.del <- mice(data = endo.data[,mice.vars], m = nimp, seed = 56)
-mice.3 <- mice(data = endo.data[endo.data$fu.cohort.3, mice.vars], m = nimp, seed = 56)
+mice.3 <-
+  mice(data = endo.data[endo.data$fu.cohort.3, mice.vars], m = nimp, seed = 56)
 mice.12 <- mice(data = endo.data[endo.data$fu.cohort.12, mice.vars], m = nimp, seed = 56)
+
+## -- Create aregImpute object for prevalence model (quicker than making -------
+## -- already-written functions play nicely with mice objects) -----------------
+areg.prev.form <- as.formula(
+  "~ age.div10 + charlson.score + I(edu.div10) + I(iqcode.score.e) + apache.aps + stroke.risk + cvsofa.day1 + sevsepsis.day1 + ever.del.s.imp + coma.s.imp + il6.log10 + bdnf.log10 + esel.log10 + pai1.log10 + s100b.log10 + uchl.log10"
+)
+
+set.seed(56)
+areg.prev <- aregImpute(areg.prev.form, n.impute = 10, nk = 3, data = endo.data)
 
 ## -- Create aregImpute objects to use for cognitive outcomes (quicker than making -----------------
 ## -- already-written functions play nicely with mice objects) -------------------------------------
@@ -1153,6 +1170,11 @@ set.seed(165)
 areg.3 <- aregImpute(areg.form, n.impute = 10, nk = 3, data = subset(endo.data, fu.cohort.3))
 set.seed(65)
 areg.12 <- aregImpute(areg.form, n.impute = 10, nk = 0, data = subset(endo.data, fu.cohort.12))
+
+## Play a sound, because we're done with imputation
+if(require("BRRR")){
+  BRRR::skrrrahh("snoop")
+}
 
 ## -- Create design matrices for NB models ---------------------------------------------------------
 ## Default covariate values: 0 (reference level) for factors, median for numeric
@@ -2096,6 +2118,324 @@ ols.figures <- function(olslist,
 }
 
 
+
+## -- FUNCTIONS FOR LOGISTIC MODELS (delirium prevalence) ----------------------
+
+## -- Function to fit logistic regression models, w/ mice or complete case -----
+## Tests (in order)
+##   1) nonlinear terms
+##   2) interaction terms
+##   3) age and IL-6 interactions
+##   4) biomarker variables
+## Yes, this is nearly the same as fit.ols.models() and could be coded more
+##  efficiently. We are in get-it-done-without-messing-things-up mode. Sorry.
+fit.lrm.models <- function(
+  formula.right,     ## original model covariates
+  outcome,           ## string; outcome variable
+  impobj = NULL,     ## mice or aregImpute imputation object
+  dataset = NULL,    ## data set to use
+  cohort.var = NULL, ## Indicator variable in dataset for cohort
+  ##  (eg, func.cohort.3)
+  marker = c('bdnf', 'esel', 'pai1', 's100b', 'uchl')
+){
+
+  if(is.null(impobj) & is.null(dataset)){
+    stop('At least one of impobj, dataset must be supplied')
+  }
+  if(!is.null(impobj) & !(is.mids(impobj) | class(impobj) == 'aregImpute')){
+    stop('impobj must be of class mids or aregImpute')
+  }
+
+  ## -- Setup ------------------------------------------------------------------
+  ## Create text for fitting model, depending on whether imputation is used
+  if(is.null(impobj)){
+    modfit.text <- "lrm(formula = %s, data = usedata)"
+  } else if(is.mids(impobj)){
+    modfit.text <- "with(impobj, lrm(formula = %s))"
+  } else{
+    modfit.text <-
+      "fit.mult.impute(formula = %s, fitter = lrm, xtrans = impobj, data = usedata)"
+  }
+
+  ## Is impobj a) defined and b) of class mids?
+  imp.mice <- !is.null(impobj) & is.mids(impobj)
+  
+  ## If impobj is an aregImpute object, dataset must be provided
+  if(!is.null(impobj) & !imp.mice & is.null(dataset)){
+    stop("If impobj is created by aregImpute(), dataset must be provided")
+  }
+
+  ## Define data set: if no imputation, complete data from initial dataset object;
+  ##   otherwise, either full data set or data set with cohort indicator = TRUE
+  if(is.null(cohort.var)){
+    if(is.null(impobj)){
+      usedata <- dataset[rowSums(is.na(dataset[,c(gsub('marker', marker, covars), outcome)])) == 0,]
+    } else{
+      usedata <- dataset
+    }
+  } else{
+    usedata <- dataset[dataset[,cohort.var],]
+  }
+
+  ## Is IL-6 included in model?
+  has.il6 <- length(grep('il6', formula.right)) > 0
+
+  ## Initialize values
+  need.nonlin <- p.nonlin <- need.int <- p.int <- p.int.age <- p.int.il6 <-
+    p.il6 <- p.marker <- marker.ci <- marker.cistr <- il6.ci <- il6.cistr <- NULL
+
+  ## -- Hypothesis testing -----------------------------------------------------
+  ## 1: Nonlinear terms
+  nl.form <- paste(outcome, formula.right, sep = ' ~ ')
+  nl.mod <- eval(parse(text = sprintf(modfit.text, gsub('marker', marker, nl.form))))
+
+  if('TOTAL NONLINEAR' %in% rownames(anova(nl.mod))){
+    p.nonlin <- anova(nl.mod)['TOTAL NONLINEAR', 'P']
+  }
+
+  need.nonlin <- p.nonlin < pcutoff
+
+  ## If nonlinear terms are not meaningful, remove them from all future model fits
+  if(!need.nonlin){
+    formula.right <- gsub('rcs\\(', '', gsub(', *[0-9]+\\)', '', formula.right))
+  }
+
+  ## 2: Interaction terms
+  int.form <- paste(outcome, formula.right, sep = ' ~ ')
+  int.mod <- eval(parse(text = sprintf(modfit.text, gsub('marker', marker, int.form))))
+
+  vars.involved.int <- strsplit(gsub('  (Factor+Higher Order Factors)', '',
+                                     rownames(anova(int.mod)),
+                                     fixed = TRUE),
+                                ' *[*] *')
+  ageint.row <- grep(TRUE,
+                     unlist(lapply(vars.involved.int,
+                                   FUN = function(i){
+                                     length(i) > 1 & length(grep('age\\.div10', i)) > 0 })))
+
+  if('TOTAL INTERACTION' %in% rownames(anova(int.mod))){
+    p.int <- anova(int.mod)['TOTAL INTERACTION', 'P']
+  } else{
+    p.int <- anova(int.mod)[ageint.row, 'P']
+  }
+
+  need.int <- p.int < pcutoff
+
+  ## 3: If interactions needed, get p-values for age and IL-6 interactions separately
+  if(need.int){
+    p.int.age <- anova(int.mod)[ageint.row, 'P']
+    if(has.il6){
+      il6int.row <- grep(TRUE,
+                         unlist(lapply(vars.involved.int,
+                                       FUN = function(i){
+                                         length(i) > 1 & length(grep('il6\\.log10', i)) > 0 })))
+      p.int.il6 <- anova(int.mod)[il6int.row, 'P']
+    }
+  } else{
+    ## If interactions not needed, remove them from formula righthand side
+    formula.right <- gsub('*', '+', formula.right, fixed = TRUE)
+  }
+
+  ## 4: Get p-value for overall effect of biomarker
+  final.formula <- gsub('marker', marker, paste(outcome, formula.right, sep = ' ~ '))
+  final.mod <- eval(parse(text = sprintf(modfit.text, final.formula)))
+
+  vars.involved.final <- strsplit(gsub('  (Factor+Higher Order Factors)', '',
+                                       rownames(anova(final.mod)),
+                                       fixed = TRUE),
+                                  ' *[*] *')
+  marker.row <- grep(TRUE,
+                     unlist(lapply(vars.involved.final,
+                                   FUN = function(i){
+                                     length(i) == 1 &
+                                       length(grep(paste0('^', marker, '\\.log10'), i)) > 0 })))
+  p.marker <- anova(final.mod)[marker.row, 'P']
+
+  ## 4b: Get p-value for overall effect of IL-6, if included
+  if(has.il6){
+    il6.row <- grep(TRUE,
+                     unlist(lapply(vars.involved.final,
+                                   FUN = function(i){
+                                     length(i) == 1 & length(grep('^il6\\.log10', i)) > 0 })))
+    p.il6 <- anova(final.mod)[il6.row, 'P']
+  }
+
+  dd <<- datadist(endo.data); options(datadist = 'dd')
+
+  ## 5: Get IRR/CI for 75th vs 25th percentile for final model
+  marker.ci <- summary(final.mod)[paste0(marker, '.log10'), c('Effect', 'Lower 0.95', 'Upper 0.95')]
+  names(marker.ci) <- c('pointest', 'lcl', 'ucl')
+  marker.cistr <- paste0(rndformat(marker.ci['pointest']), ' (',
+                         rndformat(marker.ci['lcl']), ', ',
+                         rndformat(marker.ci['ucl']), ')')
+
+  if(has.il6){
+    il6.ci <- summary(final.mod)['il6.log10', c('Effect', 'Lower 0.95', 'Upper 0.95')]
+    names(il6.ci) <- c('pointest', 'lcl', 'ucl')
+    il6.cistr <- paste0(rndformat(il6.ci['pointest']), ' (',
+                        rndformat(il6.ci['lcl']), ', ',
+                        rndformat(il6.ci['ucl']), ')')
+  }
+
+  ## 6: Get N for model fit (nrow(data used for impobj), or aregImpute$n)
+  model.n <- NULL
+  if(inherits(impobj, 'mira')){
+    model.n <- nrow(impobj$data)
+  } else if(inherits(impobj, 'aregImpute')){
+    model.n <- impobj$n
+  }
+
+  return(list('marker' = paste0(marker, '.log10'),
+              'final.mod' = final.mod,
+              'marker.ci' = marker.ci,
+              'marker.cistr' = marker.cistr,
+              'il6.ci' = il6.ci,
+              'il6.cistr' = il6.cistr,
+              'p.nonlin' = p.nonlin,
+              'p.int' = p.int,
+              'p.int.age' = p.int.age,
+              'p.int.il6' = p.int.il6,
+              'p.marker' = p.marker,
+              'p.il6' = p.il6,
+              'model.n' = model.n))
+}
+
+calc.lrm.results <- function(
+  lrmobj,          ## string, name of lrm() result
+  xvar,            ## string, variable for X axis
+  intvars = NULL,  ## string, interacting variable
+  intvals = NULL
+){ ## list of numeric vectors, values of intvars
+  if(!is.null(intvars) & (is.null(intvals) | length(intvars) != length(intvals))){
+    stop("Interacting variable(s) specified, but length of interacting values does not match number of interacting variables")
+  } else{
+    if(is.null(intvars)){
+      preddata <- list(
+        eval(
+          parse(
+            text = sprintf(
+              'as.data.frame(Predict(%s, %s = NA, fun = plogis))', lrmobj, xvar
+            )
+          )
+        )
+      )
+    } else{
+      preddata <- lapply(1:length(intvars), FUN = function(ivar){
+        eval(
+          parse(
+            text = sprintf(
+              'as.data.frame(Predict(%s, %s = NA, %s = c(%s), fun = plogis))',
+              lrmobj, xvar, intvars[ivar],
+              paste(intvals[ivar], collapse = ', ')
+            )
+          )
+        )
+      })
+    }
+    return(preddata)
+  }
+}
+
+## -- Create plot using one data set of predicted values -----------------------
+plot.lrm.results <- function(
+  lrm.preddata,     ## data frame of predicted values
+  lrm.list,         ## result of fit.reg.models()
+  xvar,             ## string; variable on X axis
+  intvar = NULL,    ## string; variable to facet
+  intstring = NULL, ## string; text to describe faceting variable
+  xstring,          ## string; description of X variable (Log10(xstring))
+  ystring           ## string; description of outcome (Adjusted ystring)
+){         
+
+  if(!is.null(intvar)){
+    lrm.preddata$intvar.f <-
+      factor(paste(intstring, rndformat(lrm.preddata[,intvar], 2), sep = ' = '))
+  }
+
+  fig <- ggplot(aes_string(x = xvar, y = 'yhat'), data = lrm.preddata) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, fill = 'navy') +
+    geom_line(colour = 'navy') +
+    scale_y_continuous(name = paste("Adjusted", ystring), limits = c(0, 1)) +
+    theme_bw() +
+    theme(axis.title.x = element_text(size = 9, vjust = 0),
+          axis.title.y = element_text(size = 9),
+          axis.text = element_text(size = 7)) +
+    xlab(paste0('Log10(', xstring, ')'))
+
+  if(is.null(intvar)){
+  } else{
+    fig <- fig + facet_wrap(~ intvar.f, nrow = 1) +
+      theme(strip.text = element_text(face = 'bold'))
+  }
+
+  fig
+}
+
+## -- Create graphics for logistic models --------------------------------------
+lrm.figures <- function(lrmlist,
+                        xvar,
+                        xstring,
+                        ystring){
+
+  lrmlist.got <- get(lrmlist)
+
+  if(lrmlist.got$p.int > 0.20){
+    preddata <-
+      calc.lrm.results(lrmobj = paste0(lrmlist, '$final.mod'), xvar = xvar)
+    return(list('fig' = list(plot.lrm.results(lrm.preddata = preddata[[1]],
+                                              lrm.list = lrmlist.got,
+                                              xvar = xvar,
+                                              xstring = xstring,
+                                              ystring = ystring)),
+                'height' =  onepanel.height,
+                'layoutmat' = matrix(1, ncol = 1)))
+  } else{
+    if(!is.null(lrmlist.got$p.int.age)){
+      preddata.age <- calc.lrm.results(lrmobj = paste0(lrmlist, '$final.mod'),
+                                       xvar = xvar,
+                                       intvars = 'age.div10',
+                                       intvals = list(intvals.age / 10))
+      fig1 <- plot.lrm.results(lrm.preddata = preddata.age[[1]],
+                               lrm.list = lrmlist.got,
+                               xvar = xvar,
+                               intvar = 'age.div10',
+                               intstring = 'Age / 10',
+                               xstring = xstring, ystring = ystring)
+    }
+    if(!is.null(lrmlist.got$p.int.il6)){
+      preddata.il6 <- calc.lrm.results(lrmobj = paste0(lrmlist, '$final.mod'),
+                                       xvar = xvar,
+                                       intvars = 'il6.log10',
+                                       intvals = list(intvals.il6))
+      fig2 <- plot.lrm.results(lrm.preddata = preddata.il6[[1]],
+                               lrm.list = lrmlist.got,
+                               xvar = xvar,
+                               intvar = 'il6.log10',
+                               intstring = 'Log10(IL-6)',
+                               xstring = xstring, ystring = ystring)
+    }
+
+    if(!is.null(lrmlist.got$p.int.age) & !is.null(lrmlist.got$p.int.il6)){
+      fig.list <- list(fig1, fig2)
+      fig.height <- twopanel.height
+      fig.layout <- matrix(1:2, ncol = 1)
+    } else{
+      fig.height <- onepanel.height
+      fig.layout <- matrix(1, ncol = 1)
+
+      if(!is.null(lrmlist.got$p.int.age)){
+        fig.list <- list(fig1)
+      } else{
+        fig.list <- list(fig2)
+      }
+    }
+
+    return(list('fig' = fig.list,
+                'height' = fig.height,
+                'layoutmat' = fig.layout))
+
+  }
+}
 
 ## -- Function to create data frame of relevant p-values from fit.reg.models() result --------------
 create.pval.table <- function(fit.reg.obj, marker.string){
@@ -3588,6 +3928,330 @@ latex.pval.table(cbind(create.pval.table(uchl.del.il6, 'UCHL'),
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+\section{Endothelial/BBB Injury Markers vs. Delirium Prevalence}
+
+To examine the association between endothelial/BBB injury at study enrollment and delirium prevalence (ever/never experienced delirium) in the 30 days following, we used logistic regression, adjusting for the following covariates:
+
+\begin{itemize}
+\item Charlson score
+\item IQCODE score
+\item Framingham stroke risk score
+\item APACHE acute physiology component
+\item Cardiovascular SOFA, study day 1
+\item Severe sepsis, study day 1
+\end{itemize}
+
+We allowed endothelial biomarkers and IL-6 to have nonlinear associations with delirium prevalence
+using restricted cubic splines; all other continuous covariates were forced to be linear to improve model stability and reproducibility.
+
+\textbf{Note:} Delirium prevalence is a highly blunt outcome. When all critically ill patients are included, it has the potential to be highly biased, since patients who die quickly have much less opportunity to experience delirium. Here, our entire cohort comprises survivors of critical illness; this means that the issue of survivorship bias is less problematic, but does mean that interpretation should be done very carefully, drawing conclusions \emph{only} about survivors of critical illness.
+
+In the original models, we allowed for potential interactions between endothelial/BBB markers and
+both systemic inflammation (log10(IL-6)) on study day 1 and age at study enrollment. If either the global p-value for nonlinearity and/or the global p-value for interactions were clearly
+nonsignificant (p $>$ \Sexpr{format(pcutoff, nsmall = 2)}), those terms are removed from the final model for parsimony. In sensitivity analyses, we excluded all systemic inflammation terms from the
+model in order to see if adjusting for systemic inflammation is the reason behind any differences
+from pilot analyses.
+
+All biomarkers are transformed using the log10 transformation in order to improve model fit and
+reduce the influence of extremely high values.
+
+We used multiple imputation to reduce bias from missing covariates. All p-values are calculated
+using the \Sexpr{use.method} method. Incidence rate ratios and 95\% confidence intervals are shown
+for each endothelial marker, comparing the 75th percentile of each log10(biomarker) in our entire
+cohort to the 25th percentile. In models where interactions are left in, these IRRs and CIs are
+adjusted to median age and IL-6.
+
+For models where interaction terms are kept in the final model, the association of the biomarker is
+shown for the 25th, 50th, 75th, and 90th percentiles of the interacting variable.
+
+<<prevmodels>>=
+## Formula for delirium prevalence models: all terms linear except for
+##  biomarkers, for consistency with delirium duration models
+prev.rhs <- "charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.div10 * rcs(marker.log10, 3)"
+prev.rhs.il6 <- "charlson.score + iqcode.score.e + stroke.risk + apache.aps + cvsofa.day1 + sevsepsis.day1 + age.div10 * rcs(marker.log10, 3) + rcs(il6.log10, 3) * rcs(marker.log10, 3)"
+
+## -- Fit models for each biomarker --------------------------------------------
+## Wrapper for IL-6, non-IL-6 versions, because I can't stand the repetition
+prev_noil6 <- function(marker, ...){
+  fit.lrm.models(
+    formula.right = prev.rhs,
+    outcome = "ever.del.s.imp",
+    impobj = areg.prev,
+    dataset = endo.data,
+    marker = marker
+  )
+}
+
+prev_il6 <- function(marker, ...){
+  fit.lrm.models(
+    formula.right = prev.rhs.il6,
+    outcome = "ever.del.s.imp",
+    impobj = areg.prev,
+    dataset = endo.data,
+    marker = marker
+  )
+}
+
+bdnf.prev <- prev_noil6("bdnf")
+bdnf.prev.il6 <- prev_il6("bdnf")
+esel.prev <- prev_noil6("esel")
+esel.prev.il6 <- prev_il6("esel")
+pai1.prev <- prev_noil6("pai1")
+pai1.prev.il6 <- prev_il6("pai1")
+s100b.prev <- prev_noil6("s100b")
+s100b.prev.il6 <- prev_il6("s100b")
+uchl.prev <- prev_noil6("uchl")
+uchl.prev.il6 <- prev_il6("uchl")
+
+## -- Create figures for delirium prevalence -----------------------------------
+bdnf.prev.fig <- lrm.figures(
+  lrmlist = 'bdnf.prev',
+  xvar = 'bdnf.log10', xstring = 'BDNF',
+  ystring = "Probability of\nExperiencing Delirium"
+)
+esel.prev.fig <- lrm.figures(
+  lrmlist = 'esel.prev',
+  xvar = 'esel.log10', xstring = 'E-selectin',
+  ystring = "Probability of\nExperiencing Delirium"
+)
+pai1.prev.fig <- lrm.figures(
+  lrmlist = 'pai1.prev',
+  xvar = 'pai1.log10', xstring = 'PAI-1',
+  ystring = "Probability of\nExperiencing Delirium"
+)
+s100b.prev.fig <- lrm.figures(
+  lrmlist = 's100b.prev',
+  xvar = 's100b.log10', xstring = 'S100B',
+  ystring = "Probability of\nExperiencing Delirium"
+)
+uchl.prev.fig <- lrm.figures(
+  lrmlist = 'uchl.prev',
+  xvar = 'uchl.log10', xstring = 'UCHL',
+  ystring = "Probability of\nExperiencing Delirium"
+)
+
+bdnf.prev.il6.fig <- lrm.figures(
+  lrmlist = 'bdnf.prev.il6',
+  xvar = 'bdnf.log10', xstring = 'BDNF',
+  ystring = "Probability of\nExperiencing Delirium"
+)
+esel.prev.il6.fig <- lrm.figures(
+  lrmlist = 'esel.prev.il6',
+  xvar = 'esel.log10', xstring = 'E-selectin',
+  ystring = "Probability of\nExperiencing Delirium"
+)
+pai1.prev.il6.fig <- lrm.figures(
+  lrmlist = 'pai1.prev.il6',
+  xvar = 'pai1.log10', xstring = 'PAI-1',
+  ystring = "Probability of\nExperiencing Delirium"
+)
+s100b.prev.il6.fig <- lrm.figures(
+  lrmlist = 's100b.prev.il6',
+  xvar = 's100b.log10', xstring = 'S100B',
+  ystring = "Probability of\nExperiencing Delirium"
+)
+uchl.prev.il6.fig <- lrm.figures(
+  lrmlist = 'uchl.prev.il6',
+  xvar = 'uchl.log10', xstring = 'UCHL',
+  ystring = "Probability of\nExperiencing Delirium"
+)
+
+## Save all these as PDFs
+marker_pdf <- function(figobj, fname){
+  pdf(file = fname, width = 8, height = figobj$height)
+  multiplot(plotlist = figobj$fig, layout = figobj$layoutmat)
+  dev.off()
+}
+
+walk2(
+  .x = list(
+    bdnf.prev.fig, esel.prev.fig, pai1.prev.fig, s100b.prev.fig, uchl.prev.fig,
+    bdnf.prev.il6.fig, esel.prev.il6.fig, pai1.prev.il6.fig, s100b.prev.il6.fig,
+    uchl.prev.il6.fig
+  ),
+  .y = c(
+    paste0(endo.names, "_prev_results.pdf"),
+    paste0(endo.names, "_prev_il6_results.pdf")
+  ),
+  .f = marker_pdf
+)
+
+# ## -- Publication versions for BDNF, UCHL: tweak X axis, add p-value ---------
+# pdf(file = 'bdnf_del_il6_results_pub.pdf', width = 6, height = 4)
+# bdnf.del.il6.fig$fig[[1]] +
+#   scale_x_continuous(name = 'Log10(BDNF) Plasma Concentration') +
+#   annotate(geom = 'text', x = 5.5, y = 4.05, hjust = 1, vjust = 0, size = 3,
+#            label = paste('P, overall association:',
+#                          format(round(bdnf.del.il6$p.marker, 2), nsmall = 2)))
+# dev.off()
+# 
+# pdf(file = 'bdnf_del_noil6_results_pub.pdf', width = 6, height = 4)
+# bdnf.del.fig$fig[[1]] +
+#   scale_x_continuous(name = 'Log10(BDNF) Plasma Concentration') +
+#   annotate(geom = 'text', x = 5.495, y = 3.76, hjust = 1, vjust = 0, size = 3,
+#            label = paste('P, overall association:',
+#                          format(round(bdnf.del$p.marker, 2), nsmall = 2)))
+# dev.off()
+# 
+# pdf(file = 'uchl_del_il6_results_pub.pdf', width = 6, height = 4)
+# uchl.del.il6.fig$fig[[1]] +
+#   scale_x_continuous(name = 'Log10(UCHL) Plasma Concentration') +
+#   annotate(geom = 'text', x = 4.2, y = 4.25, hjust = 1, vjust = 0, size = 3,
+#            label = paste('P, overall association:',
+#                          format(round(uchl.del.il6$p.marker, 2), nsmall = 2)))
+# dev.off()
+# 
+# pdf(file = 'uchl_del_noil6_results_pub.pdf', width = 6, height = 4)
+# uchl.del.fig$fig[[1]] +
+#   scale_x_continuous(name = 'Log10(UCHL) Plasma Concentration') +
+#   annotate(geom = 'text', x = 4.2, y = 4.05, hjust = 1, vjust = 0, size = 3,
+#            label = paste('P, overall association:',
+#                          format(round(uchl.del$p.marker, 2), nsmall = 2)))
+# dev.off()
+
+@
+
+\clearpage
+\subsection{BDNF vs. Delirium Prevalence}
+We see no association between log10(BDNF) at baseline and with delirium duration
+while in the hospital, whether adjusting for systemic inflammation or not.
+
+<<printbdnfprev, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(bdnf.prev.il6, 'BDNF'),
+                       create.pval.table(bdnf.prev, 'BDNF')),
+                 caption = 'BDNF vs Delirium Prevalence',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+\clearpage
+\subsubsection{BDNF vs. Delirium Prevalence, Adjusting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_prev_il6_results.pdf}}
+\caption{Log10(BDNF) vs. Delirium Prevalence, Adjusting for Log10(IL-6)}\label{fig:bdnfprevil6}
+\end{figure}
+
+\subsubsection{BDNF vs. Delirium Prevalence, Not Accounting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{bdnf_prev_results.pdf}}
+\caption{Log10(BDNF) vs. Delirium Prevalence, Not Accounting for Log10(IL-6)}\label{fig:bdnfprevnoil6}
+\end{figure}
+
+\clearpage
+\subsection{E-Selectin vs. Delirium Prevalence}
+We see no association between log(E-selectin) at baseline and with delirium prevalence while in the
+hospital, whether adjusting for systemic inflammation or not.
+
+<<printeselprev, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(esel.prev.il6, 'E-selectin'),
+                       create.pval.table(esel.prev, 'E-selectin')),
+                 caption = 'E-selectin vs Delirium Prevalence',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+\clearpage
+\subsubsection{E-Selectin vs. Delirium Prevalence, Adjusting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{esel_prev_il6_results.pdf}}
+\caption{Log10(E-selectin) vs. Delirium Prevalence, Adjusting for Log10(IL-6)}\label{fig:eselprevil6}
+\end{figure}
+
+\subsubsection{E-Selectin vs. Delirium Prevalence, Not Accounting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{esel_prev_results.pdf}}
+\caption{Log10(E-selectin) vs. Delirium Prevalence, Not Accounting for Log10(IL-6)}\label{fig:eselprevnoil6}
+\end{figure}
+
+\clearpage
+\subsection{PAI-1 vs. Delirium Prevalence}
+We see no significant association between log(PAI-1) at baseline and delirium prevalence while
+in the hospital, regardless of adjustment for systemic inflammation.
+
+<<printpai1prev, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(pai1.prev.il6, 'PAI-1'),
+                       create.pval.table(pai1.prev, 'PAI-1')),
+                 caption = 'PAI-1 vs Delirium Prevalence',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+\clearpage
+\subsubsection{PAI-1 vs. Delirium Prevalence, Adjusting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_prev_il6_results.pdf}}
+\caption{Log10(PAI-1) vs. Delirium Prevalence, Adjusting for Log10(IL-6)}\label{fig:pai1prev}
+\end{figure}
+
+\subsubsection{PAI-1 vs. Delirium Prevalence, Not Accounting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{pai1_prev_results.pdf}}
+\caption{Log10(PAI-1) vs. Delirium Prevalence, Not Accounting for Log10(IL-6)}\label{fig:pai1prevnoil6}
+\end{figure}
+
+\clearpage
+\subsection{S100B vs. Delirium Prevalence}
+When not accounting for systemic inflammation, we see no significant association between
+log10(S100B) and delirium prevalence. When adjusting for systemic inflammation, we see a potential interaction between log10(IL-6) and log10(S100B), such that there may be a stronger relationship between S100B and delirium prevalence at higher levels of inflammation; however, this relationship is not strong enough to reach overall significance.
+
+<<prints100bprev, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(s100b.prev.il6, 'S100B'),
+                       create.pval.table(s100b.prev, 'S100B')),
+                 caption = 'S100B vs Days of Delirium',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+\clearpage
+\subsubsection{S100B vs. Delirium Prevalence, Adjusting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_prev_il6_results.pdf}}
+\caption{Log10(S100B) vs. Delirium Prevalence, Adjusting for Log10(IL-6)}\label{fig:s100bprev}
+\end{figure}
+
+\subsubsection{S100B vs. Delirium Prevalence, Not Accounting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{s100b_prev_results.pdf}}
+\caption{Log10(S100B) vs. Delirium Prevalence, Not Accounting for Log10(IL-6)}\label{fig:s100bprevnoil6}
+\end{figure}
+
+\clearpage
+\subsection{UCHL vs. Delirium Prevlanece}
+Higher UCHL at baseline does show an association with lower likelihood of delirium during critical illness after accounting for systemic inflammation; this association is weaker and may be modified by age if systemic inflammation is ignored.
+
+<<printuchlprev, results = 'asis'>>=
+latex.pval.table(cbind(create.pval.table(uchl.prev.il6, 'UCHL'),
+                       create.pval.table(uchl.prev, 'UCHL')),
+                 caption = 'UCHL vs Delirium Prevalence',
+                 use.colheads = c('P, Adjusting for Log10(IL-6)',
+                                  'P, No Adjustment for Log10(IL-6)'))
+@
+
+\clearpage
+\subsubsection{UCHL vs. Delirium Prevalence, Adjusting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_prev_il6_results.pdf}}
+\caption{Log10(UCHL) vs. Delirium Prevalence, Adjusting for Log10(IL-6)}\label{fig:uchlprev}
+\end{figure}
+
+\subsubsection{UCHL vs. Delirium Prevalence, Not Accounting for Log10(IL-6)}
+\begin{figure}[!h]
+{\centering\includegraphics{uchl_prev_results.pdf}}
+\caption{Log10(UCHL) vs. Delirium Prevalence, Not Accounting for Log10(IL-6)}\label{fig:uchlprevnoil6}
+\end{figure}
 
 \clearpage
 \section{Primary Analyses: Without Delirium Duration}
@@ -7696,6 +8360,11 @@ latex(use.packages, file = '',
       caption = 'List of Add-On R Packages',
       col.just = c('l', 'r', 'r', 'l', 'l'),
       colheads = capitalize(names(use.packages)))
+
+## Sound to let me know it's done
+if(require("BRRR")){
+  BRRR::skrrrahh("khaled")
+}
 @
 
 \end{document}
