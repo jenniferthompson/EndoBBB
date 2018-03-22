@@ -3760,7 +3760,7 @@ pdf(file = 'uchl_delnoil6_results.pdf', width = 8, height = uchl.del.fig$height)
 multiplot(plotlist = uchl.del.fig$fig, layout = uchl.del.fig$layoutmat)
 dev.off()
 
-## -- Publication versions for BDNF, UCHL: tweak X axis, add p-value -------------------------------
+## -- Publication versions for BDNF, UCHL: tweak X axis, add p-value -----------
 pdf(file = 'bdnf_del_il6_results_pub.pdf', width = 6, height = 4)
 bdnf.del.il6.fig$fig[[1]] +
   scale_x_continuous(name = 'Log10(BDNF) Plasma Concentration') +
@@ -3927,20 +3927,6 @@ latex.pval.table(cbind(create.pval.table(uchl.del.il6, 'UCHL'),
 \end{figure}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 \section{Endothelial/BBB Injury Markers vs. Delirium Prevalence}
 
 To examine the association between endothelial/BBB injury at study enrollment and delirium prevalence (ever/never experienced delirium) in the 30 days following, we used logistic regression, adjusting for the following covariates:
@@ -4089,38 +4075,14 @@ walk2(
   .f = marker_pdf
 )
 
-# ## -- Publication versions for BDNF, UCHL: tweak X axis, add p-value ---------
-# pdf(file = 'bdnf_del_il6_results_pub.pdf', width = 6, height = 4)
-# bdnf.del.il6.fig$fig[[1]] +
-#   scale_x_continuous(name = 'Log10(BDNF) Plasma Concentration') +
-#   annotate(geom = 'text', x = 5.5, y = 4.05, hjust = 1, vjust = 0, size = 3,
-#            label = paste('P, overall association:',
-#                          format(round(bdnf.del.il6$p.marker, 2), nsmall = 2)))
-# dev.off()
-# 
-# pdf(file = 'bdnf_del_noil6_results_pub.pdf', width = 6, height = 4)
-# bdnf.del.fig$fig[[1]] +
-#   scale_x_continuous(name = 'Log10(BDNF) Plasma Concentration') +
-#   annotate(geom = 'text', x = 5.495, y = 3.76, hjust = 1, vjust = 0, size = 3,
-#            label = paste('P, overall association:',
-#                          format(round(bdnf.del$p.marker, 2), nsmall = 2)))
-# dev.off()
-# 
-# pdf(file = 'uchl_del_il6_results_pub.pdf', width = 6, height = 4)
-# uchl.del.il6.fig$fig[[1]] +
-#   scale_x_continuous(name = 'Log10(UCHL) Plasma Concentration') +
-#   annotate(geom = 'text', x = 4.2, y = 4.25, hjust = 1, vjust = 0, size = 3,
-#            label = paste('P, overall association:',
-#                          format(round(uchl.del.il6$p.marker, 2), nsmall = 2)))
-# dev.off()
-# 
-# pdf(file = 'uchl_del_noil6_results_pub.pdf', width = 6, height = 4)
-# uchl.del.fig$fig[[1]] +
-#   scale_x_continuous(name = 'Log10(UCHL) Plasma Concentration') +
-#   annotate(geom = 'text', x = 4.2, y = 4.05, hjust = 1, vjust = 0, size = 3,
-#            label = paste('P, overall association:',
-#                          format(round(uchl.del$p.marker, 2), nsmall = 2)))
-# dev.off()
+## -- Publication version for UCHL: tweak X axis, add p-value ------------------
+pdf(file = 'uchl_prev_il6_results_pub.pdf', width = 6, height = 4)
+uchl.prev.il6.fig$fig[[1]] +
+  scale_x_continuous(name = 'Log10(UCHL) Plasma Concentration') +
+  annotate(geom = 'text', x = 4.25, y = 0.01, hjust = 1, vjust = 0, size = 3,
+           label = paste('P, overall association:',
+                         format(round(uchl.prev.il6$p.marker, 2), nsmall = 2)))
+dev.off()
 
 @
 
