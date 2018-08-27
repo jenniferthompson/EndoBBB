@@ -2263,14 +2263,14 @@ fit.lrm.models <- function(
   dd <<- datadist(endo.data); options(datadist = 'dd')
 
   ## 5: Get IRR/CI for 75th vs 25th percentile for final model
-  marker.ci <- summary(final.mod)[paste0(marker, '.log10'), c('Effect', 'Lower 0.95', 'Upper 0.95')]
+  marker.ci <- exp(summary(final.mod)[paste0(marker, '.log10'), c('Effect', 'Lower 0.95', 'Upper 0.95')])
   names(marker.ci) <- c('pointest', 'lcl', 'ucl')
   marker.cistr <- paste0(rndformat(marker.ci['pointest']), ' (',
                          rndformat(marker.ci['lcl']), ', ',
                          rndformat(marker.ci['ucl']), ')')
 
   if(has.il6){
-    il6.ci <- summary(final.mod)['il6.log10', c('Effect', 'Lower 0.95', 'Upper 0.95')]
+    il6.ci <- exp(summary(final.mod)['il6.log10', c('Effect', 'Lower 0.95', 'Upper 0.95')])
     names(il6.ci) <- c('pointest', 'lcl', 'ucl')
     il6.cistr <- paste0(rndformat(il6.ci['pointest']), ' (',
                         rndformat(il6.ci['lcl']), ', ',
